@@ -109,7 +109,7 @@ const unlinkedSectors = allSectors.filter((s) => !linkedSectorIds.has(s.id));
 
               <div class="grid grid-cols-3 gap-3 text-center text-xs mb-4">
                 <div class="rounded-lg bg-slate-50 p-2.5">
-                  <p class="text-slate-500">Empleados</p>
+                  <p class="text-slate-500">Personal</p>
                   <p class="font-bold text-slate-800 text-base tabular-nums">{s?.totalEmployees ?? 0}</p>
                 </div>
                 <div class="rounded-lg bg-slate-50 p-2.5">
@@ -234,7 +234,7 @@ const unlinkedSectors = allSectors.filter((s) => !linkedSectorIds.has(s.id));
               ))}
             </ul>
             <p class="text-xs text-amber-600 mt-2">
-              Los empleados de estos sectores no pueden recibir salario hasta vincular una caja.
+              El personal de estos sectores no puede recibir salario hasta vincular una caja.
             </p>
           </div>
         )}

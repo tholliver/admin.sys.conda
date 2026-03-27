@@ -12,6 +12,7 @@ import { db } from "@/db";
 import { sectors } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import CreateEmployeeDialog from "@/components/svelte/dialogs/CreateEmployeeDialog.svelte";
+import EditEmployeeDialog from "@/components/svelte/dialogs/EditEmployeeDialog.svelte";
 import DeleteConfirmDialog from "@/components/svelte/dialogs/DeleteConfirmDialog.svelte";
 import CreateCashboxDialog from "@/components/svelte/dialogs/CreateCashboxDialog.svelte";
 
@@ -36,7 +37,13 @@ const [result, counts, allSectors] = await Promise.all([
 
 const buildUrl = (overrides: Record<string, any>) => {
     const p = new URLSearchParams({ ...rawFilters, ...overrides });
-    return `/rrhh/empleados?${p.toString()}`;
+    return `/rrhh/personal?${p.toString()}`;
+};
+
+const toDateInput = (value: any) => {
+    if (!value) return "";
+    const d = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -53,7 +60,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 ---
 
-<FinanceLayout title="Nómina — Empleados" user={user}>
+<FinanceLayout title="Nómina — Personal" user={user}>
     <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-5">
         <!-- Header -->
         <div class="flex items-center justify-between">
@@ -63,10 +70,10 @@ const STATUS_COLORS: Record<string, string> = {
                 >
                     <a href="/rrhh" class="hover:text-slate-700">RRHH</a>
                     <span>/</span>
-                    <span class="text-slate-900 font-medium">Empleados</span>
+                    <span class="text-slate-900 font-medium">Personal</span>
                 </div>
                 <h1 class="text-xl font-bold text-slate-900">
-                    Nómina ({result.total} empleados)
+                    Nómina ({result.total} integrantes del personal)
                 </h1>
             </div>
             {
@@ -235,7 +242,7 @@ const STATUS_COLORS: Record<string, string> = {
                         class="bg-slate-50 text-slate-500 text-xs border-b border-slate-200"
                     >
                         <tr>
-                            <th class="py-3 px-5 font-medium">Empleado</th>
+                            <th class="py-3 px-5 font-medium">Personal</th>
                             <th class="py-3 px-4 font-medium">Tipo / Cargo</th>
                             <th class="py-3 px-4 font-medium">Sector</th>
                             <th class="py-3 px-4 font-medium text-right"
@@ -259,8 +266,8 @@ const STATUS_COLORS: Record<string, string> = {
                                         colspan="6"
                                         class="py-12 text-center text-slate-400 text-sm"
                                     >
-                                        No se encontraron empleados con los
-                                        filtros actuales.
+                                        No se encontró personal con los filtros
+                                        actuales.
                                     </td>
                                 </tr>
                             ) : (
@@ -316,12 +323,43 @@ const STATUS_COLORS: Record<string, string> = {
                                         {canEdit && (
                                             <td class="py-3.5 px-4 text-right">
                                                 <div class="flex items-center justify-end gap-2">
-                                                    <a
-                                                        href={`/rrhh/empleados/${emp.id}/editar`}
-                                                        class="rounded border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-                                                    >
-                                                        Editar
-                                                    </a>
+                                                    <EditEmployeeDialog
+                                                        client:load
+                                                        sectors={allSectors}
+                                                        directorioCount={
+                                                            counts.directorio
+                                                        }
+                                                        plantaCount={
+                                                            counts.planta
+                                                        }
+                                                        maxDirectorio={
+                                                            MAX_DIRECTORIO
+                                                        }
+                                                        maxPlanta={MAX_PLANTA}
+                                                        employee={{
+                                                            id: emp.id,
+                                                            employeeType:
+                                                                emp.employeeType,
+                                                            fullName:
+                                                                emp.fullName,
+                                                            ci: emp.ci,
+                                                            ciCity: emp.ciCity,
+                                                            phone: emp.phone,
+                                                            address:
+                                                                emp.address,
+                                                            chargeTitle:
+                                                                emp.chargeTitle,
+                                                            sectorId:
+                                                                emp.sectorId,
+                                                            hireDate:
+                                                                toDateInput(
+                                                                    emp.hireDate,
+                                                                ),
+                                                            baseSalary:
+                                                                emp.baseSalary,
+                                                            notes: emp.notes,
+                                                        }}
+                                                    />
                                                     {emp.status !== "baja" && (
                                                         <DeleteConfirmDialog
                                                             client:load

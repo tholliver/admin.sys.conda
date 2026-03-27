@@ -48,7 +48,11 @@ export const createEmployeeAction = defineAction({
 
     try {
       const employee = await createEmployee(input, user.id);
-      return { success: true, message: "Empleado registrado.", employee };
+      return {
+        success: true,
+        message: "Miembro del personal registrado.",
+        employee,
+      };
     } catch (err: any) {
       throw new ActionError({ code: "CONFLICT", message: err.message });
     }
@@ -65,7 +69,11 @@ export const updateEmployeeAction = defineAction({
 
     try {
       const employee = await updateEmployee(input);
-      return { success: true, message: "Empleado actualizado.", employee };
+      return {
+        success: true,
+        message: "Miembro del personal actualizado.",
+        employee,
+      };
     } catch (err: any) {
       throw new ActionError({ code: "CONFLICT", message: err.message });
     }
@@ -89,7 +97,7 @@ export const terminateEmployeeAction = defineAction({
       .set({ status: "baja", terminationDate, notes, updatedAt: new Date() })
       .where(eq(employees.id, id));
 
-    return { success: true, message: "Empleado dado de baja." };
+    return { success: true, message: "Miembro del personal dado de baja." };
   },
 });
 

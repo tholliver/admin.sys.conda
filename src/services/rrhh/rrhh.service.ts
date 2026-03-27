@@ -166,7 +166,9 @@ export async function createEmployee(data: CreateEmployeeInput, createdByUserId:
     throw new Error(`El directorio ya alcanzó el máximo de ${MAX_DIRECTORIO} miembros activos.`);
   }
   if (data.employeeType === "planta" && counts.planta >= MAX_PLANTA) {
-    throw new Error(`La planta ya alcanzó el máximo de ${MAX_PLANTA} empleados activos.`);
+    throw new Error(
+      `La planta ya alcanzó el máximo de ${MAX_PLANTA} miembros del personal activos.`
+    );
   }
 
   const [created] = await db
@@ -253,7 +255,9 @@ export async function createEmployeeFee(data: CreateEmployeeFeeInput) {
     .limit(1);
 
   if (existing[0]) {
-    throw new Error(`Ya existe una cuota para este empleado en el período ${data.period}.`);
+    throw new Error(
+      `Ya existe una cuota para este miembro del personal en el período ${data.period}.`
+    );
   }
 
   const [created] = await db

@@ -41,7 +41,7 @@ export const createEmployeeSchema = z.object({
     .optional(),
   address: z.string().max(200).optional(),
   employeeType: z.enum(["directorio", "planta"], {
-    message: "Tipo de empleado inválido",
+    message: "Tipo de personal inválido",
   }),
   chargeTitle: z
     .string()
@@ -74,7 +74,11 @@ export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 // ── Employee Fee ──────────────────────────────────────────────────────────────
 
 export const createEmployeeFeeSchema = z.object({
-  employeeId: z.coerce.number().int().positive("Empleado requerido"),
+  employeeId: z
+    .coerce
+    .number()
+    .int()
+    .positive("Miembro del personal requerido"),
   period: periodSchema,
   amount: z.coerce.number().pipe(salarySchema),
   currency: z.enum(["BOB", "USD"]).default("BOB"),

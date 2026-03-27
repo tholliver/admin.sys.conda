@@ -36,7 +36,10 @@ export const deleteEmployee = defineAction({
       .where(eq(employees.id, input.id));
 
     if (!existing) {
-      throw new ActionError({ code: "NOT_FOUND", message: "Empleado no encontrado." });
+      throw new ActionError({
+        code: "NOT_FOUND",
+        message: "Miembro del personal no encontrado.",
+      });
     }
 
     await db
@@ -44,7 +47,10 @@ export const deleteEmployee = defineAction({
       .set({ status: "baja", updatedAt: new Date() })
       .where(eq(employees.id, input.id));
 
-    return { success: true, message: "Empleado dado de baja correctamente." };
+    return {
+      success: true,
+      message: "Miembro del personal dado de baja correctamente.",
+    };
   },
 });
 

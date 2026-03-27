@@ -6,16 +6,21 @@
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { actions, isActionError } from "astro:actions";
 import {
-  getFeesWithEmployees,
-  getFeeSummaryByPeriod,
-  currentPeriod,
-  formatPeriod,
+    getFeesWithEmployees,
+    getFeeSummaryByPeriod,
+    currentPeriod,
+    formatPeriod,
 } from "@/services/rrhh/rrhh.service";
 import { getSectorCashboxLinks } from "@/services/rrhh/rrhh.service";
 import { feeFiltersSchema } from "@/lib/schemas/rrhh.schemas";
 import {
-  CalendarClock, DollarSign, CheckCircle, AlertCircle,
-  RefreshCw, ChevronLeft, ChevronRight,
+    CalendarClock,
+    DollarSign,
+    CheckCircle,
+    AlertCircle,
+    RefreshCw,
+    ChevronLeft,
+    ChevronRight,
 } from "@lucide/astro";
 
 const { user } = Astro.locals;
@@ -26,249 +31,392 @@ const canEdit = (["ADMIN", "ADMON"] as const).includes(user.role as any);
 
 // Handle action results
 const generateResult = Astro.getActionResult(actions.rrhh.bulkGenerateFees);
-const payResult      = Astro.getActionResult(actions.rrhh.payEmployeeFee);
-const voidResult     = Astro.getActionResult(actions.rrhh.voidEmployeeFee);
+const payResult = Astro.getActionResult(actions.rrhh.payEmployeeFee);
+const voidResult = Astro.getActionResult(actions.rrhh.voidEmployeeFee);
 
 const successMsg =
-  (!generateResult?.error && generateResult?.data?.message) ||
-  (!payResult?.error && payResult?.data?.message) ||
-  (!voidResult?.error && voidResult?.data?.message) || null;
+    (!generateResult?.error && generateResult?.data?.message) ||
+    (!payResult?.error && payResult?.data?.message) ||
+    (!voidResult?.error && voidResult?.data?.message) ||
+    null;
 
 const errorMsg =
-  (isActionError(generateResult?.error) && generateResult.error.message) ||
-  (isActionError(payResult?.error) && payResult.error.message) ||
-  (isActionError(voidResult?.error) && voidResult.error.message) || null;
+    (isActionError(generateResult?.error) && generateResult.error.message) ||
+    (isActionError(payResult?.error) && payResult.error.message) ||
+    (isActionError(voidResult?.error) && voidResult.error.message) ||
+    null;
 
 // Filters
 const rawFilters = Object.fromEntries(Astro.url.searchParams);
-const filters    = feeFiltersSchema.parse({ ...rawFilters, status: rawFilters.status ?? "all" });
-const period     = filters.period ?? currentPeriod();
+const filters = feeFiltersSchema.parse({
+    ...rawFilters,
+    status: rawFilters.status ?? "all",
+});
+const period = filters.period ?? currentPeriod();
 
 // Navigate between periods
 const periodDate = new Date(`${period}-01`);
 const prevPeriod = (() => {
-  const d = new Date(periodDate); d.setMonth(d.getMonth() - 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const d = new Date(periodDate);
+    d.setMonth(d.getMonth() - 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 })();
 const nextPeriod = (() => {
-  const d = new Date(periodDate); d.setMonth(d.getMonth() + 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const d = new Date(periodDate);
+    d.setMonth(d.getMonth() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 })();
 
 const [fees, summary, cashboxLinks] = await Promise.all([
-  getFeesWithEmployees({ ...filters, period }),
-  getFeeSummaryByPeriod(period),
-  getSectorCashboxLinks(),
+    getFeesWithEmployees({ ...filters, period }),
+    getFeeSummaryByPeriod(period),
+    getSectorCashboxLinks(),
 ]);
 
-const pendingRow   = summary.find((r) => r.status === "pendiente");
-const paidRow      = summary.find((r) => r.status === "pagado");
-const totalFees    = summary.reduce((s, r) => s + Number(r.total), 0);
-const pendingAmt   = Number(pendingRow?.totalAmount ?? 0);
-const paidAmt      = Number(paidRow?.totalAmount ?? 0);
+const pendingRow = summary.find((r) => r.status === "pendiente");
+const paidRow = summary.find((r) => r.status === "pagado");
+const totalFees = summary.reduce((s, r) => s + Number(r.total), 0);
+const pendingAmt = Number(pendingRow?.totalAmount ?? 0);
+const paidAmt = Number(paidRow?.totalAmount ?? 0);
 
 // Default cashbox for quick-pay (first active link)
 const defaultCashboxId = cashboxLinks[0]?.link?.cashboxId ?? "";
 
 const STATUS_LABELS: Record<string, string> = {
-  pendiente: "Pendiente", pagado: "Pagado", parcial: "Parcial", anulado: "Anulado",
+    pendiente: "Pendiente",
+    pagado: "Pagado",
+    parcial: "Parcial",
+    anulado: "Anulado",
 };
 const STATUS_COLORS: Record<string, string> = {
-  pendiente: "bg-amber-100 text-amber-700",
-  pagado: "bg-emerald-100 text-emerald-700",
-  parcial: "bg-blue-100 text-blue-700",
-  anulado: "bg-slate-100 text-slate-500 line-through",
+    pendiente: "bg-amber-100 text-amber-700",
+    pagado: "bg-emerald-100 text-emerald-700",
+    parcial: "bg-blue-100 text-blue-700",
+    anulado: "bg-slate-100 text-slate-500 line-through",
 };
 ---
 
 <FinanceLayout title={`Salarios — ${formatPeriod(period)}`} user={user}>
-  <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-5">
-
-    <!-- Header + Period Nav -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div>
-        <div class="text-sm text-slate-500 flex items-center gap-1.5 mb-1">
-          <a href="/rrhh" class="hover:text-slate-700">RRHH</a>
-          <span>/</span>
-          <span class="text-slate-900 font-medium">Salarios</span>
-        </div>
-        <h1 class="text-xl font-bold text-slate-900 capitalize">{formatPeriod(period)}</h1>
-      </div>
-
-      <!-- Period navigation -->
-      <div class="flex items-center gap-2">
-        <a href={`?period=${prevPeriod}`}
-          class="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 transition-colors">
-          <ChevronLeft class="h-4 w-4" />
-        </a>
-        <span class="text-sm font-medium text-slate-700 min-w-32 text-center capitalize">
-          {formatPeriod(period)}
-        </span>
-        <a href={`?period=${nextPeriod}`}
-          class="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 transition-colors">
-          <ChevronRight class="h-4 w-4" />
-        </a>
-
-        {canEdit && (
-          <form method="POST" action={actions.rrhh.bulkGenerateFees} class="ml-2">
-            <input type="hidden" name="period" value={period} />
-            <button type="submit"
-              onclick="return confirm('¿Generar cuotas para todos los empleados activos en este período?')"
-              class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors">
-              <RefreshCw class="h-3.5 w-3.5" />
-              Generar Cuotas
-            </button>
-          </form>
-        )}
-      </div>
-    </div>
-
-    <!-- Feedback -->
-    {successMsg && (
-      <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-        {successMsg}
-      </div>
-    )}
-    {errorMsg && (
-      <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        {errorMsg}
-      </div>
-    )}
-
-    <!-- Summary KPIs -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs text-slate-500 uppercase tracking-wide">Total Cuotas</p>
-          <CalendarClock class="h-4 w-4 text-slate-400" />
-        </div>
-        <p class="text-2xl font-bold text-slate-900 tabular-nums">{totalFees}</p>
-      </div>
-      <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs text-emerald-600 uppercase tracking-wide">Pagado</p>
-          <CheckCircle class="h-4 w-4 text-emerald-500" />
-        </div>
-        <p class="text-2xl font-bold text-emerald-800 tabular-nums">{Number(paidRow?.total ?? 0)}</p>
-        <p class="text-xs text-emerald-600 tabular-nums mt-0.5">
-          Bs {paidAmt.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
-        </p>
-      </div>
-      <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs text-amber-600 uppercase tracking-wide">Pendiente</p>
-          <AlertCircle class="h-4 w-4 text-amber-500" />
-        </div>
-        <p class="text-2xl font-bold text-amber-800 tabular-nums">{Number(pendingRow?.total ?? 0)}</p>
-        <p class="text-xs text-amber-600 tabular-nums mt-0.5">
-          Bs {pendingAmt.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
-        </p>
-      </div>
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="flex items-center justify-between mb-2">
-          <p class="text-xs text-slate-500 uppercase tracking-wide">Masa Salarial</p>
-          <DollarSign class="h-4 w-4 text-slate-400" />
-        </div>
-        <p class="text-xl font-bold text-slate-900 tabular-nums">
-          Bs {(pendingAmt + paidAmt).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
-        </p>
-      </div>
-    </div>
-
-    <!-- Status filter pills -->
-    <div class="flex flex-wrap gap-2">
-      {["all", "pendiente", "pagado", "parcial", "anulado"].map((s) => (
-        <a
-          href={`?period=${period}&status=${s}`}
-          class:list={[
-            "rounded-full px-3 py-1 text-xs font-medium border transition-colors",
-            filters.status === s
-              ? "bg-slate-800 text-white border-slate-800"
-              : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-          ]}
+    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-5">
+        <!-- Header + Period Nav -->
+        <div
+            class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
         >
-          {s === "all" ? "Todos" : STATUS_LABELS[s] ?? s}
-        </a>
-      ))}
-    </div>
+            <div>
+                <div
+                    class="text-sm text-slate-500 flex items-center gap-1.5 mb-1"
+                >
+                    <a href="/rrhh" class="hover:text-slate-700">RRHH</a>
+                    <span>/</span>
+                    <span class="text-slate-900 font-medium">Salarios</span>
+                </div>
+                <h1 class="text-xl font-bold text-slate-900 capitalize">
+                    {formatPeriod(period)}
+                </h1>
+            </div>
 
-    <!-- Fees table -->
-    <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-xs text-slate-500 border-b border-slate-200">
-            <tr>
-              <th class="py-3 px-5 text-left font-medium">Empleado</th>
-              <th class="py-3 px-4 text-left font-medium">Tipo / Cargo</th>
-              <th class="py-3 px-4 text-left font-medium">Sector</th>
-              <th class="py-3 px-4 text-right font-medium">Monto</th>
-              <th class="py-3 px-4 text-center font-medium">Estado</th>
-              {canEdit && <th class="py-3 px-4 text-right font-medium">Pagar</th>}
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-50">
-            {fees.length === 0 ? (
-              <tr>
-                <td colspan="6" class="py-12 text-center text-sm text-slate-400">
-                  No hay cuotas para este período. Usa "Generar Cuotas" para crearlas.
-                </td>
-              </tr>
-            ) : fees.map((fee) => (
-              <tr class="hover:bg-slate-50/50 transition-colors">
-                <td class="py-3.5 px-5">
-                  <p class="font-medium text-slate-900">{fee.employee.fullName}</p>
-                  <p class="text-xs text-slate-400 font-mono">{fee.employee.ci}</p>
-                </td>
-                <td class="py-3.5 px-4">
-                  <span class:list={[
-                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                    fee.employee.employeeType === "directorio"
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-violet-100 text-violet-700",
-                  ]}>
-                    {fee.employee.employeeType}
-                  </span>
-                  <p class="text-xs text-slate-500 mt-0.5">{fee.employee.chargeTitle}</p>
-                </td>
-                <td class="py-3.5 px-4 text-xs text-slate-600">{fee.employee.sectorName}</td>
-                <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
-                  Bs {Number(fee.amount).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
-                </td>
-                <td class="py-3.5 px-4 text-center">
-                  <span class:list={[
-                    "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                    STATUS_COLORS[fee.status] ?? "bg-slate-100 text-slate-500"
-                  ]}>
-                    {STATUS_LABELS[fee.status] ?? fee.status}
-                  </span>
-                </td>
-                {canEdit && (
-                  <td class="py-3.5 px-4 text-right">
-                    {(fee.status === "pendiente" || fee.status === "parcial") ? (
-                      <form method="POST" action={actions.rrhh.payEmployeeFee} class="inline">
-                        <input type="hidden" name="feeId"       value={fee.id} />
-                        <input type="hidden" name="amountPaid"  value={fee.amount} />
-                        <input type="hidden" name="cashboxId"   value={fee.cashboxId ?? defaultCashboxId} />
-                        <input type="hidden" name="paymentMethod" value="efectivo" />
-                        <button
-                          type="submit"
-                          onclick={`return confirm('Registrar pago de Bs ${Number(fee.amount).toLocaleString("es-BO")} para ${fee.employee.fullName}?')`}
-                          class="rounded border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+            <!-- Period navigation -->
+            <div class="flex items-center gap-2">
+                <a
+                    href={`?period=${prevPeriod}`}
+                    class="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                    <ChevronLeft class="h-4 w-4" />
+                </a>
+                <span
+                    class="text-sm font-medium text-slate-700 min-w-32 text-center capitalize"
+                >
+                    {formatPeriod(period)}
+                </span>
+                <a
+                    href={`?period=${nextPeriod}`}
+                    class="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                    <ChevronRight class="h-4 w-4" />
+                </a>
+
+                {
+                    canEdit && (
+                        <form
+                            method="POST"
+                            action={actions.rrhh.bulkGenerateFees}
+                            class="ml-2"
                         >
-                          Pagar
-                        </button>
-                      </form>
-                    ) : (
-                      <span class="text-xs text-slate-300">—</span>
-                    )}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                            <input type="hidden" name="period" value={period} />
+                            <button
+                                type="submit"
+                                onclick="return confirm('¿Generar cuotas para todo el personal activo en este período?')"
+                                class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                            >
+                                <RefreshCw class="h-3.5 w-3.5" />
+                                Generar Cuotas
+                            </button>
+                        </form>
+                    )
+                }
+            </div>
+        </div>
 
-  </main>
+        <!-- Feedback -->
+        {
+            successMsg && (
+                <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    {successMsg}
+                </div>
+            )
+        }
+        {
+            errorMsg && (
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {errorMsg}
+                </div>
+            )
+        }
+
+        <!-- Summary KPIs -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div
+                class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+            >
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs text-slate-500 uppercase tracking-wide">
+                        Total Cuotas
+                    </p>
+                    <CalendarClock class="h-4 w-4 text-slate-400" />
+                </div>
+                <p class="text-2xl font-bold text-slate-900 tabular-nums">
+                    {totalFees}
+                </p>
+            </div>
+            <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs text-emerald-600 uppercase tracking-wide">
+                        Pagado
+                    </p>
+                    <CheckCircle class="h-4 w-4 text-emerald-500" />
+                </div>
+                <p class="text-2xl font-bold text-emerald-800 tabular-nums">
+                    {Number(paidRow?.total ?? 0)}
+                </p>
+                <p class="text-xs text-emerald-600 tabular-nums mt-0.5">
+                    Bs {
+                        paidAmt.toLocaleString("es-BO", {
+                            minimumFractionDigits: 2,
+                        })
+                    }
+                </p>
+            </div>
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs text-amber-600 uppercase tracking-wide">
+                        Pendiente
+                    </p>
+                    <AlertCircle class="h-4 w-4 text-amber-500" />
+                </div>
+                <p class="text-2xl font-bold text-amber-800 tabular-nums">
+                    {Number(pendingRow?.total ?? 0)}
+                </p>
+                <p class="text-xs text-amber-600 tabular-nums mt-0.5">
+                    Bs {
+                        pendingAmt.toLocaleString("es-BO", {
+                            minimumFractionDigits: 2,
+                        })
+                    }
+                </p>
+            </div>
+            <div
+                class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+            >
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-xs text-slate-500 uppercase tracking-wide">
+                        Masa Salarial
+                    </p>
+                    <DollarSign class="h-4 w-4 text-slate-400" />
+                </div>
+                <p class="text-xl font-bold text-slate-900 tabular-nums">
+                    Bs {
+                        (pendingAmt + paidAmt).toLocaleString("es-BO", {
+                            minimumFractionDigits: 2,
+                        })
+                    }
+                </p>
+            </div>
+        </div>
+
+        <!-- Status filter pills -->
+        <div class="flex flex-wrap gap-2">
+            {
+                ["all", "pendiente", "pagado", "parcial", "anulado"].map(
+                    (s) => (
+                        <a
+                            href={`?period=${period}&status=${s}`}
+                            class:list={[
+                                "rounded-full px-3 py-1 text-xs font-medium border transition-colors",
+                                filters.status === s
+                                    ? "bg-slate-800 text-white border-slate-800"
+                                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400",
+                            ]}
+                        >
+                            {s === "all" ? "Todos" : (STATUS_LABELS[s] ?? s)}
+                        </a>
+                    ),
+                )
+            }
+        </div>
+
+        <!-- Fees table -->
+        <div
+            class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+        >
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead
+                        class="bg-slate-50 text-xs text-slate-500 border-b border-slate-200"
+                    >
+                        <tr>
+                            <th class="py-3 px-5 text-left font-medium"
+                                >Personal</th
+                            >
+                            <th class="py-3 px-4 text-left font-medium"
+                                >Tipo / Cargo</th
+                            >
+                            <th class="py-3 px-4 text-left font-medium"
+                                >Sector</th
+                            >
+                            <th class="py-3 px-4 text-right font-medium"
+                                >Monto</th
+                            >
+                            <th class="py-3 px-4 text-center font-medium"
+                                >Estado</th
+                            >
+                            {
+                                canEdit && (
+                                    <th class="py-3 px-4 text-right font-medium">
+                                        Pagar
+                                    </th>
+                                )
+                            }
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        {
+                            fees.length === 0 ? (
+                                <tr>
+                                    <td
+                                        colspan="6"
+                                        class="py-12 text-center text-sm text-slate-400"
+                                    >
+                                        No hay cuotas para este período. Usa
+                                        "Generar Cuotas" para crearlas.
+                                    </td>
+                                </tr>
+                            ) : (
+                                fees.map((fee) => (
+                                    <tr class="hover:bg-slate-50/50 transition-colors">
+                                        <td class="py-3.5 px-5">
+                                            <p class="font-medium text-slate-900">
+                                                {fee.employee.fullName}
+                                            </p>
+                                            <p class="text-xs text-slate-400 font-mono">
+                                                {fee.employee.ci}
+                                            </p>
+                                        </td>
+                                        <td class="py-3.5 px-4">
+                                            <span
+                                                class:list={[
+                                                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                                                    fee.employee
+                                                        .employeeType ===
+                                                    "directorio"
+                                                        ? "bg-blue-100 text-blue-700"
+                                                        : "bg-violet-100 text-violet-700",
+                                                ]}
+                                            >
+                                                {fee.employee.employeeType}
+                                            </span>
+                                            <p class="text-xs text-slate-500 mt-0.5">
+                                                {fee.employee.chargeTitle}
+                                            </p>
+                                        </td>
+                                        <td class="py-3.5 px-4 text-xs text-slate-600">
+                                            {fee.employee.sectorName}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
+                                            Bs{" "}
+                                            {Number(fee.amount).toLocaleString(
+                                                "es-BO",
+                                                { minimumFractionDigits: 2 },
+                                            )}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center">
+                                            <span
+                                                class:list={[
+                                                    "rounded-full px-2.5 py-0.5 text-xs font-medium",
+                                                    STATUS_COLORS[fee.status] ??
+                                                        "bg-slate-100 text-slate-500",
+                                                ]}
+                                            >
+                                                {STATUS_LABELS[fee.status] ??
+                                                    fee.status}
+                                            </span>
+                                        </td>
+                                        {canEdit && (
+                                            <td class="py-3.5 px-4 text-right">
+                                                {fee.status === "pendiente" ||
+                                                fee.status === "parcial" ? (
+                                                    <form
+                                                        method="POST"
+                                                        action={
+                                                            actions.rrhh
+                                                                .payEmployeeFee
+                                                        }
+                                                        class="inline"
+                                                    >
+                                                        <input
+                                                            type="hidden"
+                                                            name="feeId"
+                                                            value={fee.id}
+                                                        />
+                                                        <input
+                                                            type="hidden"
+                                                            name="amountPaid"
+                                                            value={fee.amount}
+                                                        />
+                                                        <input
+                                                            type="hidden"
+                                                            name="cashboxId"
+                                                            value={
+                                                                fee.cashboxId ??
+                                                                defaultCashboxId
+                                                            }
+                                                        />
+                                                        <input
+                                                            type="hidden"
+                                                            name="paymentMethod"
+                                                            value="efectivo"
+                                                        />
+                                                        <button
+                                                            type="submit"
+                                                            onclick={`return confirm('Registrar pago de Bs ${Number(fee.amount).toLocaleString("es-BO")} para ${fee.employee.fullName}?')`}
+                                                            class="rounded border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                                        >
+                                                            Pagar
+                                                        </button>
+                                                    </form>
+                                                ) : (
+                                                    <span class="text-xs text-slate-300">
+                                                        —
+                                                    </span>
+                                                )}
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))
+                            )
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
 </FinanceLayout>
