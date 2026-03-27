@@ -9,6 +9,8 @@ import { formatter } from "@/utils/timex";
 import { ENV } from "@/config/env";
 import { formatBOB } from "@/services/finances/helpers";
 import { voidTransaction } from "./void-transaction.action";
+import { transfer, payContractor, createContractor, updateContractorStatus } from "./transfer.action";
+
 
 export const deposit = defineAction({
   accept: "form",
@@ -1221,5 +1223,9 @@ export const finance = {
   disableTransactionCategory,
   activateTransactionCategory,
   setCategorySortOrder,
-  voidTransaction
+  voidTransaction,
+  transfer,
+  payContractor,
+  createContractor,
+  updateContractorStatus,
 };

@@ -123,7 +123,10 @@
         <form onsubmit={handleSubmit} class="space-y-4">
             <!-- Nombre -->
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">
+                <label
+                    for="cbName"
+                    class="block text-sm font-medium text-slate-700 mb-1"
+                >
                     Nombre de la Caja <span class="text-red-500">*</span>
                 </label>
                 <input
@@ -143,7 +146,10 @@
 
             <!-- Código -->
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">
+                <label
+                    for="code"
+                    class="block text-sm font-medium text-slate-700 mb-1"
+                >
                     Código <span class="text-red-500">*</span>
                     <span class="text-slate-400 font-normal text-xs ml-1"
                         >(único, sin espacios)</span
@@ -167,7 +173,9 @@
 
             <!-- Descripción -->
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1"
+                <label
+                    for="description"
+                    class="block text-sm font-medium text-slate-700 mb-1"
                     >Descripción</label
                 >
                 <input
@@ -180,7 +188,10 @@
 
             <!-- Saldo inicial -->
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">
+                <label
+                    for="initialBalance"
+                    class="block text-sm font-medium text-slate-700 mb-1"
+                >
                     Saldo Inicial (Bs)
                 </label>
                 <div class="relative">

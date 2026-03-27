@@ -157,6 +157,7 @@
                 <!-- Nombre completo -->
                 <div>
                     <label
+                        for="fullName"
                         class="block text-sm font-medium text-slate-700 mb-1"
                     >
                         Nombre Completo <span class="text-red-500">*</span>
@@ -186,6 +187,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label
+                            for="ci"
                             class="block text-sm font-medium text-slate-700 mb-1"
                             >CI</label
                         >
@@ -198,6 +200,7 @@
                     </div>
                     <div>
                         <label
+                            for="ciCity"
                             class="block text-sm font-medium text-slate-700 mb-1"
                             >Ciudad CI</label
                         >
@@ -218,6 +221,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label
+                            for="phone"
                             class="block text-sm font-medium text-slate-700 mb-1"
                             >Teléfono</label
                         >
@@ -230,6 +234,7 @@
                     </div>
                     <div>
                         <label
+                            for="email"
                             class="block text-sm font-medium text-slate-700 mb-1"
                             >Correo</label
                         >
@@ -252,6 +257,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label
+                            for="roomNumber"
                             class="block text-sm font-medium text-slate-700 mb-1"
                         >
                             N° Ambiente <span class="text-red-500">*</span>
@@ -274,6 +280,7 @@
                     </div>
                     <div>
                         <label
+                            for="floor"
                             class="block text-sm font-medium text-slate-700 mb-1"
                             >Piso</label
                         >
@@ -288,9 +295,12 @@
 
                 <!-- Descripción -->
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1"
-                        >Tipo de Ambiente</label
+                    <label
+                        for="description"
+                        class="block text-sm font-medium text-slate-700 mb-1"
                     >
+                        Tipo de Ambiente
+                    </label>
                     <input
                         type="text"
                         bind:value={description}
@@ -303,6 +313,7 @@
                 <div class="grid grid-cols-3 gap-3">
                     <div>
                         <label
+                            for="monthlyRent"
                             class="block text-sm font-medium text-slate-700 mb-1"
                         >
                             Alquiler/Mes (Bs) <span class="text-red-500">*</span
@@ -334,6 +345,7 @@
                     </div>
                     <div>
                         <label
+                            for="startDate"
                             class="block text-sm font-medium text-slate-700 mb-1"
                         >
                             Inicio Contrato <span class="text-red-500">*</span>
@@ -355,6 +367,7 @@
                     </div>
                     <div>
                         <label
+                            for="endDate"
                             class="block text-sm font-medium text-slate-700 mb-1"
                             >Fin Contrato</label
                         >
@@ -368,7 +381,9 @@
 
                 <!-- Notas -->
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1"
+                    <label
+                        for="notes"
+                        class="block text-sm font-medium text-slate-700 mb-1"
                         >Notas</label
                     >
                     <textarea

@@ -18,6 +18,8 @@ import {
     Building,
     X,
     ChevronDown,
+    ArrowLeftRight,
+    Handshake,
 } from "@lucide/astro";
 import Toaster from "@/lib/toast/Toaster.astro";
 import UserNav from "@/components/UserNav.astro";
@@ -48,6 +50,11 @@ const navGroups: NavGroup[] = [
             { label: "Inicio", href: "/", icon: Home },
             { label: "Ingresos", href: "/ingresos", icon: BanknoteArrowUp },
             { label: "Egresos", href: "/egresos", icon: BanknoteArrowDown },
+            {
+                label: "Transferencias",
+                href: "/transferencias",
+                icon: ArrowLeftRight,
+            },
             { label: "Talonarios", href: "/talonarios", icon: ReceiptText },
             { label: "Reportes", href: "/reportes", icon: ChartColumn },
             { label: "Historial", href: "/historial", icon: History },
@@ -70,6 +77,7 @@ const navGroups: NavGroup[] = [
         icon: Building,
         baseHref: "/inquilinos",
         links: [
+            { label: "Contratistas", href: "/contratistas", icon: Handshake },
             { label: "Inquilinos", href: "/inquilinos", icon: Building },
             { label: "Clientes", href: "/clientes", icon: Users },
         ],

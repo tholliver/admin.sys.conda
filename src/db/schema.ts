@@ -131,6 +131,12 @@ export const accountRelations = relations(account, ({ one }) => ({
 export const transactionTypeEnum = pgEnum("transaction_type", [
   "deposit",
   "withdraw",
+  "transfer"
+]);
+
+export const contractorStatusEnum = pgEnum("contractor_status", [
+  "activo",
+  "inactivo",
 ]);
 
 export const transactionStatusEnum = pgEnum("transaction_status", [
@@ -232,54 +238,6 @@ export const transactionCategories = financeSchema.table(
     index("idx_category_code").on(table.code),
     index("idx_category_status").on(table.status),
     index("idx_category_parent").on(table.parentId),
-  ],
-);
-
-export const transactions = financeSchema.table(
-  "transactions",
-  {
-    id: uuid("id").primaryKey().default(sql`uuidv7()`),
-    cashboxId: uuid("affiliation_id")
-      .notNull()
-      .references(() => cashboxes.id, { onDelete: "restrict" }),
-    categoryId: uuid("category_id")
-      .notNull()
-      .references(() => transactionCategories.id, { onDelete: "restrict" }),
-    type: transactionTypeEnum("type").notNull(),
-    amount: numeric("amount", {
-      mode: "string",
-      precision: 15,
-      scale: 2,
-    }).notNull(),
-    concept: varchar("concept", { length: 255 }).notNull(),
-    description: text("description"),
-    reference: varchar("reference", { length: 255 }),
-    authorizedBy: varchar("authorized_by", { length: 255 }),
-    createdByUserId: varchar("created_by_user_id", { length: 255 }).notNull(),
-    status: transactionStatusEnum("status").notNull().default("pending"),
-    balanceAfter: numeric("balance_after", {
-      mode: "string",
-      precision: 15,
-      scale: 2,
-    }),
-    metadata: text("metadata"),
-    ipAddress: varchar("ip_address", { length: 45 }),
-    userAgent: varchar("user_agent", { length: 500 }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .defaultNow()
-      .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow()
-      .$onUpdate(() => new Date()),
-  },
-  (table) => [
-    index("idx_tx_cashbox").on(table.cashboxId),
-    index("idx_tx_category").on(table.categoryId),
-    index("idx_tx_type").on(table.type),
-    index("idx_tx_status").on(table.status),
-    index("idx_tx_created_at").on(table.createdAt),
-    check("amount_positive", sql`${table.amount} >= 0`),
   ],
 );
 
@@ -556,38 +514,147 @@ export type RentPaymentStatus = (typeof rentPaymentStatusEnum.enumValues)[number
 // TENANTS
 // ============================================================
 
+export const linkedEntityTypeEnum = pgEnum("linked_entity_type", [
+  "tenant_payment",
+  "contractor_payment",
+  "employee_payment",
+]);
+
+export const transactions = financeSchema.table(
+  "transactions",
+  {
+    id: uuid("id").primaryKey().default(sql`uuidv7()`),
+    cashboxId: uuid("affiliation_id")
+      .notNull()
+      .references(() => cashboxes.id, { onDelete: "restrict" }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => transactionCategories.id, { onDelete: "restrict" }),
+    type: transactionTypeEnum("type").notNull(),
+    amount: numeric("amount", {
+      mode: "string",
+      precision: 15,
+      scale: 2,
+    }).notNull(),
+    concept: varchar("concept", { length: 255 }).notNull(),
+    description: text("description"),
+    reference: varchar("reference", { length: 255 }),
+    authorizedBy: varchar("authorized_by", { length: 255 }),
+    createdByUserId: varchar("created_by_user_id", { length: 255 }).notNull(),
+    status: transactionStatusEnum("status").notNull().default("pending"),
+    balanceAfter: numeric("balance_after", {
+      mode: "string",
+      precision: 15,
+      scale: 2,
+    }),
+    metadata: text("metadata"),
+    ipAddress: varchar("ip_address", { length: 45 }),
+    userAgent: varchar("user_agent", { length: 500 }),
+    // --- transfer link ---
+    transferToCashboxId: uuid("transfer_to_cashbox_id"),
+    transferPairId: uuid("transfer_pair_id"),
+    // --- polymorphic payment link ---
+    linkedEntityType: linkedEntityTypeEnum("linked_entity_type"),
+    linkedEntityId: integer("linked_entity_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("idx_tx_cashbox").on(table.cashboxId),
+    index("idx_tx_category").on(table.categoryId),
+    index("idx_tx_type").on(table.type),
+    index("idx_tx_status").on(table.status),
+    index("idx_tx_created_at").on(table.createdAt),
+    index("idx_tx_transfer_pair").on(table.transferPairId),
+    index("idx_tx_transfer_to_cashbox").on(table.transferToCashboxId),
+    index("idx_tx_linked_entity").on(table.linkedEntityType, table.linkedEntityId),
+    check("amount_positive", sql`${table.amount} >= 0`),
+  ],
+);
+
+export const contractors = pgTable(
+  "contractors",
+  {
+    id: serial("id").primaryKey(),
+    uuid: uuid("uuid").default(sql`uuidv7()`).unique().notNull(),
+    fullName: varchar("full_name", { length: 200 }).notNull(),
+    ci: varchar("ci", { length: 20 }),
+    ruc: varchar("ruc", { length: 20 }),
+    phone: varchar("phone", { length: 20 }),
+    email: varchar("email", { length: 150 }),
+    address: varchar("address", { length: 255 }),
+    specialty: varchar("specialty", { length: 120 }),
+    status: contractorStatusEnum("status").notNull().default("activo"),
+    notes: text("notes"),
+    createdByUserId: varchar("created_by_user_id", { length: 255 }).default("system"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("idx_contractors_status").on(table.status),
+    index("idx_contractors_uuid").on(table.uuid),
+  ]
+);
+
+export const contractorPayments = pgTable(
+  "contractor_payments",
+  {
+    id: serial("id").primaryKey(),
+    uuid: uuid("uuid").default(sql`uuidv7()`).unique().notNull(),
+    contractorId: integer("contractor_id")
+      .notNull()
+      .references(() => contractors.id, { onDelete: "restrict" }),
+    transactionId: uuid("transaction_id"),
+    cashboxId: uuid("cashbox_id").notNull(),
+    amount: numeric("amount", { mode: "number", precision: 12, scale: 2 }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull().default("BOB"),
+    concept: varchar("concept", { length: 255 }).notNull(),
+    receiptNumber: varchar("receipt_number", { length: 30 }),
+    paidAt: timestamp("paid_at", { withTimezone: true }).defaultNow(),
+    processedByUserId: varchar("processed_by_user_id", { length: 255 }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("idx_contractor_payments_contractor").on(table.contractorId),
+    index("idx_contractor_payments_cashbox").on(table.cashboxId),
+  ]
+);
+
 export const tenants = pgTable(
   "tenants",
   {
     id: serial("id").primaryKey(),
     uuid: uuid("uuid").default(sql`uuidv7()`).unique().notNull(),
-
-    // Identity
     fullName: varchar("name", { length: 150 }).notNull(),
     ci: varchar("ci", { length: 20 }),
     phone: varchar("phone", { length: 20 }),
     email: varchar("email", { length: 150 }),
-
-    // Room / unit info
     roomNumber: varchar("room_number", { length: 20 }).notNull(),
     floor: varchar("floor", { length: 10 }),
     description: text("description"),
-
-    // Rent
     monthlyRent: numeric("monthly_rent", {
       mode: "number",
       precision: 12,
       scale: 2,
     }).notNull(),
     currency: varchar("currency", { length: 3 }).notNull().default("BOB"),
-
-    // Contract
     startDate: date("start_date", { mode: "date" }).notNull(),
     endDate: date("end_date", { mode: "date" }),
-
     status: tenantStatusEnum("status").notNull().default("activo"),
     notes: text("notes"),
-
     createdByUserId: varchar("created_by_user_id", { length: 255 }).default("system"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -602,41 +669,28 @@ export const tenants = pgTable(
   ]
 );
 
-// ============================================================
-// TENANT PAYMENTS  (monthly rent records)
-// ============================================================
-
 export const tenantPayments = pgTable(
   "tenant_payments",
   {
     id: serial("id").primaryKey(),
     uuid: uuid("uuid").default(sql`uuidv7()`).unique().notNull(),
-
     tenantId: integer("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "restrict" }),
-
-    /** ISO period e.g. "2025-03" */
     period: varchar("period", { length: 7 }).notNull(),
-
     amount: numeric("amount", {
       mode: "number",
       precision: 12,
       scale: 2,
     }).notNull(),
-
     currency: varchar("currency", { length: 3 }).notNull().default("BOB"),
-
     status: rentPaymentStatusEnum("status").notNull().default("pendiente"),
-
     dueDate: date("due_date", { mode: "date" }),
     paidAt: timestamp("paid_at", { withTimezone: true }),
-
     receiptNumber: varchar("receipt_number", { length: 30 }),
     notes: text("notes"),
-
     processedByUserId: varchar("processed_by_user_id", { length: 255 }),
-
+    transactionId: uuid("transaction_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -651,6 +705,15 @@ export const tenantPayments = pgTable(
   ]
 );
 
+// --- type exports ---
+export type SelectContractor = typeof contractors.$inferSelect;
+export type InsertContractor = typeof contractors.$inferInsert;
+export type SelectContractorPayment = typeof contractorPayments.$inferSelect;
+export type InsertContractorPayment = typeof contractorPayments.$inferInsert;
+export type SelectTenant = typeof tenants.$inferSelect;
+export type InsertTenant = typeof tenants.$inferInsert;
+export type SelectTenantPayment = typeof tenantPayments.$inferSelect;
+export type InsertTenantPayment = typeof tenantPayments.$inferInsert;
 // ============================================================
 // RELATIONS
 // ============================================================
@@ -670,11 +733,6 @@ export const tenantPaymentsRelations = relations(tenantPayments, ({ one }) => ({
 // TYPE EXPORTS
 // ============================================================
 
-export type SelectTenant = typeof tenants.$inferSelect;
-export type InsertTenant = typeof tenants.$inferInsert;
-
-export type SelectTenantPayment = typeof tenantPayments.$inferSelect;
-export type InsertTenantPayment = typeof tenantPayments.$inferInsert;
 
 export type TenantWithPaymentSummary = SelectTenant & {
   pendingMonths: number;
