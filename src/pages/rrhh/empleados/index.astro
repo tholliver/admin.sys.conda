@@ -17,10 +17,10 @@ import CreateCashboxDialog from "@/components/svelte/dialogs/CreateCashboxDialog
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
-const ALLOWED = ["ADMIN", "ADMON", "ACTS", "ACCO"] as const;
+const ALLOWED = ["ADMIN"] as const;
 if (!ALLOWED.includes(user.role as any)) return Astro.redirect("/panel");
 
-const canEdit = (["ADMIN", "ADMON"] as const).includes(user.role as any);
+const canEdit = (["ADMIN"] as const).includes(user.role as any);
 
 const rawFilters = Object.fromEntries(Astro.url.searchParams);
 const filters = employeeFiltersSchema.parse(rawFilters);

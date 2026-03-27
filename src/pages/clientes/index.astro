@@ -170,7 +170,7 @@ const STATUS_COLORS: Record<string, string> = {
                                     <tr class="hover:bg-slate-50/60 transition-colors">
                                         <td class="py-3.5 px-5">
                                             <p class="font-medium text-slate-900">
-                                                {t.name}
+                                                {t.fullName}
                                             </p>
                                             {t.email && (
                                                 <p class="text-xs text-slate-400">
@@ -236,7 +236,9 @@ const STATUS_COLORS: Record<string, string> = {
                                                             client:load
                                                             entityType="tenant"
                                                             entityId={t.id}
-                                                            entityName={t.name}
+                                                            entityName={
+                                                                t.fullName
+                                                            }
                                                             entityLabel={`Amb. ${t.roomNumber}`}
                                                         />
                                                     )}

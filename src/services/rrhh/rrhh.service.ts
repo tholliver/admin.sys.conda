@@ -46,8 +46,8 @@ export const MAX_PLANTA = 50;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export function getEmployeeFullName(e: Pick<SelectEmployee, "name" | "pLastName" | "mLastName">): string {
-  return [e.name, e.pLastName, e.mLastName].filter(Boolean).join(" ");
+export function getEmployeeFullName(e: Pick<SelectEmployee, "fullName">): string {
+  return e.fullName;
 }
 
 /** Format period "2025-03" → "Marzo 2025" */
@@ -83,7 +83,7 @@ export async function getEmployees(filters: EmployeeFilters = {} as EmployeeFilt
   if (search) {
     const term = `%${search}%`;
     conditions.push(
-      sql`(${ilike(employees.name, term)} OR ${ilike(employees.pLastName, term)} OR ${ilike(employees.ci, term)})`
+      sql`(${ilike(employees.fullName, term)})`
     );
   }
 
@@ -98,7 +98,7 @@ export async function getEmployees(filters: EmployeeFilters = {} as EmployeeFilt
       .from(employees)
       .leftJoin(sectors, eq(sectors.id, employees.sectorId))
       .where(where)
-      .orderBy(asc(employees.pLastName), asc(employees.name))
+      .orderBy(asc(employees.fullName))
       .limit(pageSize)
       .offset((page - 1) * pageSize),
 
@@ -213,7 +213,7 @@ export async function getFeesWithEmployees(filters: FeeFilters = {} as FeeFilter
     .innerJoin(employees, eq(employees.id, employeeFees.employeeId))
     .leftJoin(sectors, eq(sectors.id, employees.sectorId))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(asc(employees.pLastName), asc(employeeFees.period));
+    .orderBy(asc(employees.fullName), asc(employeeFees.period));
 
   return rows.map((r) => ({
     ...r.fee,

@@ -48,55 +48,10 @@ export const deleteEmployee = defineAction({
   },
 });
 
-// ─── Finance: Create Cashbox ──────────────────────────────────────────────────
-
-export const createCashbox = defineAction({
-  accept: "form",
-  input: z.object({
-    name: z.string().min(2, "Nombre requerido").max(255),
-    code: z.string().min(2, "Código requerido").max(50)
-      .regex(/^[A-Z0-9_\-]+$/i, "Código inválido — solo letras, números, _ y -"),
-    description: z.string().max(500).optional(),
-    balance: z.coerce.number().min(0).default(0),
-  }),
-  handler: async (input, ctx) => {
-    const user = ctx.locals.user;
-    if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
-    requireAdmin(user.role);
-
-    // Check unique code
-    const [existing] = await db
-      .select({ id: cashboxes.id })
-      .from(cashboxes)
-      .where(eq(cashboxes.code, input.code.toUpperCase()));
-
-    if (existing) {
-      throw new ActionError({
-        code: "CONFLICT",
-        message: `El código "${input.code}" ya está en uso.`,
-      });
-    }
-
-    const [cashbox] = await db
-      .insert(cashboxes)
-      .values({
-        name: input.name,
-        code: input.code.toUpperCase(),
-        description: input.description ?? null,
-        balance: String(input.balance),
-        managerId: user.id,
-        status: "active",
-      })
-      .returning();
-
-    return { success: true, message: "Caja creada correctamente.", cashbox };
-  },
-});
-
 // ─── Inquilinos: Create Tenant (no currency — always BOB) ────────────────────
 
 const createTenantSchema = z.object({
-  name: z.string().min(2, "Nombre requerido"),
+  fullName: z.string().min(2, "Nombre requerido"),
   ci: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email("Correo inválido").optional().or(z.literal("")),
@@ -133,7 +88,7 @@ export const createTenant = defineAction({
     const [tenant] = await db
       .insert(tenants)
       .values({
-        name: input.name,
+        fullName: input.fullName,
         ci: input.ci || null,
         phone: input.phone || null,
         email: input.email || null,

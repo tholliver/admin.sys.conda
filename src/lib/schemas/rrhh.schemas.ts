@@ -33,9 +33,7 @@ const salarySchema = z
 export const createEmployeeSchema = z.object({
   ci: ciSchema,
   ciCity: z.string().max(5).optional(),
-  name: nameSchema,
-  pLastName: nameSchema,
-  mLastName: nameSchema.optional(),
+  fullName: nameSchema,
   phone: z
     .string()
     .max(20)

@@ -563,7 +563,7 @@ export const tenants = pgTable(
     uuid: uuid("uuid").default(sql`uuidv7()`).unique().notNull(),
 
     // Identity
-    name: varchar("name", { length: 150 }).notNull(),
+    fullName: varchar("name", { length: 150 }).notNull(),
     ci: varchar("ci", { length: 20 }),
     phone: varchar("phone", { length: 20 }),
     email: varchar("email", { length: 150 }),
@@ -685,6 +685,9 @@ export type TenantWithPaymentSummary = SelectTenant & {
 
 export type InvoiceRange = typeof invoiceRanges.$inferSelect;
 export type NewInvoiceRange = typeof invoiceRanges.$inferInsert;
+
+export type SelectSector = typeof sectors.$inferSelect
+export type InsertSector = typeof sectors.$inferInsert
 
 export type SelectTransaction = typeof transactions.$inferSelect;
 export type InsertTransaction = typeof transactions.$inferInsert;

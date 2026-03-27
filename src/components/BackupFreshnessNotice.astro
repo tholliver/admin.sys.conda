@@ -14,7 +14,7 @@ const {
     userRole = null,
 } = Astro.props as Props;
 
-const canSeeNotice = userRole === "ADMIN" || userRole === "ADMON";
+const canSeeNotice = userRole === "ADMIN";
 
 type NoticeLevel = "warning" | "critical";
 let level: NoticeLevel | null = null;
