@@ -1,0 +1,13 @@
+---
+import { formatTransactionStatus } from "@/utils/formatters.ts";
+
+const { status } = Astro.props;
+const { label, color } = formatTransactionStatus(status); // Destructure once
+---
+
+<span
+    class:list={[
+        color,
+        "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize",
+    ]}>{label}</span
+>

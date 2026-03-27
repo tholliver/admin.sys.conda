@@ -1,0 +1,32 @@
+---
+const {
+    size = 24,
+    color = "currentColor",
+    class: className = "",
+} = Astro.props;
+---
+
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    stroke-width="2"
+    class={`lucide lucide-badge-bs-text ${className}`}
+>
+    <circle cx="12" cy="12" r="9"></circle>
+    <text
+        x="12"
+        y="15"
+        text-anchor="middle"
+        font-size="8"
+        font-weight="700"
+        fill={color}
+        stroke="none"
+        font-family="system-ui, -apple-system, sans-serif"
+    >
+        Bs
+    </text>
+</svg>

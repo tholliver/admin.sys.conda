@@ -1,0 +1,167 @@
+---
+import PrintVoucher from "@/components/financial/PrintVoucher.astro";
+import { db } from "@/db";
+import { transactions, cashboxes, transactionCategories, user } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+const id   = Astro.url.searchParams.get("id")   ?? "";
+const back = Astro.url.searchParams.get("back") ?? "/";
+
+if (!id) return Astro.redirect("/");
+
+const [tx] = await db
+  .select({
+    id:              transactions.id,
+    type:            transactions.type,
+    amount:          transactions.amount,
+    concept:         transactions.concept,
+    reference:       transactions.reference,
+    description:     transactions.description,
+    authorizedBy:    transactions.authorizedBy,
+    status:          transactions.status,
+    balanceAfter:    transactions.balanceAfter,
+    createdAt:       transactions.createdAt,
+    createdByUserId: transactions.createdByUserId,
+    cashboxName:     cashboxes.name,
+    cashboxCode:     cashboxes.code,
+    categoryName:    transactionCategories.name,
+    categoryCode:    transactionCategories.code,
+  })
+  .from(transactions)
+  .innerJoin(cashboxes,             eq(transactions.cashboxId,  cashboxes.id))
+  .innerJoin(transactionCategories, eq(transactions.categoryId, transactionCategories.id))
+  .where(eq(transactions.id, id))
+  .limit(1);
+
+if (!tx) return Astro.redirect("/");
+
+let operatorName = "Sistema";
+try {
+  const [op] = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, tx.createdByUserId))
+    .limit(1);
+  if (op?.name) operatorName = op.name;
+} catch { /* non-critical */ }
+
+const isDeposit = tx.type === "deposit";
+
+const fmtBOB = (v: string | number | null | undefined) =>
+  new Intl.NumberFormat("es-BO", {
+    style: "currency", currency: "BOB", minimumFractionDigits: 2,
+  }).format(Number(v ?? 0));
+
+const issueDate = tx.createdAt.toLocaleString("es-BO", {
+  timeZone: "America/La_Paz",
+  dateStyle: "short",
+  timeStyle: "short",
+});
+
+const displayRef = tx.reference ?? tx.id.slice(0, 8).toUpperCase();
+const copies = [0, 1];
+---
+
+<PrintVoucher
+  title={`Comprobante ${displayRef}`}
+  refNumber={displayRef}
+  back={back}
+  autoPrint={false}
+>
+  {copies.map(() => (
+    <div class="voucher">
+      <div class="v-header">
+        <div class="v-org">
+          <img
+            src="/carrasco_transporte.jpg"
+            alt="Logo"
+            class="v-logo"
+            width="62"
+            height="62"
+            style="width:62px;height:62px;max-width:62px;max-height:62px;object-fit:contain;display:block;flex-shrink:0"
+          />
+          <div class="v-org-text">
+            <p class="v-org-name">SINDICATO DE TRANSPORTE</p>
+            <p class="v-org-sub">TRANS CARRASCO TROPICAL</p>
+            <p class="v-org-addr">Ivirgarzama — Cochabamba</p>
+            <p class="v-org-nit">NIT: 147758022</p>
+          </div>
+        </div>
+        <div class="v-title-block">
+          <p class="v-title">COMPROBANTE</p>
+          <p class="v-title-sub">{isDeposit ? "INGRESO" : "EGRESO"} DE CAJA</p>
+        </div>
+        <div class="v-meta">
+          <p class="v-meta-ref">N° Ref.: <strong>{displayRef}</strong></p>
+          <p class="v-meta-date">Fecha: {issueDate}</p>
+        </div>
+      </div>
+
+      <div class="v-info-row">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+        </svg>
+        <span>
+          <span class="v-info-lbl">Caja: </span>
+          <span class="v-info-val">{tx.cashboxName}</span>
+        </span>
+        <span style="color:#9ca3af">|</span>
+        <span>
+          <span class="v-info-lbl">Operador: </span>
+          <span class="v-info-val">{operatorName}</span>
+        </span>
+        {tx.authorizedBy && (
+          <>
+            <span style="color:#9ca3af">|</span>
+            <span>
+              <span class="v-info-lbl">Autorizado por: </span>
+              <span class="v-info-val">{tx.authorizedBy}</span>
+            </span>
+          </>
+        )}
+      </div>
+
+      <table class="v-table">
+        <thead>
+          <tr>
+            <th class="v-th v-th-left">Descripcion</th>
+            <th class="v-th v-th-right">Monto Bs</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="v-row-even">
+            <td class="v-td">
+              <p class="v-td-name">{tx.concept}</p>
+              {tx.description && <p class="v-td-note">{tx.description}</p>}
+              {tx.categoryName && tx.categoryName !== tx.concept && (
+                <p class="v-td-note">Categoria: {tx.categoryName}</p>
+              )}
+            </td>
+            <td class="v-td v-td-right v-mono">{fmtBOB(tx.amount)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="v-totals">
+        <div class="v-total-card">
+          <div class="v-total-final">
+            <span>TOTAL Bs</span>
+            <span class="v-mono">{fmtBOB(tx.amount)}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- {tx.balanceAfter && (
+        <div style="display:flex;justify-content:flex-end;padding:2px 14px 6px;font-size:.62rem;color:#6b7280">
+          Saldo en caja despues de operacion:
+          <strong style="margin-left:4px;color:#374151">{fmtBOB(tx.balanceAfter)}</strong>
+        </div>
+      )} -->
+
+      <div class="v-footer">
+        <span>{isDeposit ? "Ingreso" : "Egreso"} registrado — {displayRef}</span>
+        <span>{issueDate}</span>
+      </div>
+    </div>
+  ))}
+</PrintVoucher>

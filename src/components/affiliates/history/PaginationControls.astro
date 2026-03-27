@@ -1,0 +1,100 @@
+---
+import { ChevronLeft, ChevronRight } from "@lucide/astro";
+
+interface Props {
+    nextCursor: string | null;
+    prevCursor: string | null;
+    hasNextPage: boolean;
+    totalCount?: number;
+    pageSize?: number;
+    currentPageCount: number;
+    pageNumber: number;
+    extraQuery?: string;
+}
+
+const {
+    nextCursor,
+    prevCursor,
+    hasNextPage,
+    totalCount,
+    pageSize,
+    currentPageCount,
+    pageNumber,
+    extraQuery = "",
+} = Astro.props;
+
+const from = totalCount && pageSize ? (pageNumber - 1) * pageSize + 1 : 1;
+const to = from + currentPageCount - 1;
+
+const buildHref = (cursor: string | null) =>
+    cursor
+        ? `?cursor=${cursor}${pageSize ? `&pageSize=${pageSize}` : ""}&page=${pageNumber + (cursor === nextCursor ? 1 : -1)}${extraQuery ? `&${extraQuery}` : ""}`
+        : "#";
+---
+
+<div class="flex items-center justify-between gap-4 flex-wrap">
+    <div class="flex flex-col gap-0.5">
+        {
+            totalCount !== undefined ? (
+                <p class="text-sm text-muted-foreground">
+                    Mostrando{" "}
+                    <span class="font-semibold text-foreground">
+                        {from}–{to}
+                    </span>{" "}
+                    de{" "}
+                    <span class="font-semibold text-foreground">
+                        {totalCount}
+                    </span>{" "}
+                    registros
+                </p>
+            ) : (
+            <>
+                <p class="text-sm text-muted-foreground">
+                    Mostrando{" "}
+                    <span class="font-semibold text-foreground">
+                        {currentPageCount}
+                    </span>{" "}
+                    registros
+                </p>
+                {
+                    !hasNextPage && totalCount !== undefined && (
+                        <p class="text-xs text-muted-foreground/70">Última página</p>
+                    )
+                }
+            </>
+            )
+        }
+    </div>
+
+    <div class="flex items-center gap-3">
+        <span class="text-xs text-muted-foreground tabular-nums"
+            >Pág. {pageNumber}</span
+        >
+        <div class="flex items-center gap-1.5">
+            <a
+                href={buildHref(prevCursor)}
+                class:list={[
+                    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2",
+                    !prevCursor ? "pointer-events-none opacity-40" : "",
+                ]}
+                aria-disabled={!prevCursor}
+            >
+                <ChevronLeft class="mr-1.5 h-4 w-4" />
+                Anterior
+            </a>
+            <a
+                href={buildHref(nextCursor)}
+                class:list={[
+                    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                    "border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2",
+                    !hasNextPage ? "pointer-events-none opacity-40" : "",
+                ]}
+                aria-disabled={!hasNextPage}
+            >
+                Siguiente
+                <ChevronRight class="ml-1.5 h-4 w-4" />
+            </a>
+        </div>
+    </div>
+</div>

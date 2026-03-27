@@ -1,0 +1,434 @@
+---
+/**
+ * /rrhh/empleados/nuevo
+ * New employee registration form (POST → action rrhh.createEmployee)
+ */
+import FinanceLayout from "@/layouts/FinanceLayout.astro";
+import { actions, isActionError, isInputError } from "astro:actions";
+import { db } from "@/db";
+import { sectors } from "@/db/schema";
+import { asc, eq } from "drizzle-orm";
+import {
+    getEmployeeCountByType,
+    MAX_DIRECTORIO,
+    MAX_PLANTA,
+} from "@/services/rrhh/rrhh.service";
+import { UserPlus, AlertTriangle } from "@lucide/astro";
+
+const { user } = Astro.locals;
+if (!user) return Astro.redirect("/login");
+if (!["ADMIN", "ADMON"].includes(user.role ?? ""))
+    return Astro.redirect("/rrhh");
+
+const result = Astro.getActionResult(actions.rrhh.createEmployee);
+const inputErrors = isInputError(result?.error) ? result.error.fields : {};
+const errorMessage = isActionError(result?.error) ? result.error.message : null;
+
+if (!result?.error && result?.data?.success) {
+    return Astro.redirect("/rrhh/empleados?created=1");
+}
+
+const [allSectors, counts] = await Promise.all([
+    db
+        .select({ id: sectors.id, name: sectors.name })
+        .from(sectors)
+        .where(eq(sectors.isActive, true))
+        .orderBy(asc(sectors.name)),
+    getEmployeeCountByType(),
+]);
+
+const directorioFull = counts.directorio >= MAX_DIRECTORIO;
+const plantaFull = counts.planta >= MAX_PLANTA;
+---
+
+<FinanceLayout title="Registrar Empleado" user={user}>
+    <main class="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
+        <!-- Breadcrumb -->
+        <div class="text-sm text-slate-500 mb-4 flex items-center gap-1.5">
+            <a href="/rrhh" class="hover:text-slate-700">RRHH</a>
+            <span>/</span>
+            <a
+                href="/rrhh/empleados"
+                class="hover:text-slate-700">Empleados</a
+            >
+            <span>/</span>
+            <span class="text-slate-900 font-medium">Nuevo</span>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-6">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="rounded-lg bg-emerald-100 p-2">
+                    <UserPlus class="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900">
+                        Registrar Empleado
+                    </h1>
+                    <p class="text-xs text-slate-500">
+                        Complete todos los campos requeridos
+                    </p>
+                </div>
+            </div>
+
+            <!-- Capacity warnings -->
+            {
+                directorioFull && (
+                    <div class="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                        <AlertTriangle class="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                        <p class="text-sm text-amber-800">
+                            El Directorio ya alcanzó el máximo de{" "}
+                            {MAX_DIRECTORIO} miembros activos.
+                        </p>
+                    </div>
+                )
+            }
+            {
+                plantaFull && (
+                    <div class="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                        <AlertTriangle class="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                        <p class="text-sm text-amber-800">
+                            La Planta ya alcanzó el máximo de {MAX_PLANTA}{" "}
+                            empleados activos.
+                        </p>
+                    </div>
+                )
+            }
+
+            {
+                errorMessage && (
+                    <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                        <p class="text-sm text-red-700">{errorMessage}</p>
+                    </div>
+                )
+            }
+
+            <form
+                method="POST"
+                action={actions.rrhh.createEmployee}
+                class="space-y-5"
+            >
+                <!-- Type -->
+                <div>
+                    <label
+                        class="block text-sm font-semibold text-slate-700 mb-1.5"
+                    >
+                        Tipo de Empleado <span class="text-red-500">*</span>
+                    </label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label
+                            class="relative flex cursor-pointer items-center gap-3 rounded-lg border-2 border-slate-200 p-4 hover:border-blue-300 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50"
+                        >
+                            <input
+                                type="radio"
+                                name="employeeType"
+                                value="directorio"
+                                class="sr-only"
+                                required
+                            />
+                            <div class="flex-1">
+                                <p class="font-semibold text-slate-800 text-sm">
+                                    Directorio
+                                </p>
+                                <p class="text-xs text-slate-500">
+                                    {counts.directorio}/{MAX_DIRECTORIO} activos
+                                </p>
+                            </div>
+                            {
+                                directorioFull && (
+                                    <span class="text-[10px] font-bold text-red-500">
+                                        LLENO
+                                    </span>
+                                )
+                            }
+                        </label>
+                        <label
+                            class="relative flex cursor-pointer items-center gap-3 rounded-lg border-2 border-slate-200 p-4 hover:border-violet-300 transition-colors has-[:checked]:border-violet-500 has-[:checked]:bg-violet-50"
+                        >
+                            <input
+                                type="radio"
+                                name="employeeType"
+                                value="planta"
+                                class="sr-only"
+                            />
+                            <div class="flex-1">
+                                <p class="font-semibold text-slate-800 text-sm">
+                                    Planta
+                                </p>
+                                <p class="text-xs text-slate-500">
+                                    {counts.planta}/{MAX_PLANTA} activos
+                                </p>
+                            </div>
+                            {
+                                plantaFull && (
+                                    <span class="text-[10px] font-bold text-red-500">
+                                        LLENO
+                                    </span>
+                                )
+                            }
+                        </label>
+                    </div>
+                    {
+                        inputErrors.employeeType && (
+                            <p class="mt-1 text-xs text-red-600">
+                                {inputErrors.employeeType}
+                            </p>
+                        )
+                    }
+                </div>
+
+                <!-- Identity -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="col-span-1">
+                        <label
+                            class="block text-sm font-medium text-slate-700 mb-1"
+                        >
+                            CI <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="ci"
+                            required
+                            placeholder="12345678"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {
+                            inputErrors.ci && (
+                                <p class="mt-1 text-xs text-red-600">
+                                    {inputErrors.ci}
+                                </p>
+                            )
+                        }
+                    </div>
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-slate-700 mb-1"
+                            >Ciudad CI</label
+                        >
+                        <input
+                            type="text"
+                            name="ciCity"
+                            placeholder="CB"
+                            maxlength="5"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-slate-700 mb-1"
+                        >
+                            Nombre(s) <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="name"
+                            required
+                            placeholder="Juan"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {
+                            inputErrors.name && (
+                                <p class="mt-1 text-xs text-red-600">
+                                    {inputErrors.name}
+                                </p>
+                            )
+                        }
+                    </div>
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-slate-700 mb-1"
+                        >
+                            1er Apellido <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            name="pLastName"
+                            required
+                            placeholder="Pérez"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {
+                            inputErrors.pLastName && (
+                                <p class="mt-1 text-xs text-red-600">
+                                    {inputErrors.pLastName}
+                                </p>
+                            )
+                        }
+                    </div>
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-slate-700 mb-1"
+                            >2do Apellido</label
+                        >
+                        <input
+                            type="text"
+                            name="mLastName"
+                            placeholder="López"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <!-- Contact -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-slate-700 mb-1"
+                            >Teléfono</label
+                        >
+                        <input
+                            type="tel"
+                            name="phone"
+                            placeholder="+591 70000000"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-slate-700 mb-1"
+                            >Dirección</label
+                        >
+                        <input
+                            type="text"
+                            name="address"
+                            placeholder="Av. Principal #123"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <!-- Role -->
+                <div>
+                    <label
+                        class="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                        Cargo / Función <span class="text-red-500">*</span>
+                    </label>
+                    <input
+                        type="text"
+                        name="chargeTitle"
+                        required
+                        placeholder="Ej: Secretario General, Tesorero, Auxiliar Administrativo"
+                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {
+                        inputErrors.chargeTitle && (
+                            <p class="mt-1 text-xs text-red-600">
+                                {inputErrors.chargeTitle}
+                            </p>
+                        )
+                    }
+                </div>
+
+                <!-- Sector -->
+                <div>
+                    <label
+                        class="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                        Sector <span class="text-red-500">*</span>
+                    </label>
+                    <select
+                        name="sectorId"
+                        required
+                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="">— Seleccionar sector —</option>
+                        {
+                            allSectors.map((s) => (
+                                <option value={s.id}>{s.name}</option>
+                            ))
+                        }
+                    </select>
+                    {
+                        inputErrors.sectorId && (
+                            <p class="mt-1 text-xs text-red-600">
+                                {inputErrors.sectorId}
+                            </p>
+                        )
+                    }
+                </div>
+
+                <!-- Hire date + Salary -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-slate-700 mb-1"
+                        >
+                            Fecha de Ingreso <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="date"
+                            name="hireDate"
+                            required
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {
+                            inputErrors.hireDate && (
+                                <p class="mt-1 text-xs text-red-600">
+                                    {inputErrors.hireDate}
+                                </p>
+                            )
+                        }
+                    </div>
+                    <div>
+                        <label
+                            class="block text-sm font-medium text-slate-700 mb-1"
+                        >
+                            Salario Base (Bs) <span class="text-red-500">*</span
+                            >
+                        </label>
+                        <input
+                            type="number"
+                            name="baseSalary"
+                            required
+                            min="0"
+                            step="0.01"
+                            placeholder="2500.00"
+                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        {
+                            inputErrors.baseSalary && (
+                                <p class="mt-1 text-xs text-red-600">
+                                    {inputErrors.baseSalary}
+                                </p>
+                            )
+                        }
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1"
+                        >Notas</label
+                    >
+                    <textarea
+                        name="notes"
+                        rows="2"
+                        placeholder="Observaciones opcionales..."
+                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    ></textarea>
+                </div>
+
+                <!-- Actions -->
+                <div
+                    class="flex items-center justify-between border-t border-slate-100 pt-4"
+                >
+                    <a
+                        href="/rrhh/empleados"
+                        class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                    >
+                        Cancelar
+                    </a>
+                    <button
+                        type="submit"
+                        class="rounded-lg bg-emerald-600 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm"
+                    >
+                        Registrar Empleado
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+</FinanceLayout>

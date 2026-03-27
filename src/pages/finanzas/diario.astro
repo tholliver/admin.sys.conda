@@ -1,0 +1,358 @@
+---
+// src/pages/reportes/diario.astro
+import FinanceLayout from "@/layouts/FinanceLayout.astro";
+import {
+    getDailyReport,
+    getDailyTransactionsByCategory,
+    getDailyTransactionsList,
+} from "@/services/finances/report-queries";
+import { formatBOB } from "@/services/finances/helpers";
+import {
+    Calendar,
+    TrendingUp,
+    TrendingDown,
+    ArrowUpRight,
+    ArrowDownLeft,
+    FileText,
+    Download,
+} from "@lucide/astro";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+// Get date from query params or use Bolivia "today"
+const dateParam = Astro.url.searchParams.get("date")?.trim();
+const getBoliviaDateString = (date: Date = new Date()) => {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/La_Paz",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    });
+    const [{ value: month }, , { value: day }, , { value: year }] =
+        formatter.formatToParts(date);
+    return `${year}-${month}-${day}`;
+};
+const boliviaDateString = dateParam || getBoliviaDateString();
+const selectedDate = new Date(`${boliviaDateString}T00:00:00-04:00`);
+
+const dailyReport = await getDailyReport(selectedDate);
+const categoryBreakdown = await getDailyTransactionsByCategory(selectedDate);
+const transactionsList = await getDailyTransactionsList(selectedDate);
+
+const incomeCategories = categoryBreakdown.filter((c) => c.type === "deposit");
+const outcomeCategories = categoryBreakdown.filter(
+    (c) => c.type === "withdraw",
+);
+---
+
+<FinanceLayout title="Reporte Diario" user={user}>
+    <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-8 flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900">
+                    Reporte Diario
+                </h1>
+                <p class="mt-2 text-slate-600">
+                    Resumen de operaciones del {
+                        new Date(dailyReport.date).toLocaleDateString("es-BO", {
+                            weekday: "long",
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                        })
+                    }
+                </p>
+            </div>
+
+            <div class="flex gap-3">
+                <input
+                    type="date"
+                    value={dailyReport.date}
+                    onchange="window.location.href = `?date=${this.value}`"
+                    class="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+                />
+                <button
+                    id="dl"
+                    type="button"
+                    data-date={dailyReport.date}
+                    class="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                >
+                    <Download class="h-4 w-4" />
+                    Exportar PDF
+                </button>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <!-- Opening Balance -->
+            <div class="rounded-lg border border-slate-200 bg-white p-6">
+                <p class="text-sm font-medium text-slate-600 mb-2">
+                    Saldo Inicial
+                </p>
+                <p class="text-2xl font-bold text-slate-900">
+                    {formatBOB(dailyReport.openingBalance)}
+                </p>
+            </div>
+
+            <!-- Total Income -->
+            <div class="rounded-lg border border-green-200 bg-green-50 p-6">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-sm font-medium text-green-700">Ingresos</p>
+                    <TrendingUp class="h-5 w-5 text-green-600" />
+                </div>
+                <p class="text-2xl font-bold text-green-900">
+                    {formatBOB(dailyReport.totalIncome)}
+                </p>
+                <p class="text-xs text-green-600 mt-1">
+                    {dailyReport.incomeCount} transacciones
+                </p>
+            </div>
+
+            <!-- Total Outcome -->
+            <div class="rounded-lg border border-red-200 bg-red-50 p-6">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-sm font-medium text-red-700">Egresos</p>
+                    <TrendingDown class="h-5 w-5 text-red-600" />
+                </div>
+                <p class="text-2xl font-bold text-red-900">
+                    {formatBOB(dailyReport.totalOutcome)}
+                </p>
+                <p class="text-xs text-red-600 mt-1">
+                    {dailyReport.outcomeCount} transacciones
+                </p>
+            </div>
+
+            <!-- Closing Balance -->
+            <div
+                class={`rounded-lg border p-6 ${
+                    parseFloat(dailyReport.netChange) >= 0
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-red-200 bg-red-50"
+                }`}
+            >
+                <p
+                    class={`text-sm font-medium mb-2 ${
+                        parseFloat(dailyReport.netChange) >= 0
+                            ? "text-emerald-700"
+                            : "text-red-700"
+                    }`}
+                >
+                    Saldo Final
+                </p>
+                <p
+                    class={`text-2xl font-bold ${
+                        parseFloat(dailyReport.netChange) >= 0
+                            ? "text-emerald-900"
+                            : "text-red-900"
+                    }`}
+                >
+                    {formatBOB(dailyReport.closingBalance)}
+                </p>
+                <p
+                    class={`text-xs mt-1 ${
+                        parseFloat(dailyReport.netChange) >= 0
+                            ? "text-emerald-600"
+                            : "text-red-600"
+                    }`}
+                >
+                    {parseFloat(dailyReport.netChange) >= 0 ? "+" : ""}
+                    {formatBOB(dailyReport.netChange)}
+                </p>
+            </div>
+        </div>
+
+        <!-- Category Breakdown -->
+        <div class="mb-8 grid gap-6 lg:grid-cols-2">
+            <!-- Income by Category -->
+            <div class="rounded-lg border border-slate-200 bg-white p-6">
+                <h2 class="mb-4 text-lg font-semibold text-slate-900">
+                    Ingresos por Categoría
+                </h2>
+                <div class="space-y-3">
+                    {
+                        incomeCategories.length > 0 ? (
+                            incomeCategories.map((cat) => (
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium text-slate-900">
+                                            {cat.categoryName}
+                                        </p>
+                                        <p class="text-xs text-slate-500">
+                                            {cat.transactionCount} transacciones
+                                        </p>
+                                    </div>
+                                    <p class="text-sm font-bold text-green-600">
+                                        {formatBOB(cat.totalAmount)}
+                                    </p>
+                                </div>
+                            ))
+                        ) : (
+                            <p class="text-center text-sm text-slate-500 py-4">
+                                No hay ingresos registrados
+                            </p>
+                        )
+                    }
+                </div>
+            </div>
+
+            <!-- Outcome by Category -->
+            <div class="rounded-lg border border-slate-200 bg-white p-6">
+                <h2 class="mb-4 text-lg font-semibold text-slate-900">
+                    Egresos por Categoría
+                </h2>
+                <div class="space-y-3">
+                    {
+                        outcomeCategories.length > 0 ? (
+                            outcomeCategories.map((cat) => (
+                                <div class="flex items-center justify-between">
+                                    <div class="flex-1">
+                                        <p class="text-sm font-medium text-slate-900">
+                                            {cat.categoryName}
+                                        </p>
+                                        <p class="text-xs text-slate-500">
+                                            {cat.transactionCount} transacciones
+                                        </p>
+                                    </div>
+                                    <p class="text-sm font-bold text-red-600">
+                                        {formatBOB(cat.totalAmount)}
+                                    </p>
+                                </div>
+                            ))
+                        ) : (
+                            <p class="text-center text-sm text-slate-500 py-4">
+                                No hay egresos registrados
+                            </p>
+                        )
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Transactions List -->
+        <div class="rounded-lg border border-slate-200 bg-white p-6">
+            <h2 class="mb-4 text-lg font-semibold text-slate-900">
+                Detalle de Transacciones ({transactionsList.length})
+            </h2>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="border-b border-slate-200 bg-slate-50">
+                        <tr>
+                            <th
+                                class="px-4 py-3 text-left font-medium text-slate-600"
+                                >Hora</th
+                            >
+                            <th
+                                class="px-4 py-3 text-left font-medium text-slate-600"
+                                >Cuenta</th
+                            >
+                            <th
+                                class="px-4 py-3 text-left font-medium text-slate-600"
+                                >Categoría</th
+                            >
+                            <th
+                                class="px-4 py-3 text-left font-medium text-slate-600"
+                                >Referencia</th
+                            >
+                            <th
+                                class="px-4 py-3 text-right font-medium text-slate-600"
+                                >Monto</th
+                            >
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {
+                            transactionsList.map((tx) => (
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-4 py-3 text-slate-600 whitespace-nowrap">
+                                        {new Date(
+                                            tx.createdAt,
+                                        ).toLocaleTimeString("es-BO", {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })}
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div class="flex items-center gap-2">
+                                            <div
+                                                class={`p-1.5 rounded-full ${
+                                                    tx.type === "deposit"
+                                                        ? "bg-green-100 text-green-600"
+                                                        : "bg-red-100 text-red-600"
+                                                }`}
+                                            >
+                                                {tx.type === "deposit" ? (
+                                                    <ArrowUpRight class="h-3 w-3" />
+                                                ) : (
+                                                    <ArrowDownLeft class="h-3 w-3" />
+                                                )}
+                                            </div>
+                                            <span class="font-medium text-slate-900">
+                                                {tx.concept}
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-slate-600">
+                                        {tx.categoryName}
+                                    </td>
+                                    <td class="px-4 py-3 text-slate-500 text-xs">
+                                        {tx.reference || "-"}
+                                    </td>
+                                    <td
+                                        class={`px-4 py-3 text-right font-semibold ${
+                                            tx.type === "deposit"
+                                                ? "text-green-600"
+                                                : "text-red-600"
+                                        }`}
+                                    >
+                                        {tx.type === "deposit" ? "+" : "-"}
+                                        {formatBOB(tx.amount)}
+                                    </td>
+                                </tr>
+                            ))
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</FinanceLayout>
+
+<script is:inline>
+    const downloadButton = document.getElementById("dl");
+    if (downloadButton) {
+        downloadButton.addEventListener("click", async () => {
+            const date = downloadButton.getAttribute("data-date");
+            const url = date
+                ? `/api/finance/daily-transactions.pdf?date=${date}`
+                : "/api/finance/daily-transactions.pdf";
+            const res = await fetch(url);
+            if (!res.ok) {
+                console.error("No se pudo descargar el reporte");
+                return;
+            }
+
+            const blob = await res.blob();
+            const downloadUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = `reporte-diario-${date ?? "hoy"}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(downloadUrl);
+        });
+    }
+</script>
+
+<style>
+    @media print {
+        button,
+        input[type="date"] {
+            display: none;
+        }
+    }
+</style>

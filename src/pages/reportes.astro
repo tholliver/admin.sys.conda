@@ -1,0 +1,596 @@
+---
+// src/pages/reportes.astro
+import Layout from "@/layouts/FinanceLayout.astro";
+import { db } from "@/db";
+import {
+    transactions,
+    transactionCategories,
+    cashboxes,
+} from "@/db/schema";
+import { eq, and, desc, sql, gte, lte, isNull } from "drizzle-orm";
+import DialogTriggerSkeleton from "@/components/skeletons/DialogTriggerSkeleton.astro";
+import {
+    TrendingUp,
+    TrendingDown,
+    Calendar,
+    ChartPie,
+    ChartColumn,
+} from "@lucide/astro";
+import BadgeBs from "@/components/icons/BadgeBs.astro";
+import AnalyticsExportDialog from "@/components/svelte/finance/AnalyticsExportDialog.svelte";
+import {
+    formatCompactCurrency,
+    formatNumber,
+    getPercentage,
+} from "@/services/finances/finance-ui-helpers";
+import { formatBOB } from "@/services/finances/helpers";
+
+const user = Astro.locals.user;
+if (!user) {
+    return Astro.redirect("/login");
+}
+
+// ============================================================================
+// DATE RANGE SETUP
+// ============================================================================
+
+const now = new Date();
+const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+const endOfMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0,
+    23,
+    59,
+    59,
+);
+const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+// ============================================================================
+// OPTIMIZED QUERIES
+// ============================================================================
+
+// Query 1: Current Balance Summary
+const [balanceSummary] = await db
+    .select({
+        totalBalance: sql<string>`COALESCE(SUM(CAST(${cashboxes.balance} AS NUMERIC)), 0)`,
+        activeBoxes: sql<number>`COUNT(CASE WHEN ${cashboxes.status} = 'active' THEN 1 END)`,
+        totalBoxes: sql<number>`COUNT(*)`,
+    })
+    .from(cashboxes)
+    .where(isNull(cashboxes.deletedAt));
+
+// Query 2: Monthly Summary (Current Month)
+const [monthlySummary] = await db
+    .select({
+        totalIncome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'deposit' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+        totalOutcome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'withdraw' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+        incomeCount: sql<number>`COUNT(CASE WHEN ${transactions.type} = 'deposit' THEN 1 END)`,
+        outcomeCount: sql<number>`COUNT(CASE WHEN ${transactions.type} = 'withdraw' THEN 1 END)`,
+        totalTransactions: sql<number>`COUNT(*)`,
+    })
+    .from(transactions)
+    .where(
+        and(
+            gte(transactions.createdAt, startOfMonth),
+            lte(transactions.createdAt, endOfMonth),
+            eq(transactions.status, "completed"),
+        ),
+    );
+
+// Query 3: Top Income Categories (This Month)
+const topIncomeCategories = await db
+    .select({
+        categoryId: transactions.categoryId,
+        categoryName: transactionCategories.name,
+        categoryCode: transactionCategories.code,
+        totalAmount: sql<string>`SUM(CAST(${transactions.amount} AS NUMERIC))`,
+        transactionCount: sql<number>`COUNT(*)`,
+        avgAmount: sql<string>`AVG(CAST(${transactions.amount} AS NUMERIC))`,
+    })
+    .from(transactions)
+    .innerJoin(
+        transactionCategories,
+        eq(transactions.categoryId, transactionCategories.id),
+    )
+    .where(
+        and(
+            eq(transactions.type, "deposit"),
+            eq(transactions.status, "completed"),
+            gte(transactions.createdAt, startOfMonth),
+            lte(transactions.createdAt, endOfMonth),
+        ),
+    )
+    .groupBy(
+        transactions.categoryId,
+        transactionCategories.name,
+        transactionCategories.code,
+    )
+    .orderBy(desc(sql`SUM(CAST(${transactions.amount} AS NUMERIC))`))
+    .limit(10);
+
+// Query 4: Top Outcome Categories (This Month)
+const topOutcomeCategories = await db
+    .select({
+        categoryId: transactions.categoryId,
+        categoryName: transactionCategories.name,
+        categoryCode: transactionCategories.code,
+        totalAmount: sql<string>`SUM(CAST(${transactions.amount} AS NUMERIC))`,
+        transactionCount: sql<number>`COUNT(*)`,
+        avgAmount: sql<string>`AVG(CAST(${transactions.amount} AS NUMERIC))`,
+    })
+    .from(transactions)
+    .innerJoin(
+        transactionCategories,
+        eq(transactions.categoryId, transactionCategories.id),
+    )
+    .where(
+        and(
+            eq(transactions.type, "withdraw"),
+            eq(transactions.status, "completed"),
+            gte(transactions.createdAt, startOfMonth),
+            lte(transactions.createdAt, endOfMonth),
+        ),
+    )
+    .groupBy(
+        transactions.categoryId,
+        transactionCategories.name,
+        transactionCategories.code,
+    )
+    .orderBy(desc(sql`SUM(CAST(${transactions.amount} AS NUMERIC))`))
+    .limit(10);
+
+// Query 5: Monthly Trend (Last 6 Months)
+const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+const monthlyTrend = await db
+    .select({
+        month: sql<string>`TO_CHAR(${transactions.createdAt}, 'YYYY-MM')`,
+        monthName: sql<string>`TO_CHAR(${transactions.createdAt}, 'Mon YYYY')`,
+        totalIncome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'deposit' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+        totalOutcome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'withdraw' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+        netChange: sql<string>`COALESCE(
+            SUM(CASE WHEN ${transactions.type} = 'deposit' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END) -
+            SUM(CASE WHEN ${transactions.type} = 'withdraw' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+    })
+    .from(transactions)
+    .where(
+        and(
+            gte(transactions.createdAt, sixMonthsAgo),
+            eq(transactions.status, "completed"),
+        ),
+    )
+    .groupBy(
+        sql`TO_CHAR(${transactions.createdAt}, 'YYYY-MM')`,
+        sql`TO_CHAR(${transactions.createdAt}, 'Mon YYYY')`,
+    )
+    .orderBy(sql`TO_CHAR(${transactions.createdAt}, 'YYYY-MM')`);
+
+// Query 6: Year-to-Date Summary
+const [ytdSummary] = await db
+    .select({
+        totalIncome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'deposit' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+        totalOutcome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'withdraw' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+    })
+    .from(transactions)
+    .where(
+        and(
+            gte(transactions.createdAt, startOfYear),
+            eq(transactions.status, "completed"),
+        ),
+    );
+
+// Calculate derived values
+const netIncome =
+    parseFloat(monthlySummary.totalIncome) -
+    parseFloat(monthlySummary.totalOutcome);
+const ytdNetIncome =
+    parseFloat(ytdSummary.totalIncome) - parseFloat(ytdSummary.totalOutcome);
+---
+
+<Layout title="Análisis Financiero" user={user}>
+    <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <!-- Page Header -->
+        <div class="mb-8 flex items-center justify-between">
+            <!-- Left: Title -->
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900">
+                    Análisis Financiero
+                </h1>
+                <p class="mt-2 text-slate-600">
+                    Resumen de ingresos, egresos y tendencias
+                </p>
+            </div>
+
+            <AnalyticsExportDialog client:only="svelte">
+                <div slot="fallback">
+                    <DialogTriggerSkeleton />
+                </div>
+            </AnalyticsExportDialog>
+        </div>
+
+        <!-- Key Metrics Cards -->
+        <div
+            class="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 mb-8"
+        >
+            <!-- Total Balance -->
+            <div
+                class="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4 sm:p-6"
+            >
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="flex-1 min-w-0">
+                        <p
+                            class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 sm:mb-2"
+                        >
+                            Balance Total
+                        </p>
+                        <p
+                            class="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100 wrap-break-word leading-tight cursor-help"
+                            title={formatBOB(balanceSummary.totalBalance)}
+                        >
+                            {formatCompactCurrency(balanceSummary.totalBalance)}
+                        </p>
+                    </div>
+                    <div
+                        class="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0"
+                    >
+                        <BadgeBs
+                            class="size-5 sm:size-6 text-blue-600 dark:text-blue-400"
+                        />
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {balanceSummary.activeBoxes} de {balanceSummary.totalBoxes} cajas
+                    activas
+                </p>
+            </div>
+
+            <!-- Monthly Income -->
+            <div
+                class="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4 sm:p-6"
+            >
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="flex-1 min-w-0">
+                        <p
+                            class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 sm:mb-2"
+                        >
+                            Ingresos del Mes
+                        </p>
+                        <p
+                            class="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600 dark:text-emerald-400 wrap-break-words leading-tight cursor-help"
+                            title={formatBOB(monthlySummary.totalIncome)}
+                        >
+                            {formatCompactCurrency(monthlySummary.totalIncome)}
+                        </p>
+                    </div>
+                    <div
+                        class="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0"
+                    >
+                        <TrendingUp
+                            class="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600 dark:text-emerald-400"
+                        />
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {formatNumber(monthlySummary.incomeCount)} transacciones
+                </p>
+            </div>
+
+            <!-- Monthly Outcome -->
+            <div
+                class="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4 sm:p-6"
+            >
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="flex-1 min-w-0">
+                        <p
+                            class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 sm:mb-2"
+                        >
+                            Egresos del Mes
+                        </p>
+                        <p
+                            class="text-lg sm:text-xl lg:text-2xl font-bold text-red-600 dark:text-red-400 wrap-break-word leading-tight cursor-help"
+                            title={formatBOB(monthlySummary.totalOutcome)}
+                        >
+                            {formatCompactCurrency(monthlySummary.totalOutcome)}
+                        </p>
+                    </div>
+                    <div
+                        class="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center shrink-0"
+                    >
+                        <TrendingDown
+                            class="h-5 w-5 sm:h-6 sm:w-6 text-red-600 dark:text-red-400"
+                        />
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {formatNumber(monthlySummary.outcomeCount)} transacciones
+                </p>
+            </div>
+
+            <!-- Net Income -->
+            <div
+                class="bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 p-4 sm:p-6"
+            >
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="flex-1 min-w-0">
+                        <p
+                            class="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5 sm:mb-2"
+                        >
+                            Balance Mensual
+                        </p>
+                        <p
+                            class={`text-lg sm:text-xl lg:text-2xl font-bold wrap-break-word leading-tight cursor-help ${netIncome >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+                            title={formatBOB(netIncome)}
+                        >
+                            {formatCompactCurrency(netIncome)}
+                        </p>
+                    </div>
+                    <div
+                        class={`h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center shrink-0 ${netIncome >= 0 ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-red-100 dark:bg-red-900/30"}`}
+                    >
+                        <Calendar
+                            class={`h-5 w-5 sm:h-6 sm:w-6 ${netIncome >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
+                        />
+                    </div>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {formatNumber(monthlySummary.totalTransactions)} operaciones totales
+                </p>
+            </div>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-2 mb-8">
+            <!-- Top Income Categories -->
+            <div class="bg-white rounded-lg border border-slate-200 p-6">
+                <div class="flex items-center gap-2 mb-6">
+                    <div
+                        class="h-8 w-8 rounded-lg bg-emerald-100 flex items-center justify-center"
+                    >
+                        <TrendingUp class="h-4 w-4 text-emerald-600" />
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-slate-900">
+                            Top Ingresos
+                        </h2>
+                        <p class="text-xs text-slate-500">
+                            Por categoría este mes
+                        </p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    {
+                        topIncomeCategories.length > 0 ? (
+                            topIncomeCategories.map((category, index) => (
+                                <div class="flex items-center gap-4">
+                                    <div class="shrink-0 w-6 text-center">
+                                        <span class="text-sm font-semibold text-slate-400">
+                                            {index + 1}
+                                        </span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <p class="text-sm font-medium text-slate-900 truncate">
+                                                {category.categoryName}
+                                            </p>
+                                            <p class="text-sm font-bold text-emerald-600 ml-2">
+                                                {formatBOB(
+                                                    category.totalAmount,
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex-1 bg-slate-100 rounded-full h-2">
+                                                <div
+                                                    class="bg-emerald-500 h-2 rounded-full transition-all"
+                                                    style={`width: ${getPercentage(category.totalAmount, monthlySummary.totalIncome)}%`}
+                                                />
+                                            </div>
+                                            <span class="text-xs text-slate-500 shrink-0">
+                                                {category.transactionCount} ops
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <p class="text-sm text-slate-500 text-center py-8">
+                                No hay datos de ingresos este mes
+                            </p>
+                        )
+                    }
+                </div>
+            </div>
+
+            <!-- Top Outcome Categories -->
+            <div class="bg-white rounded-lg border border-slate-200 p-6">
+                <div class="flex items-center gap-2 mb-6">
+                    <div
+                        class="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center"
+                    >
+                        <TrendingDown class="h-4 w-4 text-red-600" />
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold text-slate-900">
+                            Top Egresos
+                        </h2>
+                        <p class="text-xs text-slate-500">
+                            Por categoría este mes
+                        </p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    {
+                        topOutcomeCategories.length > 0 ? (
+                            topOutcomeCategories.map((category, index) => (
+                                <div class="flex items-center gap-4">
+                                    <div class="shrink-0 w-6 text-center">
+                                        <span class="text-sm font-semibold text-slate-400">
+                                            {index + 1}
+                                        </span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <p class="text-sm font-medium text-slate-900 truncate">
+                                                {category.categoryName}
+                                            </p>
+                                            <p class="text-sm font-bold text-red-600 ml-2">
+                                                {formatBOB(
+                                                    category.totalAmount,
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="flex-1 bg-slate-100 rounded-full h-2">
+                                                <div
+                                                    class="bg-red-500 h-2 rounded-full transition-all"
+                                                    style={`width: ${getPercentage(category.totalAmount, monthlySummary.totalOutcome)}%`}
+                                                />
+                                            </div>
+                                            <span class="text-xs text-slate-500 shrink-0">
+                                                {category.transactionCount} ops
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <p class="text-sm text-slate-500 text-center py-8">
+                                No hay datos de egresos este mes
+                            </p>
+                        )
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Monthly Trend Chart -->
+        <div class="bg-white rounded-lg border border-slate-200 p-6 mb-8">
+            <div class="flex items-center gap-2 mb-6">
+                <div
+                    class="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center"
+                >
+                    <ChartColumn class="h-4 w-4 text-blue-600" />
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-900">
+                        Tendencia Últimos 6 Meses
+                    </h2>
+                    <p class="text-xs text-slate-500">
+                        Comparación de ingresos vs egresos
+                    </p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <div class="min-w-150 space-y-4">
+                    {
+                        monthlyTrend.map((month) => {
+                            const maxValue = Math.max(
+                                parseFloat(month.totalIncome),
+                                parseFloat(month.totalOutcome),
+                            );
+                            const incomePercent =
+                                maxValue > 0
+                                    ? (parseFloat(month.totalIncome) /
+                                          maxValue) *
+                                      100
+                                    : 0;
+                            const outcomePercent =
+                                maxValue > 0
+                                    ? (parseFloat(month.totalOutcome) /
+                                          maxValue) *
+                                      100
+                                    : 0;
+
+                            return (
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm font-medium text-slate-700 w-24">
+                                            {month.monthName}
+                                        </span>
+                                        <div class="flex-1 mx-4 space-y-2">
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-20 text-right">
+                                                    <span class="text-xs font-medium text-emerald-600">
+                                                        {formatBOB(
+                                                            month.totalIncome,
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <div class="flex-1 bg-slate-100 rounded-full h-6 relative overflow-hidden">
+                                                    <div
+                                                        class="bg-emerald-500 h-full rounded-full transition-all"
+                                                        style={`width: ${incomePercent}%`}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <div class="w-20 text-right">
+                                                    <span class="text-xs font-medium text-red-600">
+                                                        {formatBOB(
+                                                            month.totalOutcome,
+                                                        )}
+                                                    </span>
+                                                </div>
+                                                <div class="flex-1 bg-slate-100 rounded-full h-6 relative overflow-hidden">
+                                                    <div
+                                                        class="bg-red-500 h-full rounded-full transition-all"
+                                                        style={`width: ${outcomePercent}%`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="w-24 text-right">
+                                            <span
+                                                class={`text-sm font-bold ${parseFloat(month.netChange) >= 0 ? "text-emerald-600" : "text-red-600"}`}
+                                            >
+                                                {parseFloat(month.netChange) >=
+                                                0
+                                                    ? "+"
+                                                    : ""}
+                                                {formatBOB(month.netChange)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Year to Date Summary -->
+        <div
+            class="bg-linear-to-br from-blue-500 to-blue-600 rounded-lg p-6 text-white"
+        >
+            <div class="flex items-center gap-2 mb-4">
+                <ChartPie class="h-5 w-5" />
+                <h2 class="text-lg font-semibold">
+                    Resumen Anual {now.getFullYear()}
+                </h2>
+            </div>
+            <div class="grid md:grid-cols-3 gap-6">
+                <div>
+                    <p class="text-blue-100 text-sm mb-1">Total Ingresos</p>
+                    <p class="text-2xl font-bold">
+                        {formatBOB(ytdSummary.totalIncome)}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm mb-1">Total Egresos</p>
+                    <p class="text-2xl font-bold">
+                        {formatBOB(ytdSummary.totalOutcome)}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-blue-100 text-sm mb-1">Balance Neto</p>
+                    <p class="text-2xl font-bold">
+                        {formatBOB(ytdNetIncome)}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</Layout>

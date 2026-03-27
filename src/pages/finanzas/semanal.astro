@@ -1,0 +1,231 @@
+---
+// src/pages/reportes/semanal.astro
+import FinanceLayout from "@/layouts/FinanceLayout.astro";
+import { getWeeklyReport } from "@/services/finances/report-queries";
+import { formatBOB } from "@/services/finances/helpers";
+import { Calendar, TrendingUp, TrendingDown, ChartColumn } from "@lucide/astro";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+const dateParam = Astro.url.searchParams.get("date");
+const selectedDate = dateParam ? new Date(dateParam) : new Date();
+
+const weeklyReport = await getWeeklyReport(selectedDate);
+---
+
+<FinanceLayout title="Reporte Semanal" user={user}>
+    <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="mb-8 flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-900">
+                    Reporte Semanal
+                </h1>
+                <p class="mt-2 text-slate-600">
+                    Semana #{weeklyReport.weekNumber} · {
+                        new Date(weeklyReport.weekStart).toLocaleDateString(
+                            "es-BO",
+                        )
+                    } - {
+                        new Date(weeklyReport.weekEnd).toLocaleDateString(
+                            "es-BO",
+                        )
+                    }
+                </p>
+            </div>
+
+            <div class="flex gap-3">
+                <input
+                    type="date"
+                    value={selectedDate.toISOString().split("T")[0]}
+                    onchange="window.location.href = `?date=${this.value}`"
+                    class="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+                />
+                <button
+                    onclick="window.print()"
+                    class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                >
+                    Exportar
+                </button>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="rounded-lg border border-green-200 bg-green-50 p-6">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-sm font-medium text-green-700">
+                        Total Ingresos
+                    </p>
+                    <TrendingUp class="h-5 w-5 text-green-600" />
+                </div>
+                <p class="text-2xl font-bold text-green-900">
+                    {formatBOB(weeklyReport.totalIncome)}
+                </p>
+                <p class="text-xs text-green-600 mt-1">
+                    {weeklyReport.incomeCount} transacciones
+                </p>
+            </div>
+
+            <div class="rounded-lg border border-red-200 bg-red-50 p-6">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-sm font-medium text-red-700">
+                        Total Egresos
+                    </p>
+                    <TrendingDown class="h-5 w-5 text-red-600" />
+                </div>
+                <p class="text-2xl font-bold text-red-900">
+                    {formatBOB(weeklyReport.totalOutcome)}
+                </p>
+                <p class="text-xs text-red-600 mt-1">
+                    {weeklyReport.outcomeCount} transacciones
+                </p>
+            </div>
+
+            <div
+                class={`rounded-lg border p-6 ${
+                    parseFloat(weeklyReport.netChange) >= 0
+                        ? "border-emerald-200 bg-emerald-50"
+                        : "border-amber-200 bg-amber-50"
+                }`}
+            >
+                <div class="flex items-center justify-between mb-2">
+                    <p
+                        class={`text-sm font-medium ${
+                            parseFloat(weeklyReport.netChange) >= 0
+                                ? "text-emerald-700"
+                                : "text-amber-700"
+                        }`}
+                    >
+                        Balance Neto
+                    </p>
+                    <ChartColumn
+                        class={`h-5 w-5 ${
+                            parseFloat(weeklyReport.netChange) >= 0
+                                ? "text-emerald-600"
+                                : "text-amber-600"
+                        }`}
+                    />
+                </div>
+                <p
+                    class={`text-2xl font-bold ${
+                        parseFloat(weeklyReport.netChange) >= 0
+                            ? "text-emerald-900"
+                            : "text-amber-900"
+                    }`}
+                >
+                    {formatBOB(weeklyReport.netChange)}
+                </p>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-white p-6">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-sm font-medium text-slate-600">
+                        Total Operaciones
+                    </p>
+                    <Calendar class="h-5 w-5 text-slate-400" />
+                </div>
+                <p class="text-2xl font-bold text-slate-900">
+                    {weeklyReport.totalTransactions}
+                </p>
+            </div>
+        </div>
+
+        <!-- Daily Breakdown -->
+        <div class="rounded-lg border border-slate-200 bg-white p-6">
+            <h2 class="mb-6 text-lg font-semibold text-slate-900">
+                Desglose Diario
+            </h2>
+
+            <div class="space-y-4">
+                {
+                    weeklyReport.dailyBreakdown.map((day) => {
+                        const maxValue = Math.max(
+                            parseFloat(day.totalIncome),
+                            parseFloat(day.totalOutcome),
+                        );
+                        const incomePercent =
+                            maxValue > 0
+                                ? (parseFloat(day.totalIncome) / maxValue) * 100
+                                : 0;
+                        const outcomePercent =
+                            maxValue > 0
+                                ? (parseFloat(day.totalOutcome) / maxValue) *
+                                  100
+                                : 0;
+
+                        return (
+                            <div class="rounded-lg border border-slate-100 p-4">
+                                <div class="mb-3 flex items-center justify-between">
+                                    <div>
+                                        <p class="font-semibold text-slate-900">
+                                            {new Date(
+                                                day.date + "T12:00:00",
+                                            ).toLocaleDateString("es-BO", {
+                                                weekday: "long",
+                                                day: "numeric",
+                                                month: "long",
+                                            })}
+                                        </p>
+                                        <p class="text-xs text-slate-500">
+                                            {day.transactionCount} transacciones
+                                        </p>
+                                    </div>
+                                    <p
+                                        class={`text-lg font-bold ${
+                                            parseFloat(day.netChange) >= 0
+                                                ? "text-green-600"
+                                                : "text-red-600"
+                                        }`}
+                                    >
+                                        {parseFloat(day.netChange) >= 0
+                                            ? "+"
+                                            : ""}
+                                        {formatBOB(day.netChange)}
+                                    </p>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-20 text-xs font-medium text-green-600">
+                                            Ingresos
+                                        </span>
+                                        <div class="flex-1 bg-slate-100 rounded-full h-6">
+                                            <div
+                                                class="bg-green-500 h-6 rounded-full flex items-center justify-end pr-2"
+                                                style={`width: ${incomePercent}%`}
+                                            >
+                                                <span class="text-xs font-semibold text-white">
+                                                    {formatBOB(day.totalIncome)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-20 text-xs font-medium text-red-600">
+                                            Egresos
+                                        </span>
+                                        <div class="flex-1 bg-slate-100 rounded-full h-6">
+                                            <div
+                                                class="bg-red-500 h-6 rounded-full flex items-center justify-end pr-2"
+                                                style={`width: ${outcomePercent}%`}
+                                            >
+                                                <span class="text-xs font-semibold text-white">
+                                                    {formatBOB(
+                                                        day.totalOutcome,
+                                                    )}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })
+                }
+            </div>
+        </div>
+    </div>
+</FinanceLayout>

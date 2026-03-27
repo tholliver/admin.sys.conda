@@ -1,0 +1,46 @@
+---
+interface Props {
+  position?: "top-left" | "top-center" | "top-right" | "bottom-left" | "bottom-center" | "bottom-right";
+  richColors?: boolean;
+  visibleToasts?: number;
+  closeButton?: boolean;
+  offset?: string;
+  className?: string;
+}
+const {
+  position = "top-center",
+  richColors = false,
+  visibleToasts = 3,
+  closeButton = false,
+  offset = "1rem",
+  className = "",
+} = Astro.props as Props;
+---
+<div
+  data-plain-toaster-host
+  data-position={position}
+  data-rich-colors={String(richColors)}
+  data-visible-toasts={String(visibleToasts)}
+  data-close-button={String(closeButton)}
+  data-offset={offset}
+  data-class-name={className}
+  class={className}
+  transition:persist
+></div>
+<script>
+  import { mountPlainToaster } from "@/lib/toast/dom";
+
+  function mountAllPlainToasters() {
+    document
+      .querySelectorAll<HTMLElement>("[data-plain-toaster-host]")
+      .forEach((host) => mountPlainToaster(host));
+  }
+
+  // Initial mount
+  mountAllPlainToasters();
+
+  // Re-run after every Astro view transition swap.
+  // mountPlainToaster is idempotent — with transition:persist the host survives,
+  // isFirstMount will be false, and only the subscription is renewed.
+  document.addEventListener("astro:after-swap", mountAllPlainToasters);
+</script>

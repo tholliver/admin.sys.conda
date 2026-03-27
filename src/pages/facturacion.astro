@@ -1,0 +1,232 @@
+---
+import { db } from "@/db";
+import { invoiceRanges } from "@/db/schema";
+import FinanceLayout from "@/layouts/FinanceLayout.astro";
+import InvoiceRangeCreateDialog from "@/components/svelte/invoice-ranges/InvoiceRangeCreateDialog.svelte";
+import InvoiceRangeEditDialog from "@/components/svelte/invoice-ranges/InvoiceRangeEditDialog.svelte";
+import InvoiceRangeDeleteButton from "@/components/svelte/invoice-ranges/InvoiceRangeDeleteButton.svelte";
+import { desc } from "drizzle-orm";
+
+const { user } = Astro.locals;
+if (!user) return Astro.redirect("/login");
+
+const ranges = await db
+    .select()
+    .from(invoiceRanges)
+    .orderBy(desc(invoiceRanges.current), desc(invoiceRanges.category));
+
+const total     = ranges.length;
+const active    = ranges.filter((r) => Number(r.current) < Number(r.rangeEnd)).length;
+const exhausted = ranges.filter((r) => Number(r.current) >= Number(r.rangeEnd)).length;
+const warning   = ranges.filter((r) => {
+    const used  = Number(r.current)  - Number(r.rangeStart);
+    const span  = Number(r.rangeEnd) - Number(r.rangeStart);
+    const pct   = span > 0 ? (used / span) * 100 : 0;
+    return pct >= 80 && Number(r.current) < Number(r.rangeEnd);
+}).length;
+
+type RangeStatus = "active" | "warning" | "exhausted";
+
+function getRangeStatus(r: typeof ranges[number]): RangeStatus {
+    const used = Number(r.current)  - Number(r.rangeStart);
+    const span = Number(r.rangeEnd) - Number(r.rangeStart);
+    const pct  = span > 0 ? (used / span) * 100 : 0;
+    if (Number(r.current) >= Number(r.rangeEnd)) return "exhausted";
+    if (pct >= 80) return "warning";
+    return "active";
+}
+
+function getPct(r: typeof ranges[number]): number {
+    const used = Number(r.current)  - Number(r.rangeStart);
+    const span = Number(r.rangeEnd) - Number(r.rangeStart);
+    return span > 0 ? Math.min(Math.round((used / span) * 100), 100) : 0;
+}
+---
+
+<FinanceLayout title="Facturación" user={user}>
+    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+
+        <!-- Page header -->
+        <div class="flex items-start justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-xl font-semibold text-slate-900">Rangos de facturación</h1>
+                <p class="text-sm text-slate-500 mt-0.5">
+                    Gestiona los rangos de numeración por categoría de factura.
+                </p>
+            </div>
+            <InvoiceRangeCreateDialog client:only="svelte" />
+        </div>
+
+        <!-- Summary stats -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <p class="text-xs text-slate-500 mb-1">Total rangos</p>
+                <p class="text-2xl font-semibold text-slate-900">{total}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <p class="text-xs text-slate-500 mb-1">Activos</p>
+                <p class="text-2xl font-semibold text-emerald-600">{active}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <p class="text-xs text-slate-500 mb-1">Por agotarse</p>
+                <p class="text-2xl font-semibold text-amber-500">{warning}</p>
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <p class="text-xs text-slate-500 mb-1">Agotados</p>
+                <p class="text-2xl font-semibold text-red-500">{exhausted}</p>
+            </div>
+        </div>
+
+        <!-- Table card -->
+        <div class="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+            {ranges.length > 0 ? (
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead>
+                            <tr class="border-b border-slate-200 bg-slate-50">
+                                <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Categoría</th>
+                                <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">COD/Prefijo</th>
+                                <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Rango</th>
+                                <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Actual</th>
+                                <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Uso</th>
+                                <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Estado</th>
+                                <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide text-right">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {ranges.map((range) => {
+                                const status = getRangeStatus(range);
+                                const pct    = getPct(range);
+
+                                const rowBg =
+                                    status === "exhausted" ? "bg-red-50/40"
+                                    : status === "warning"  ? "bg-amber-50/40"
+                                    : "";
+
+                                const barColor =
+                                    status === "exhausted" ? "bg-red-500"
+                                    : status === "warning"  ? "bg-amber-400"
+                                    : "bg-emerald-500";
+
+                                const badgeClass =
+                                    status === "exhausted" ? "bg-red-100 text-red-700"
+                                    : status === "warning"  ? "bg-amber-100 text-amber-700"
+                                    : "bg-emerald-100 text-emerald-700";
+
+                                const dotColor =
+                                    status === "exhausted" ? "bg-red-500"
+                                    : status === "warning"  ? "bg-amber-400"
+                                    : "bg-emerald-500";
+
+                                const badgeLabel =
+                                    status === "exhausted" ? "Agotado"
+                                    : status === "warning"  ? "Por agotarse"
+                                    : "Activo";
+
+                                return (
+                                    <tr class={`transition-colors hover:bg-slate-50/60 ${rowBg}`}>
+
+                                        <!-- Category -->
+                                        <td class="px-4 py-3.5">
+                                            <p class="font-medium text-slate-900 capitalize">{range.category}</p>
+                                        </td>
+
+                                        <!-- Prefix -->
+                                        <td class="px-4 py-3.5">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="inline-block font-mono text-xs font-medium px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700">
+                                            {range.code}
+                                            </span>
+                                            {range.prefix && range.prefix !== range.code && (
+                                            <span class="inline-block font-mono text-xs px-2 py-0.5 rounded-md text-slate-400 border border-slate-200">
+                                                {range.prefix}
+                                            </span>
+                                            )}
+                                        </div>
+                                        </td>
+
+                                        <!-- Range -->
+                                        <td class="px-4 py-3.5 font-mono text-xs text-slate-700 whitespace-nowrap">
+                                            {Number(range.rangeStart).toLocaleString("es-BO")}
+                                            <span class="text-slate-400 mx-1">–</span>
+                                            {Number(range.rangeEnd).toLocaleString("es-BO")}
+                                        </td>
+
+                                        <!-- Current -->
+                                        <td class="px-4 py-3.5 font-mono text-xs text-slate-700">
+                                            {Number(range.current).toLocaleString("es-BO")}
+                                        </td>
+
+                                        <!-- Usage bar -->
+                                        <td class="px-4 py-3.5">
+                                            <div class="flex flex-col gap-1 min-w-[110px]">
+                                                <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                                    <div
+                                                        class={`h-full rounded-full ${barColor}`}
+                                                        style={`width: ${pct}%`}
+                                                    />
+                                                </div>
+                                                <span class="text-xs text-slate-500">{pct}%</span>
+                                            </div>
+                                        </td>
+
+                                        <!-- Status badge -->
+                                        <td class="px-4 py-3.5">
+                                            <span class={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${badgeClass}`}>
+                                                <span class={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
+                                                {badgeLabel}
+                                            </span>
+                                        </td>
+
+                                        <!-- Actions -->
+                                        <td class="px-4 py-3.5">
+                                            <div class="flex items-center justify-end gap-1.5">
+                                                <InvoiceRangeEditDialog range={range} client:only="svelte" />
+                                                <InvoiceRangeDeleteButton
+                                                    range={range}
+                                                    client:only="svelte"
+                                                />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div class="flex flex-col items-center justify-center py-16 px-4 text-center">
+                    <div class="rounded-full bg-slate-100 p-4 mb-4">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-8 w-8 text-slate-400"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
+                            <path d="M14 8H8" />
+                            <path d="M16 12H8" />
+                            <path d="M13 16H8" />
+                        </svg>
+                    </div>
+                    <p class="text-sm font-medium text-slate-700">No hay rangos definidos</p>
+                    <p class="text-xs text-slate-500 mt-1 max-w-xs">
+                        Crea el primer rango con el botón "Nuevo rango" para empezar a gestionar la numeración de facturas.
+                    </p>
+                </div>
+            )}
+        </div>
+
+        <!-- Row count -->
+        {ranges.length > 0 && (
+            <p class="text-xs text-slate-400 mt-3 text-right">
+                {total} {total === 1 ? "rango" : "rangos"} en total
+            </p>
+        )}
+
+    </main>
+</FinanceLayout>

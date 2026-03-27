@@ -1,0 +1,537 @@
+---
+/**
+ * PrintVoucher.astro
+ * Shared shell for all print voucher pages.
+ * Renders the full HTML document with org header, print CSS, and a controls bar.
+ * Pass content via the default slot.
+ *
+ * Props:
+ *   title        — <title> and bar label
+ *   refNumber    — receipt/invoice number shown in bar
+ *   back         — href for the "← Volver" button (default "/")
+ *   autoPrint    — whether to auto-trigger print on load (default false for caja vouchers)
+ */
+
+interface Props {
+    title: string;
+    refNumber: string;
+    back?: string;
+    autoPrint?: boolean;
+}
+
+const { title, refNumber, back = "/", autoPrint = false } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{title}</title>
+        <style is:global>
+            *,
+            *::before,
+            *::after {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            html,
+            body {
+                background: #fff;
+                color: #111827;
+                font-family: ui-sans-serif, system-ui, sans-serif;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            #mount {
+                max-width: 780px;
+                margin: 0 auto;
+                padding: 20px 24px;
+            }
+
+            /* ── Controls bar ── */
+            #bar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: nowrap;
+                gap: 12px;
+                padding-bottom: 14px;
+                border-bottom: 1px solid #e5e7eb;
+                margin-bottom: 16px;
+            }
+            #bar-left {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-shrink: 0;
+            }
+            #bar-right {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                flex-shrink: 0;
+            }
+            .badge {
+                display: inline-block;
+                font-size: 0.72rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                padding: 3px 10px;
+                border-radius: 999px;
+                white-space: nowrap;
+            }
+            .badge-ok {
+                background: #dcfce7;
+                color: #16a34a;
+            }
+            .bar-ref {
+                font-size: 0.8rem;
+                color: #6b7280;
+                white-space: nowrap;
+            }
+            .btn-print {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                background: #2563eb;
+                color: #fff;
+                border: none;
+                border-radius: 8px;
+                font-size: 0.82rem;
+                font-weight: 600;
+                padding: 7px 16px;
+                cursor: pointer;
+                white-space: nowrap;
+            }
+            .btn-print:hover {
+                background: #1d4ed8;
+            }
+            .btn-back {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                background: #fff;
+                color: #374151;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                font-size: 0.82rem;
+                font-weight: 500;
+                padding: 7px 14px;
+                text-decoration: none;
+                white-space: nowrap;
+            }
+            .btn-back:hover {
+                background: #f9fafb;
+            }
+
+            /* ── Voucher shell ── */
+            .voucher {
+                background: #fff;
+                border: 1.5px solid #cbd5e1;
+                border-radius: 8px;
+                overflow: hidden;
+            }
+            .v-header {
+                display: grid;
+                grid-template-columns: auto 1fr auto;
+                align-items: stretch;
+                border-bottom: 2px solid #1e3a5f;
+            }
+            .v-org {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 12px;
+                background: #fff;
+                border-right: 1px solid #cbd5e1;
+            }
+            .v-logo {
+                width: 62px;
+                height: 62px;
+                max-width: 62px;
+                max-height: 62px;
+                object-fit: contain;
+                display: block;
+                flex-shrink: 0;
+            }
+            .v-org-text {
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+            }
+            .v-org-name {
+                font-size: 0.72rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                color: #1e3a5f;
+                line-height: 1.15;
+            }
+            .v-org-sub {
+                font-size: 0.6rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                color: #1e4d8c;
+            }
+            .v-org-addr {
+                font-size: 0.56rem;
+                color: #6b7280;
+            }
+            .v-org-nit {
+                font-size: 0.56rem;
+                color: #374151;
+                font-weight: 600;
+            }
+            .v-title-block {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 10px 8px;
+                background: #1e3a5f;
+                text-align: center;
+            }
+            .v-title {
+                font-size: 1.05rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                color: #fff;
+                line-height: 1.1;
+            }
+            .v-title-sub {
+                font-size: 0.65rem;
+                font-weight: 600;
+                letter-spacing: 0.14em;
+                color: #93c5fd;
+            }
+            .v-meta {
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                padding: 10px 14px;
+                background: #f8fafc;
+                border-left: 1px solid #cbd5e1;
+                text-align: right;
+                gap: 3px;
+            }
+            .v-meta-ref {
+                font-size: 0.68rem;
+                color: #374151;
+            }
+            .v-meta-ref strong {
+                color: #1e3a5f;
+                font-family: monospace;
+            }
+            .v-meta-date {
+                font-size: 0.62rem;
+                color: #6b7280;
+            }
+
+            /* ── Table ── */
+            .v-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.76rem;
+            }
+            .v-th {
+                padding: 5px 10px;
+                background: #1e3a5f;
+                color: #fff;
+                font-size: 0.62rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                border: 1px solid #1a4a8a;
+            }
+            .v-th-left {
+                text-align: left;
+            }
+            .v-th-right {
+                text-align: right;
+                width: 110px;
+            }
+            .v-td {
+                padding: 5px 10px;
+                border: 1px solid #e5e7eb;
+                vertical-align: top;
+                color: #111827;
+            }
+            .v-row-even {
+                background: #fff;
+            }
+            .v-row-odd {
+                background: #f9fafb;
+            }
+            .v-td-name {
+                font-weight: 600;
+                font-size: 0.76rem;
+                margin: 0;
+            }
+            .v-td-note {
+                font-size: 0.62rem;
+                color: #6b7280;
+                font-style: italic;
+                margin: 0;
+            }
+            .v-td-right {
+                text-align: right;
+            }
+            .v-mono {
+                font-family: monospace;
+                font-weight: 700;
+            }
+
+            /* ── Totals ── */
+            .v-totals {
+                display: flex;
+                justify-content: flex-end;
+                padding: 8px 14px 4px;
+            }
+            .v-total-card {
+                min-width: 155px;
+                border: 1px solid #d1d5db;
+                border-radius: 5px;
+                overflow: hidden;
+                font-size: 0.72rem;
+            }
+            .v-total-final {
+                display: flex;
+                justify-content: space-between;
+                gap: 14px;
+                padding: 5px 10px;
+                font-size: 0.78rem;
+                font-weight: 900;
+                background: #1e3a5f;
+                color: #fff;
+            }
+
+            /* ── Info row (replaces driver row for caja vouchers) ── */
+            .v-info-row {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 6px 16px;
+                padding: 6px 14px;
+                background: #f1f5f9;
+                border-bottom: 1px solid #e2e8f0;
+                font-size: 0.75rem;
+                color: #111827;
+            }
+            .v-info-lbl {
+                color: #6b7280;
+            }
+            .v-info-val {
+                font-weight: 700;
+            }
+
+            /* ── Footer ── */
+            .v-footer {
+                display: flex;
+                justify-content: space-between;
+                padding: 5px 14px;
+                border-top: 1px solid #e5e7eb;
+                font-size: 0.58rem;
+                color: #9ca3af;
+            }
+
+            /* ── Cut line (between copies) ── */
+            #cut {
+                display: none;
+            }
+
+            /* ── Screen: show only first copy ── */
+            #sheet > .voucher:last-of-type {
+                display: none;
+            }
+
+            /* ── Print ── */
+            @page {
+                size: A4 portrait;
+                margin: 10mm 10mm;
+            }
+            @media print {
+                #bar {
+                    display: none !important;
+                }
+                #mount {
+                    padding: 0 !important;
+                    max-width: 100% !important;
+                }
+                #sheet {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    height: 257mm;
+                    width: 100%;
+                }
+                #sheet > .voucher {
+                    flex: 1 1 0;
+                    min-height: 0;
+                    overflow: hidden;
+                }
+                #sheet > .voucher:last-of-type {
+                    display: flex !important;
+                    flex-direction: column;
+                }
+                #cut {
+                    display: block !important;
+                    text-align: center;
+                    font-size: 7px;
+                    color: #aaa;
+                    border-top: 1px dashed #aaa;
+                    padding: 1.5mm 0;
+                    letter-spacing: 0.2em;
+                }
+                .voucher {
+                    border-color: #888 !important;
+                    border-radius: 0 !important;
+                }
+                .v-header {
+                    border-bottom-color: #000 !important;
+                }
+                .v-org {
+                    background: #fff !important;
+                    border-right-color: #888 !important;
+                }
+                .v-org-name {
+                    color: #000 !important;
+                }
+                .v-org-sub {
+                    color: #222 !important;
+                }
+                .v-title-block {
+                    background: #fff !important;
+                    border-left: 1px solid #000 !important;
+                    border-right: 1px solid #000 !important;
+                }
+                .v-title {
+                    color: #000 !important;
+                }
+                .v-title-sub {
+                    color: #333 !important;
+                }
+                .v-meta {
+                    background: #fff !important;
+                    border-left-color: #888 !important;
+                }
+                .v-meta-ref,
+                .v-meta-ref strong,
+                .v-meta-date {
+                    color: #000 !important;
+                }
+                .v-info-row {
+                    background: #eee !important;
+                    border-bottom-color: #aaa !important;
+                    color: #000 !important;
+                }
+                .v-th {
+                    background: #111 !important;
+                    color: #fff !important;
+                    border-color: #333 !important;
+                }
+                .v-td {
+                    border-color: #aaa !important;
+                    color: #000 !important;
+                }
+                .v-row-odd {
+                    background: #f0f0f0 !important;
+                }
+                .v-total-final {
+                    background: #111 !important;
+                    color: #fff !important;
+                }
+                .v-footer {
+                    border-top-color: #ccc !important;
+                    color: #555 !important;
+                }
+                .v-logo {
+                    width: 50px !important;
+                    height: 50px !important;
+                }
+                .v-org-name {
+                    font-size: 0.65rem !important;
+                }
+                .v-title {
+                    font-size: 0.9rem !important;
+                }
+                .v-info-row {
+                    font-size: 0.68rem !important;
+                    padding: 4px 10px !important;
+                }
+                .v-th {
+                    font-size: 0.56rem !important;
+                    padding: 3px 7px !important;
+                }
+                .v-td {
+                    font-size: 0.65rem !important;
+                    padding: 3px 7px !important;
+                }
+                .v-total-card {
+                    min-width: 130px !important;
+                    font-size: 0.62rem !important;
+                }
+                .v-total-final {
+                    font-size: 0.68rem !important;
+                }
+                .v-footer {
+                    font-size: 0.5rem !important;
+                    padding: 3px 10px !important;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div id="mount">
+            <!-- Controls bar -->
+            <div id="bar">
+                <div id="bar-left">
+                    <span class="badge badge-ok">Completado</span>
+                    <span class="bar-ref">Comprobante {refNumber}</span>
+                </div>
+                <div id="bar-right">
+                    <button class="btn-print" onclick="window.print()">
+                        <svg
+                            width="15"
+                            height="15"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M9 21h6v-4H9v4z"
+                            ></path>
+                        </svg>
+                        Imprimir
+                    </button>
+                    <a href={back} class="btn-back">← Volver</a>
+                </div>
+            </div>
+
+            <!-- Two-copy sheet -->
+            <div id="sheet">
+                <slot />
+                <div id="cut">✂ &nbsp; cortar &nbsp; ✂</div>
+            </div>
+        </div>
+
+        <script define:vars={{ autoPrint }}>
+            if (autoPrint) {
+                window.addEventListener("load", () => {
+                    const img = document.querySelector("img.v-logo");
+                    const doPrint = () => setTimeout(() => window.print(), 150);
+                    if (!img) {
+                        doPrint();
+                        return;
+                    }
+                    img.addEventListener("load", doPrint, { once: true });
+                    img.addEventListener("error", doPrint, { once: true });
+                    setTimeout(doPrint, 800);
+                });
+            }
+        </script>
+    </body>
+</html>

@@ -1,0 +1,64 @@
+---
+import BackupNowWidget from "@/components/svelte/BackupNowWidget.svelte";
+import { getHoursSinceLastBackup } from "@/lib/server/backup.service";
+
+interface Props {
+    recommendedHours?: number;
+    criticalHours?: number;
+    userRole?: string | null;
+}
+
+const {
+    recommendedHours = 24,
+    criticalHours = 72,
+    userRole = null,
+} = Astro.props as Props;
+
+const canSeeNotice = userRole === "ADMIN" || userRole === "ADMON";
+
+type NoticeLevel = "warning" | "critical";
+let level: NoticeLevel | null = null;
+let message = "";
+
+try {
+    const hours = await getHoursSinceLastBackup();
+
+    if (hours === null) {
+        level = "critical";
+        message = "Sin respaldos: crea uno ahora.";
+    } else if (hours > recommendedHours) {
+        level = hours > criticalHours ? "critical" : "warning";
+        message = `Último respaldo hace ${hours}h. Recomendado: cada ${recommendedHours}h.`;
+    }
+    // hours <= recommendedHours → banner stays hidden (cron is working)
+} catch {
+    level = "critical";
+    message = "No se pudo verificar el estado de respaldos.";
+}
+---
+
+{
+    canSeeNotice && level && (
+        <div
+            class:list={[
+                "w-full border-b px-4 py-1.5 text-center text-xs font-medium print:hidden",
+                level === "critical"
+                    ? "border-red-200 bg-red-50 text-red-700"
+                    : "border-amber-200 bg-amber-50 text-amber-700",
+            ]}
+            role="status"
+            aria-live="polite"
+        >
+            <span class="inline-flex flex-wrap items-center justify-center gap-2">
+                <span>Alerta de respaldo: {message}</span>
+                <BackupNowWidget client:load />
+                <a
+                    href="/admin/respaldo/copias"
+                    class="underline underline-offset-2 font-semibold hover:opacity-80"
+                >
+                    Ir a respaldos
+                </a>
+            </span>
+        </div>
+    )
+}
