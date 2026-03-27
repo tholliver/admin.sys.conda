@@ -11,65 +11,85 @@ import {
     BanknoteArrowUp,
     BanknoteArrowDown,
     ReceiptText,
-    ChevronsUpDown,
+    Users,
+    Building2,
+    CalendarClock,
+    Layers,
+    Building,
+    X,
+    ChevronDown,
 } from "@lucide/astro";
 import Toaster from "@/lib/toast/Toaster.astro";
 import UserNav from "@/components/UserNav.astro";
 import BackupFreshnessNotice from "@/components/BackupFreshnessNotice.astro";
-// import type { UserRole } from "@/auth/types";
 
 const { title, user } = Astro.props;
 const currentPath = Astro.url.pathname;
 
-interface FinanceNavLink {
+interface NavLink {
     label: string;
     href: string;
     icon: any;
 }
 
-const navLinks: FinanceNavLink[] = [
-    { label: "Finanzas", href: "/", icon: Home },
+interface NavGroup {
+    label: string;
+    icon: any;
+    baseHref: string;
+    links: NavLink[];
+}
+
+const navGroups: NavGroup[] = [
     {
-        label: "Ingresos",
-        href: "/ingresos",
-        icon: BanknoteArrowUp,
+        label: "Finanzas",
+        icon: Home,
+        baseHref: "/",
+        links: [
+            { label: "Inicio", href: "/", icon: Home },
+            { label: "Ingresos", href: "/ingresos", icon: BanknoteArrowUp },
+            { label: "Egresos", href: "/egresos", icon: BanknoteArrowDown },
+            { label: "Talonarios", href: "/talonarios", icon: ReceiptText },
+            { label: "Reportes", href: "/reportes", icon: ChartColumn },
+            { label: "Historial", href: "/historial", icon: History },
+            { label: "Categorías", href: "/cuentas", icon: Tags },
+        ],
     },
     {
-        label: "Egresos",
-        href: "/egresos",
-        icon: BanknoteArrowDown,
+        label: "RRHH",
+        icon: Users,
+        baseHref: "/rrhh",
+        links: [
+            { label: "Panel RRHH", href: "/rrhh", icon: Layers },
+            { label: "Nómina", href: "/rrhh/empleados", icon: Users },
+            { label: "Salarios", href: "/rrhh/salarios", icon: CalendarClock },
+            { label: "Sectores", href: "/rrhh/sectores", icon: Building2 },
+        ],
     },
     {
-        label: "Talonarios",
-        href: "/talonarios",
-        icon: ReceiptText,
-    },
-    {
-        label: "Reportes",
-        href: "/reportes",
-        icon: ChartColumn,
-    },
-    {
-        label: "Historial",
-        href: "/historial",
-        icon: History,
-    },
-    {
-        label: "Categorias",
-        href: "/cuentas",
-        icon: Tags,
+        label: "Inmuebles",
+        icon: Building,
+        baseHref: "/inquilinos",
+        links: [
+            { label: "Inquilinos", href: "/inquilinos", icon: Building },
+            { label: "Clientes", href: "/inquilinos/clientes", icon: Users },
+        ],
     },
 ];
 
-const visibleNavLinks = navLinks.slice(0, 3);
-const extraNavLinks = navLinks.slice(3);
-
-// Helper to check active state
 const isActiveLink = (href: string) => {
-    if (href === "/") {
-        return currentPath === "/";
-    }
+    if (href === "/") return currentPath === "/";
     return currentPath.startsWith(href);
+};
+
+const isActiveGroup = (group: NavGroup) => {
+    if (group.baseHref === "/")
+        return (
+            currentPath === "/" ||
+            group.links.some(
+                (l) => l.href !== "/" && currentPath.startsWith(l.href),
+            )
+        );
+    return currentPath.startsWith(group.baseHref);
 };
 ---
 
@@ -82,20 +102,63 @@ const isActiveLink = (href: string) => {
         <meta name="generator" content={Astro.generator} />
         <title>{getPageTitle(title)}</title>
         <script is:inline>
-            // Mobile menu toggle
             document.addEventListener("DOMContentLoaded", () => {
+                // Mobile menu toggle
                 const menuBtn = document.getElementById("mobile-menu-btn");
                 const mobileMenu = document.getElementById("mobile-menu");
-
                 menuBtn?.addEventListener("click", () => {
                     mobileMenu?.classList.toggle("hidden");
                 });
 
-                const moreBtn = document.getElementById("mobile-more-btn");
-                const moreMenu = document.getElementById("mobile-more-menu");
-                moreBtn?.addEventListener("click", () => {
-                    moreMenu?.classList.toggle("hidden");
+                // Desktop group dropdowns
+                document.querySelectorAll("[data-group-btn]").forEach((btn) => {
+                    btn.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        const id = btn.getAttribute("data-group-btn");
+                        const panel = document.getElementById(
+                            `group-panel-${id}`,
+                        );
+                        const isOpen = !panel?.classList.contains("hidden");
+                        // Close all
+                        document
+                            .querySelectorAll("[id^='group-panel-']")
+                            .forEach((p) => p.classList.add("hidden"));
+                        document
+                            .querySelectorAll("[data-group-btn]")
+                            .forEach((b) =>
+                                b.setAttribute("data-open", "false"),
+                            );
+                        if (!isOpen) {
+                            panel?.classList.remove("hidden");
+                            btn.setAttribute("data-open", "true");
+                        }
+                    });
                 });
+
+                // Close on outside click
+                document.addEventListener("click", () => {
+                    document
+                        .querySelectorAll("[id^='group-panel-']")
+                        .forEach((p) => p.classList.add("hidden"));
+                    document
+                        .querySelectorAll("[data-group-btn]")
+                        .forEach((b) => b.setAttribute("data-open", "false"));
+                });
+
+                // Mobile group accordion
+                document
+                    .querySelectorAll("[data-mobile-group-btn]")
+                    .forEach((btn) => {
+                        btn.addEventListener("click", () => {
+                            const id = btn.getAttribute(
+                                "data-mobile-group-btn",
+                            );
+                            const panel = document.getElementById(
+                                `mobile-group-panel-${id}`,
+                            );
+                            panel?.classList.toggle("hidden");
+                        });
+                    });
             });
         </script>
     </head>
@@ -104,8 +167,8 @@ const isActiveLink = (href: string) => {
             <div
                 class="mx-auto flex gap-3 max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8"
             >
-                <!-- Logo Section -->
-                <div class="flex items-center gap-3">
+                <!-- Logo -->
+                <div class="flex items-center gap-3 shrink-0">
                     <div class="bg-emerald-100 p-2 rounded-lg">
                         <Landmark class="size-5 text-emerald-600" />
                     </div>
@@ -123,85 +186,100 @@ const isActiveLink = (href: string) => {
                     </div>
                 </div>
 
-                <!-- Desktop Navigation -->
+                <!-- Desktop Nav with grouped dropdowns -->
                 <nav
                     class="hidden md:flex items-center gap-1 ml-auto bg-slate-100/80 rounded-xl p-1.5 border border-slate-200/60"
                 >
                     {
-                        visibleNavLinks.map((link) => {
-                            const isActive = isActiveLink(link.href);
-                            return (
+                        navGroups.map((group, i) => {
+                            const groupActive = isActiveGroup(group);
+                            const singleLink = group.links.length === 1;
+                            return singleLink ? (
                                 <a
-                                    href={link.href}
+                                    href={group.links[0].href}
                                     class:list={[
                                         "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                                        isActive
+                                        groupActive
                                             ? "bg-white text-emerald-700 shadow-sm ring-1 ring-black/5"
                                             : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
                                     ]}
                                 >
-                                    {link.icon && (
-                                        <link.icon
-                                            className={
-                                                isActive
-                                                    ? "size-4 text-emerald-600"
-                                                    : "size-4 text-slate-500"
-                                            }
-                                        />
-                                    )}
-                                    {link.label}
+                                    <group.icon
+                                        class:list={[
+                                            groupActive
+                                                ? "size-4 text-emerald-600"
+                                                : "size-4 text-slate-500",
+                                        ]}
+                                    />
+                                    {group.label}
                                 </a>
+                            ) : (
+                                <div class="relative">
+                                    <button
+                                        data-group-btn={i}
+                                        data-open="false"
+                                        class:list={[
+                                            "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer select-none",
+                                            groupActive
+                                                ? "bg-white text-emerald-700 shadow-sm ring-1 ring-black/5"
+                                                : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
+                                        ]}
+                                    >
+                                        <group.icon
+                                            class:list={[
+                                                groupActive
+                                                    ? "size-4 text-emerald-600"
+                                                    : "size-4 text-slate-500",
+                                            ]}
+                                        />
+                                        {group.label}
+                                        <ChevronDown class="size-3 opacity-50" />
+                                    </button>
+                                    <div
+                                        id={`group-panel-${i}`}
+                                        class="hidden absolute left-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg z-50"
+                                    >
+                                        {group.links.map((link) => {
+                                            const active = isActiveLink(
+                                                link.href,
+                                            );
+                                            return (
+                                                <a
+                                                    href={link.href}
+                                                    class:list={[
+                                                        "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg mb-0.5 last:mb-0 transition-colors",
+                                                        active
+                                                            ? "bg-emerald-50 text-emerald-700 font-medium"
+                                                            : "text-slate-700 hover:bg-slate-50",
+                                                    ]}
+                                                >
+                                                    <link.icon
+                                                        class:list={[
+                                                            active
+                                                                ? "size-4 text-emerald-500"
+                                                                : "size-4 text-slate-400",
+                                                        ]}
+                                                    />
+                                                    {link.label}
+                                                    {active && (
+                                                        <span class="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                    )}
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             );
                         })
-                    }
-                    {
-                        extraNavLinks.length > 0 && (
-                            <details class="relative">
-                                <summary class="list-none flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900 hover:bg-white/60 cursor-pointer">
-                                    <ChevronsUpDown class="size-4" />
-                                    Mas
-                                </summary>
-                                <div class="absolute right-0 mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
-                                    {extraNavLinks.map((link) => {
-                                        const isActive = isActiveLink(
-                                            link.href,
-                                        );
-                                        return (
-                                            <a
-                                                href={link.href}
-                                                class:list={[
-                                                    "mb-1 last:mb-0 flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors",
-                                                    isActive
-                                                        ? "bg-emerald-50 text-emerald-700"
-                                                        : "text-slate-700 hover:bg-slate-50",
-                                                ]}
-                                            >
-                                                {link.icon && (
-                                                    <link.icon
-                                                        className={
-                                                            isActive
-                                                                ? "size-4 text-emerald-600"
-                                                                : "size-4 text-slate-500"
-                                                        }
-                                                    />
-                                                )}
-                                                {link.label}
-                                            </a>
-                                        );
-                                    })}
-                                </div>
-                            </details>
-                        )
                     }
                 </nav>
 
                 <div class="flex items-center gap-2">
                     <UserNav user={user} />
-
                     <button
                         id="mobile-menu-btn"
                         class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                        aria-label="Toggle menu"
+                        aria-label="Abrir menú"
                     >
                         <Menu class="size-5" />
                     </button>
@@ -213,87 +291,77 @@ const isActiveLink = (href: string) => {
                 id="mobile-menu"
                 class="hidden md:hidden border-t border-slate-200 bg-white"
             >
-                <nav
-                    class="mx-auto max-w-6xl flex flex-col p-2 sm:px-6 lg:px-8 gap-1"
-                >
+                <nav class="mx-auto max-w-6xl flex flex-col p-2 gap-0.5">
                     {
-                        visibleNavLinks.map((link) => {
-                            const isActive = isActiveLink(link.href);
+                        navGroups.map((group, i) => {
+                            const groupActive = isActiveGroup(group);
                             return (
-                                <a
-                                    href={link.href}
-                                    class:list={[
-                                        "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200",
-                                        isActive
-                                            ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-50",
-                                    ]}
-                                >
-                                    {link.icon && (
-                                        <link.icon
-                                            className={
-                                                isActive
+                                <div>
+                                    <button
+                                        data-mobile-group-btn={i}
+                                        class:list={[
+                                            "w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-lg transition-all duration-200",
+                                            groupActive
+                                                ? "bg-emerald-50 text-emerald-700"
+                                                : "text-slate-700 hover:bg-slate-50",
+                                        ]}
+                                    >
+                                        <group.icon
+                                            class:list={[
+                                                groupActive
                                                     ? "size-4 text-emerald-600"
-                                                    : "size-4 text-slate-400"
-                                            }
+                                                    : "size-4 text-slate-400",
+                                            ]}
                                         />
-                                    )}
-                                    <span>{link.label}</span>
-                                    {isActive && (
-                                        <span class="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                    )}
-                                </a>
+                                        <span class="flex-1 text-left">
+                                            {group.label}
+                                        </span>
+                                        <ChevronDown class="size-4 text-slate-400" />
+                                    </button>
+                                    <div
+                                        id={`mobile-group-panel-${i}`}
+                                        class:list={[
+                                            "pl-4 space-y-0.5 mb-1",
+                                            !groupActive && "hidden",
+                                        ]}
+                                    >
+                                        {group.links.map((link) => {
+                                            const active = isActiveLink(
+                                                link.href,
+                                            );
+                                            return (
+                                                <a
+                                                    href={link.href}
+                                                    class:list={[
+                                                        "flex items-center gap-3 px-4 py-2.5 text-sm rounded-lg transition-colors",
+                                                        active
+                                                            ? "bg-white text-emerald-700 font-medium border border-emerald-100"
+                                                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
+                                                    ]}
+                                                >
+                                                    <link.icon
+                                                        class:list={[
+                                                            active
+                                                                ? "size-4 text-emerald-500"
+                                                                : "size-4 text-slate-400",
+                                                        ]}
+                                                    />
+                                                    {link.label}
+                                                    {active && (
+                                                        <span class="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                                    )}
+                                                </a>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             );
                         })
-                    }
-                    {
-                        extraNavLinks.length > 0 && (
-                            <>
-                                <button
-                                    id="mobile-more-btn"
-                                    type="button"
-                                    class="flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                                >
-                                    <span>Mas opciones</span>
-                                </button>
-                                <div
-                                    id="mobile-more-menu"
-                                    class="hidden space-y-1"
-                                >
-                                    {extraNavLinks.map((link) => {
-                                        const isActive = isActiveLink(
-                                            link.href,
-                                        );
-                                        return (
-                                            <a
-                                                href={link.href}
-                                                class:list={[
-                                                    "ml-3 flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200",
-                                                    isActive
-                                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-50",
-                                                ]}
-                                            >
-                                                {link.icon && (
-                                                    <link.icon
-                                                        className={
-                                                            isActive
-                                                                ? "size-4 text-emerald-600"
-                                                                : "size-4 text-slate-400"
-                                                        }
-                                                    />
-                                                )}
-                                                <span>{link.label}</span>
-                                            </a>
-                                        );
-                                    })}
-                                </div>
-                            </>
-                        )
                     }
                 </nav>
             </div>
         </header>
+
         <BackupFreshnessNotice userRole={user.role} />
 
         <main class="flex-1">

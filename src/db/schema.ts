@@ -532,6 +532,157 @@ export const employeePaymentsRelations = relations(employeePayments, ({ one }) =
   }),
 }));
 
+// ------------------------------ tenants ----------------------------------
+// ============================================================
+// ENUMS
+// ============================================================
+
+export const tenantStatusEnum = pgEnum("tenant_status", [
+  "activo",
+  "inactivo",
+  "moroso",
+]);
+
+export type TenantStatus = (typeof tenantStatusEnum.enumValues)[number];
+
+export const rentPaymentStatusEnum = pgEnum("rent_payment_status", [
+  "pagado",
+  "pendiente",
+  "parcial",
+  "anulado",
+]);
+
+export type RentPaymentStatus = (typeof rentPaymentStatusEnum.enumValues)[number];
+
+// ============================================================
+// TENANTS
+// ============================================================
+
+export const tenants = pgTable(
+  "tenants",
+  {
+    id: serial("id").primaryKey(),
+    uuid: uuid("uuid").default(sql`uuidv7()`).unique().notNull(),
+
+    // Identity
+    name: varchar("name", { length: 150 }).notNull(),
+    ci: varchar("ci", { length: 20 }),
+    phone: varchar("phone", { length: 20 }),
+    email: varchar("email", { length: 150 }),
+
+    // Room / unit info
+    roomNumber: varchar("room_number", { length: 20 }).notNull(),
+    floor: varchar("floor", { length: 10 }),
+    description: text("description"),
+
+    // Rent
+    monthlyRent: numeric("monthly_rent", {
+      mode: "number",
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+    currency: varchar("currency", { length: 3 }).notNull().default("BOB"),
+
+    // Contract
+    startDate: date("start_date", { mode: "date" }).notNull(),
+    endDate: date("end_date", { mode: "date" }),
+
+    status: tenantStatusEnum("status").notNull().default("activo"),
+    notes: text("notes"),
+
+    createdByUserId: varchar("created_by_user_id", { length: 255 }).default("system"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index("idx_tenants_status").on(table.status),
+    index("idx_tenants_room").on(table.roomNumber),
+    index("idx_tenants_uuid").on(table.uuid),
+  ]
+);
+
+// ============================================================
+// TENANT PAYMENTS  (monthly rent records)
+// ============================================================
+
+export const tenantPayments = pgTable(
+  "tenant_payments",
+  {
+    id: serial("id").primaryKey(),
+    uuid: uuid("uuid").default(sql`uuidv7()`).unique().notNull(),
+
+    tenantId: integer("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "restrict" }),
+
+    /** ISO period e.g. "2025-03" */
+    period: varchar("period", { length: 7 }).notNull(),
+
+    amount: numeric("amount", {
+      mode: "number",
+      precision: 12,
+      scale: 2,
+    }).notNull(),
+
+    currency: varchar("currency", { length: 3 }).notNull().default("BOB"),
+
+    status: rentPaymentStatusEnum("status").notNull().default("pendiente"),
+
+    dueDate: date("due_date", { mode: "date" }),
+    paidAt: timestamp("paid_at", { withTimezone: true }),
+
+    receiptNumber: varchar("receipt_number", { length: 30 }),
+    notes: text("notes"),
+
+    processedByUserId: varchar("processed_by_user_id", { length: 255 }),
+
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("unique_tenant_period").on(table.tenantId, table.period),
+    index("idx_tenant_payments_tenant").on(table.tenantId),
+    index("idx_tenant_payments_status").on(table.status),
+    index("idx_tenant_payments_period").on(table.period),
+  ]
+);
+
+// ============================================================
+// RELATIONS
+// ============================================================
+
+export const tenantsRelations = relations(tenants, ({ many }) => ({
+  payments: many(tenantPayments),
+}));
+
+export const tenantPaymentsRelations = relations(tenantPayments, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [tenantPayments.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+// ============================================================
+// TYPE EXPORTS
+// ============================================================
+
+export type SelectTenant = typeof tenants.$inferSelect;
+export type InsertTenant = typeof tenants.$inferInsert;
+
+export type SelectTenantPayment = typeof tenantPayments.$inferSelect;
+export type InsertTenantPayment = typeof tenantPayments.$inferInsert;
+
+export type TenantWithPaymentSummary = SelectTenant & {
+  pendingMonths: number;
+  lastPaidPeriod: string | null;
+};
+
 // ============================== TYPE EXPORTS ============================================
 
 export type InvoiceRange = typeof invoiceRanges.$inferSelect;
