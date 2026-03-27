@@ -1,16 +1,18 @@
 /**
- * Astro Actions — RRHH delete + Inquilinos module
- * Register in src/actions/index.ts
+ * Astro Actions — RRHH extra + Inquilinos + Finance extras
+ * Register in src/actions/index.ts:
+ *
+ *   export const server = { rrhh, inquilinos, rrhhExtra, finance: { ...finance, createCashbox } }
  */
 
 import { defineAction, ActionError } from "astro:actions";
 import { z } from "zod";
 import { db } from "@/db";
-import { employees } from "@/db/schema";
+import { employees, cashboxes } from "@/db/schema";
 import { tenants, tenantPayments } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-const ADMIN_ROLES = ["ADMIN"] as const;
+const ADMIN_ROLES = ["ADMIN", "ADMON"] as const;
 
 function requireAdmin(role: string | undefined) {
   if (!role || !(ADMIN_ROLES as readonly string[]).includes(role)) {
@@ -18,7 +20,7 @@ function requireAdmin(role: string | undefined) {
   }
 }
 
-// ─── RRHH: Delete Employee ────────────────────────────────────────────────────
+// ─── RRHH: Soft-delete Employee ───────────────────────────────────────────────
 
 export const deleteEmployee = defineAction({
   accept: "form",
@@ -29,7 +31,7 @@ export const deleteEmployee = defineAction({
     requireAdmin(user.role);
 
     const [existing] = await db
-      .select({ id: employees.id, status: employees.status })
+      .select({ id: employees.id })
       .from(employees)
       .where(eq(employees.id, input.id));
 
@@ -37,17 +39,61 @@ export const deleteEmployee = defineAction({
       throw new ActionError({ code: "NOT_FOUND", message: "Empleado no encontrado." });
     }
 
-    // Soft delete: mark as baja
     await db
       .update(employees)
-      .set({ status: "baja" })
+      .set({ status: "baja", updatedAt: new Date() })
       .where(eq(employees.id, input.id));
 
     return { success: true, message: "Empleado dado de baja correctamente." };
   },
 });
 
-// ─── Inquilinos: Create Tenant ────────────────────────────────────────────────
+// ─── Finance: Create Cashbox ──────────────────────────────────────────────────
+
+export const createCashbox = defineAction({
+  accept: "form",
+  input: z.object({
+    name: z.string().min(2, "Nombre requerido").max(255),
+    code: z.string().min(2, "Código requerido").max(50)
+      .regex(/^[A-Z0-9_\-]+$/i, "Código inválido — solo letras, números, _ y -"),
+    description: z.string().max(500).optional(),
+    balance: z.coerce.number().min(0).default(0),
+  }),
+  handler: async (input, ctx) => {
+    const user = ctx.locals.user;
+    if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
+    requireAdmin(user.role);
+
+    // Check unique code
+    const [existing] = await db
+      .select({ id: cashboxes.id })
+      .from(cashboxes)
+      .where(eq(cashboxes.code, input.code.toUpperCase()));
+
+    if (existing) {
+      throw new ActionError({
+        code: "CONFLICT",
+        message: `El código "${input.code}" ya está en uso.`,
+      });
+    }
+
+    const [cashbox] = await db
+      .insert(cashboxes)
+      .values({
+        name: input.name,
+        code: input.code.toUpperCase(),
+        description: input.description ?? null,
+        balance: String(input.balance),
+        managerId: user.id,
+        status: "active",
+      })
+      .returning();
+
+    return { success: true, message: "Caja creada correctamente.", cashbox };
+  },
+});
+
+// ─── Inquilinos: Create Tenant (no currency — always BOB) ────────────────────
 
 const createTenantSchema = z.object({
   name: z.string().min(2, "Nombre requerido"),
@@ -57,8 +103,7 @@ const createTenantSchema = z.object({
   roomNumber: z.string().min(1, "N° de ambiente requerido"),
   floor: z.string().optional(),
   description: z.string().optional(),
-  monthlyRent: z.coerce.number().min(0, "Monto inválido"),
-  currency: z.enum(["BOB", "USD"]).default("BOB"),
+  monthlyRent: z.coerce.number().min(1, "Monto debe ser mayor a 0"),
   startDate: z.coerce.date(),
   endDate: z.coerce.date().optional(),
   notes: z.string().optional(),
@@ -72,15 +117,16 @@ export const createTenant = defineAction({
     if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
     requireAdmin(user.role);
 
+    // Check room not already occupied by active tenant
     const [existing] = await db
-      .select({ id: tenants.id })
+      .select({ id: tenants.id, status: tenants.status })
       .from(tenants)
       .where(eq(tenants.roomNumber, input.roomNumber));
 
-    if (existing) {
+    if (existing && existing.status === "activo") {
       throw new ActionError({
         code: "CONFLICT",
-        message: `El ambiente ${input.roomNumber} ya está asignado a otro inquilino activo.`,
+        message: `El ambiente ${input.roomNumber} ya está ocupado por un inquilino activo.`,
       });
     }
 
@@ -95,7 +141,7 @@ export const createTenant = defineAction({
         floor: input.floor || null,
         description: input.description || null,
         monthlyRent: input.monthlyRent,
-        currency: input.currency,
+        currency: "BOB",
         startDate: input.startDate,
         endDate: input.endDate ?? null,
         notes: input.notes || null,
@@ -107,7 +153,7 @@ export const createTenant = defineAction({
   },
 });
 
-// ─── Inquilinos: Delete Tenant ────────────────────────────────────────────────
+// ─── Inquilinos: Delete Tenant (soft) ────────────────────────────────────────
 
 export const deleteTenant = defineAction({
   accept: "form",
@@ -126,20 +172,24 @@ export const deleteTenant = defineAction({
       throw new ActionError({ code: "NOT_FOUND", message: "Inquilino no encontrado." });
     }
 
-    // Soft delete: mark inactive
-    await db.update(tenants).set({ status: "inactivo" }).where(eq(tenants.id, input.id));
+    await db
+      .update(tenants)
+      .set({ status: "inactivo", updatedAt: new Date() })
+      .where(eq(tenants.id, input.id));
 
-    return { success: true, message: "Inquilino eliminado correctamente." };
+    return { success: true, message: "Inquilino desactivado correctamente." };
   },
 });
 
-// ─── Inquilinos: Register Rent Payment ────────────────────────────────────────
+// ─── Inquilinos: Register Rent Payment ───────────────────────────────────────
+// notes stores the tenant name for FK traceability
 
 export const registerRentPayment = defineAction({
   accept: "form",
   input: z.object({
     tenantId: z.coerce.number().int().positive(),
-    period: z.string().regex(/^\d{4}-\d{2}$/),
+    tenantName: z.string().min(1),
+    period: z.string().regex(/^\d{4}-\d{2}$/, "Período inválido"),
     amount: z.coerce.number().min(0),
   }),
   handler: async (input, ctx) => {
@@ -147,34 +197,45 @@ export const registerRentPayment = defineAction({
     if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
     requireAdmin(user.role);
 
-    // Upsert payment record
     await db
       .insert(tenantPayments)
       .values({
         tenantId: input.tenantId,
         period: input.period,
         amount: input.amount,
+        currency: "BOB",
         status: "pagado",
         paidAt: new Date(),
+        notes: `Pago registrado — ${input.tenantName}`,
         processedByUserId: user.id,
       })
       .onConflictDoUpdate({
         target: [tenantPayments.tenantId, tenantPayments.period],
-        set: { status: "pagado", paidAt: new Date(), processedByUserId: user.id },
+        set: {
+          status: "pagado",
+          paidAt: new Date(),
+          notes: `Pago registrado — ${input.tenantName}`,
+          processedByUserId: user.id,
+          updatedAt: new Date(),
+        },
       });
 
-    return { success: true, message: "Pago registrado correctamente." };
+    return { success: true, message: `Pago de ${input.tenantName} registrado.` };
   },
 });
 
-// Export as inquilinos namespace
+// ─── Namespace exports ────────────────────────────────────────────────────────
+
 export const inquilinos = {
   createTenant,
   deleteTenant,
   registerRentPayment,
 };
 
-// Export rrhh additions
 export const rrhhExtra = {
   deleteEmployee,
 };
+
+// Add createCashbox to your finance actions namespace:
+// export const finance = { ...existingFinanceActions, createCashbox }
+// export { createCashbox };

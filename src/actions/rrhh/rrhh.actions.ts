@@ -25,7 +25,7 @@ import {
   linkSectorCashboxSchema,
 } from "@/lib/schemas/rrhh.schemas";
 import { db } from "@/db";
-import { employees, sectorCashboxLink } from "@/db/schemas/rrhh";
+import { employees, sectorCashboxLink } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 const ADMIN_ROLES = ["ADMIN", "ADMON"] as const;
@@ -157,7 +157,7 @@ export const voidEmployeeFeeAction = defineAction({
     if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
     requireAdmin(user.role);
 
-    const { employeeFees } = await import("@/db/schemas/rrhh");
+    const { employeeFees } = await import("@/db/schema");
 
     await db
       .update(employeeFees)

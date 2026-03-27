@@ -1,13 +1,12 @@
 ---
-/**
- * /inquilinos/clientes
- * Lista completa de clientes/inquilinos con filtros y gestión
- */
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { db } from "@/db";
 import { tenants } from "@/db/schema";
-import { asc, ilike, eq, or } from "drizzle-orm";
-import { Users, UserPlus, Search, Filter } from "@lucide/astro";
+import { asc } from "drizzle-orm";
+import { Users, Search, Filter } from "@lucide/astro";
+import CreateTenantDialog from "@/components/svelte/dialogs/CreateTenantDialog.svelte";
+import DeleteConfirmDialog from "@/components/svelte/dialogs/DeleteConfirmDialog.svelte";
+import CreateCashboxDialog from "@/components/svelte/dialogs/CreateCashboxDialog.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -15,8 +14,6 @@ const canEdit = (["ADMIN", "ADMON"] as const).includes(user.role as any);
 
 const search = Astro.url.searchParams.get("search") ?? "";
 const statusFilter = Astro.url.searchParams.get("status") ?? "all";
-
-let query = db.select().from(tenants);
 
 const allTenants = await db
     .select()
@@ -43,13 +40,6 @@ const STATUS_COLORS: Record<string, string> = {
     inactivo: "bg-slate-100 text-slate-500",
     moroso: "bg-red-100 text-red-700",
 };
-
-const successMsg = Astro.url.searchParams.get("created")
-    ? "Inquilino registrado correctamente."
-    : null;
-const deletedMsg = Astro.url.searchParams.get("deleted")
-    ? "Inquilino eliminado."
-    : null;
 ---
 
 <FinanceLayout title="Clientes — Inquilinos" user={user}>
@@ -64,40 +54,23 @@ const deletedMsg = Astro.url.searchParams.get("deleted")
                         >Inquilinos</a
                     >
                     <span>/</span>
-                    <span class="text-slate-900 font-medium">Clientes</span>
+                    <span class="text-slate-900 font-medium"
+                        >Clientes ({filtered.length})</span
+                    >
                 </div>
                 <h1 class="text-xl font-bold text-slate-900">
-                    Clientes ({filtered.length})
+                    Gestión de Clientes
                 </h1>
             </div>
             {
                 canEdit && (
-                    <a
-                        href="/inquilinos/clientes/nuevo"
-                        class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors"
-                    >
-                        <UserPlus class="h-4 w-4" />
-                        Registrar
-                    </a>
+                    <div class="flex items-center gap-2">
+                        <CreateCashboxDialog client:load />
+                        <CreateTenantDialog client:load />
+                    </div>
                 )
             }
         </div>
-
-        <!-- Feedback -->
-        {
-            successMsg && (
-                <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                    {successMsg}
-                </div>
-            )
-        }
-        {
-            deletedMsg && (
-                <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                    {deletedMsg}
-                </div>
-            )
-        }
 
         <!-- Filters -->
         <form
@@ -170,9 +143,7 @@ const deletedMsg = Astro.url.searchParams.get("deleted")
                             <th class="py-3 px-4 text-right font-medium"
                                 >Alquiler/Mes</th
                             >
-                            <th class="py-3 px-4 font-medium"
-                                >Inicio Contrato</th
-                            >
+                            <th class="py-3 px-4 font-medium">Inicio</th>
                             <th class="py-3 px-4 font-medium">Estado</th>
                             {
                                 canEdit && (
@@ -191,8 +162,7 @@ const deletedMsg = Astro.url.searchParams.get("deleted")
                                         colspan="8"
                                         class="py-12 text-center text-slate-400 text-sm"
                                     >
-                                        No se encontraron clientes con los
-                                        filtros actuales.
+                                        No se encontraron clientes.
                                     </td>
                                 </tr>
                             ) : (
@@ -255,35 +225,21 @@ const deletedMsg = Astro.url.searchParams.get("deleted")
                                             <td class="py-3.5 px-4 text-right">
                                                 <div class="flex items-center justify-end gap-2">
                                                     <a
-                                                        href={`/inquilinos/clientes/${t.id}`}
-                                                        class="rounded border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                                                    >
-                                                        Ver
-                                                    </a>
-                                                    <a
                                                         href={`/inquilinos/clientes/${t.id}/editar`}
                                                         class="rounded border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
                                                     >
                                                         Editar
                                                     </a>
-                                                    <form
-                                                        method="POST"
-                                                        action="/api/inquilinos/eliminar"
-                                                        class="inline"
-                                                        onsubmit="return confirm('¿Eliminar este inquilino? Esta acción no se puede deshacer.')"
-                                                    >
-                                                        <input
-                                                            type="hidden"
-                                                            name="id"
-                                                            value={t.id}
+                                                    {t.status !==
+                                                        "inactivo" && (
+                                                        <DeleteConfirmDialog
+                                                            client:load
+                                                            entityType="tenant"
+                                                            entityId={t.id}
+                                                            entityName={t.name}
+                                                            entityLabel={`Amb. ${t.roomNumber}`}
                                                         />
-                                                        <button
-                                                            type="submit"
-                                                            class="rounded border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
-                                                        >
-                                                            Eliminar
-                                                        </button>
-                                                    </form>
+                                                    )}
                                                 </div>
                                             </td>
                                         )}
