@@ -33,7 +33,7 @@
                 description: `Rango "${range.category}" eliminado correctamente`,
             });
             isOpen = false;
-            navigate("/facturacion");
+            navigate("/talonarios");
         } catch (err: any) {
             toast.error("Error al eliminar", {
                 description: err?.message ?? "Error desconocido",

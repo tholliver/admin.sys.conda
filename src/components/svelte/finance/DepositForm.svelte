@@ -571,7 +571,7 @@
                     Talonario agotado. Ingresar referencia manualmente.
                     <a
                         title="Ampliar rango"
-                        href="/facturacion"
+                        href="/talonarios"
                         target="_blank"
                         rel="noopener noreferrer"
                         class="underline font-semibold hover:opacity-80"

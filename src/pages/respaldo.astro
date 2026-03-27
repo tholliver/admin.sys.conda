@@ -1,0 +1,547 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import BackupOperations from "@/components/svelte/sys/BackupOperations.svelte";
+import BackupTable from "@/components/svelte/sys/BackupTable.svelte";
+import {
+    getBackupSystemInfo,
+    listBackupFiles,
+} from "@/lib/server/backup.service";
+
+const [systemInfo, backupFiles] = await Promise.all([
+    getBackupSystemInfo(),
+    listBackupFiles(),
+]);
+
+// ── Derived stats ─────────────────────────────────────────────────────────────
+const latestBackup =
+    backupFiles.length > 0
+        ? [...backupFiles].sort(
+              (a, b) =>
+                  new Date(b.created).getTime() - new Date(a.created).getTime(),
+          )[0]
+        : null;
+
+// Use USB cron timestamp if available, otherwise fall back to latest file
+const lastBackupDate = systemInfo.usbStatus.lastCronBackup
+    ? new Date(systemInfo.usbStatus.lastCronBackup)
+    : latestBackup
+      ? new Date(latestBackup.created)
+      : null;
+
+const hoursAgo = lastBackupDate
+    ? Math.floor((Date.now() - lastBackupDate.getTime()) / (1000 * 60 * 60))
+    : null;
+
+const health: "ok" | "warning" | "critical" =
+    hoursAgo === null
+        ? "critical"
+        : hoursAgo <= 24
+          ? "ok"
+          : hoursAgo < 72
+            ? "warning"
+            : "critical";
+
+function formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const units = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${units[i]}`;
+}
+
+const totalBytes = backupFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+const storageUsed = formatBytes(totalBytes);
+
+const platformLabel = systemInfo.isWindows
+    ? "Windows"
+    : systemInfo.isLinux
+      ? "Linux"
+      : systemInfo.platform;
+
+const pgVersion = systemInfo.pgDumpCommand?.match(/(\d+)/)?.[1] ?? null;
+
+const healthConfig = {
+    ok: {
+        badge: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+        dot: "bg-emerald-500",
+        label: "Sistema protegido",
+    },
+    warning: {
+        badge: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+        dot: "bg-amber-500",
+        label: "Respaldo recomendado",
+    },
+    critical: {
+        badge: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
+        dot: "bg-red-500",
+        label: "Requiere acción",
+    },
+}[health];
+
+const lastBackupLabel =
+    hoursAgo === null
+        ? "Sin respaldos"
+        : hoursAgo === 0
+          ? "Hace menos de 1h"
+          : hoursAgo === 1
+            ? "Hace 1 hora"
+            : hoursAgo < 24
+              ? `Hace ${hoursAgo} horas`
+              : hoursAgo < 48
+                ? "Hace 1 día"
+                : `Hace ${Math.floor(hoursAgo / 24)} días`;
+
+// USB card config
+const usb = systemInfo.usbStatus;
+const usbCardConfig = !usb.configured
+    ? {
+          color: "bg-slate-100 dark:bg-slate-800",
+          text: "text-slate-600 dark:text-slate-400",
+          dot: "bg-slate-400",
+          label: "No configurado",
+          hint: "Agrega USB_BACKUP_PATH al .env",
+      }
+    : !usb.mounted
+      ? {
+            color: "bg-red-100 dark:bg-red-900/30",
+            text: "text-red-600 dark:text-red-400",
+            dot: "bg-red-500",
+            label: "Sin conexión",
+            hint: "Verifica que el USB esté conectado",
+        }
+      : usb.lastCronHoursAgo !== null && usb.lastCronHoursAgo > 24
+        ? {
+              color: "bg-amber-100 dark:bg-amber-900/30",
+              text: "text-amber-600 dark:text-amber-400",
+              dot: "bg-amber-500",
+              label: "Cron inactivo",
+              hint: `Último auto-respaldo hace ${usb.lastCronHoursAgo}h`,
+          }
+        : {
+              color: "bg-emerald-100 dark:bg-emerald-900/30",
+              text: "text-emerald-600 dark:text-emerald-400",
+              dot: "bg-emerald-500",
+              label: "Activo",
+              hint: usb.formattedFree
+                  ? `${usb.formattedFree} libre`
+                  : "Conectado",
+          };
+---
+
+<Layout title="Copias de Seguridad">
+    <div class="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 space-y-3">
+        <!-- ── Page Heading ───────────────────────────────────────────────── -->
+        <div
+            class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
+        >
+            <div>
+                <h1
+                    class="text-3xl font-black tracking-tight text-foreground sm:text-4xl"
+                >
+                    Copias de Seguridad
+                </h1>
+                <p class="mt-2 text-base text-muted-foreground">
+                    Crea, gestiona y restaura respaldos del sistema de base de
+                    datos.
+                </p>
+            </div>
+            <div
+                class={`flex items-center gap-2 self-start rounded-full border px-4 py-1.5 text-sm font-medium ${healthConfig.badge}`}
+            >
+                <span class="relative flex h-2.5 w-2.5">
+                    {
+                        health === "ok" && (
+                            <span
+                                class={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${healthConfig.dot}`}
+                            />
+                        )
+                    }
+                    <span
+                        class={`relative inline-flex h-2.5 w-2.5 rounded-full ${healthConfig.dot}`}
+                    ></span>
+                </span>
+                {healthConfig.label}
+            </div>
+        </div>
+
+        <!-- ── Stats Cards ────────────────────────────────────────────────── -->
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <!-- Card 1: DB Status -->
+            <div class="rounded-xl border border-border bg-card p-5 shadow-sm">
+                <div class="flex items-center gap-3 mb-3">
+                    <div
+                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                        >
+                            <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                            <path d="M3 5v14a9 3 0 0 0 18 0V5"></path>
+                            <path d="M3 12a9 3 0 0 0 18 0"></path>
+                        </svg>
+                    </div>
+                    <p class="text-sm font-medium text-muted-foreground">
+                        Estado del Sistema
+                    </p>
+                </div>
+                <p class="text-2xl font-bold text-foreground">
+                    {systemInfo.postgresInstalled ? "Operacional" : "Sin PG"}
+                </p>
+                <p class="text-xs text-muted-foreground mt-1">
+                    {
+                        systemInfo.postgresInstalled
+                            ? `PostgreSQL encontrado · ${platformLabel}`
+                            : `PostgreSQL no detectado en ${platformLabel}`
+                    }
+                </p>
+            </div>
+
+            <!-- Card 2: Last backup -->
+            <div class="rounded-xl border border-border bg-card p-5 shadow-sm">
+                <div class="flex items-center gap-3 mb-3">
+                    <div
+                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                        >
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <p class="text-sm font-medium text-muted-foreground">
+                        Último Respaldo
+                    </p>
+                </div>
+                <p class="text-2xl font-bold text-foreground">
+                    {lastBackupLabel}
+                </p>
+                <p class="text-xs text-muted-foreground mt-1">
+                    {
+                        lastBackupDate
+                            ? lastBackupDate.toLocaleDateString("es-BO", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                              })
+                            : "Sin registros aún"
+                    }
+                    {
+                        usb.lastCronBackup && (
+                            <span class="ml-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                                · auto
+                            </span>
+                        )
+                    }
+                </p>
+            </div>
+
+            <!-- Card 3: Storage -->
+            <div class="rounded-xl border border-border bg-card p-5 shadow-sm">
+                <div class="flex items-center gap-3 mb-3">
+                    <div
+                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                        >
+                            <rect x="2" y="3" width="20" height="14" rx="2"
+                            ></rect>
+                            <path d="M8 21h8M12 17v4"></path>
+                        </svg>
+                    </div>
+                    <p class="text-sm font-medium text-muted-foreground">
+                        Almacenamiento
+                    </p>
+                </div>
+                <p class="text-2xl font-bold text-foreground">{storageUsed}</p>
+                <p class="text-xs text-muted-foreground mt-1">
+                    {backupFiles.length} archivo{
+                        backupFiles.length !== 1 ? "s" : ""
+                    } de respaldo
+                </p>
+            </div>
+
+            <!-- Card 4: USB Secondary Backup — replaces Platform card -->
+            <div
+                class={`rounded-xl border border-border bg-card p-5 shadow-sm`}
+            >
+                <div class="flex items-center gap-3 mb-3">
+                    <div
+                        class={`flex h-9 w-9 items-center justify-center rounded-lg ${usbCardConfig.color}`}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class={`h-5 w-5 ${usbCardConfig.text}`}
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.75"
+                        >
+                            <path d="M6 2v6l-2 2v2h16v-2l-2-2V2"></path>
+                            <path d="M12 18v4"></path>
+                            <path d="M8 22h8"></path>
+                            <circle cx="9" cy="6" r="1" fill="currentColor"
+                            ></circle>
+                            <circle cx="15" cy="4" r="1" fill="currentColor"
+                            ></circle>
+                        </svg>
+                    </div>
+                    <p class="text-sm font-medium text-muted-foreground">
+                        Respaldo USB
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span
+                        class={`h-2.5 w-2.5 rounded-full shrink-0 ${usbCardConfig.dot} ${usb.mounted ? "animate-pulse" : ""}`}
+                    ></span>
+                    <p class={`text-2xl font-bold ${usbCardConfig.text}`}>
+                        {usbCardConfig.label}
+                    </p>
+                </div>
+                <p class="text-xs text-muted-foreground mt-1">
+                    {usbCardConfig.hint}
+                </p>
+                {
+                    usb.configured &&
+                        usb.lastCronHoursAgo !== null &&
+                        usb.mounted && (
+                            <p class="text-xs text-muted-foreground mt-0.5">
+                                Auto: hace {usb.lastCronHoursAgo}h ·{" "}
+                                {platformLabel} ·{" "}
+                                {systemInfo.customPathUsed
+                                    ? "ruta personalizada"
+                                    : `v${pgVersion ?? "?"}`}
+                            </p>
+                        )
+                }
+            </div>
+        </div>
+
+        <!-- ── PostgreSQL not found banner ──────────────────────────────── -->
+        {
+            !systemInfo.postgresInstalled && (
+                <div class="flex items-start gap-3 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-5 py-4">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5 shrink-0 mt-0.5 text-red-500"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+                        />
+                    </svg>
+                    <div>
+                        <p class="text-sm font-semibold text-red-800 dark:text-red-300">
+                            PostgreSQL no encontrado en este sistema
+                        </p>
+                        <p class="text-xs text-red-600 dark:text-red-400 mt-1">
+                            {systemInfo.isWindows
+                                ? "Instala PostgreSQL desde postgresql.org y asegúrate que pg_dump.exe esté en el PATH, o configura PG_BIN_PATH en el entorno."
+                                : "Ejecuta: sudo apt install postgresql-client, o configura PG_BIN_PATH en el entorno."}
+                        </p>
+                    </div>
+                </div>
+            )
+        }
+
+        <!-- ── Main content grid ─────────────────────────────────────────── -->
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            <!-- LEFT: Backup actions + config -->
+            <div class="xl:col-span-1 space-y-2">
+                <h2
+                    class="text-xl font-bold text-foreground flex items-center gap-2"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5 text-primary"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                        ></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    Operaciones
+                </h2>
+
+                <div>
+                    <BackupOperations systemInfo={systemInfo} client:load />
+                </div>
+
+                <!-- Static config info -->
+                <div
+                    class="rounded-xl border border-border bg-card p-6 shadow-sm space-y-5"
+                >
+                    <h3 class="text-base font-bold text-foreground">
+                        Configuración
+                    </h3>
+
+                    <div class="flex gap-4">
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-5 w-5"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.75"
+                            >
+                                <rect x="2" y="3" width="20" height="14" rx="2"
+                                ></rect>
+                                <path d="M8 21h8M12 17v4"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-foreground">
+                                Plataforma
+                            </p>
+                            <p class="text-sm text-muted-foreground">
+                                {platformLabel} · {systemInfo.architecture}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-5 w-5"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.75"
+                            >
+                                <polyline points="16 18 22 12 16 6"></polyline>
+                                <polyline points="8 6 2 12 8 18"></polyline>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-foreground">
+                                pg_dump
+                            </p>
+                            <p
+                                class="text-sm text-muted-foreground font-mono truncate max-w-45"
+                                title={systemInfo.pgDumpCommand}
+                            >
+                                {
+                                    systemInfo.postgresInstalled
+                                        ? systemInfo.pgDumpCommand
+                                        : "No encontrado"
+                                }
+                            </p>
+                            <div class="mt-1 flex items-center gap-1.5">
+                                <span
+                                    class={`h-2 w-2 rounded-full ${systemInfo.postgresInstalled ? "bg-emerald-500" : "bg-red-500"}`}
+                                ></span>
+                                <span class="text-xs text-muted-foreground">
+                                    {
+                                        systemInfo.postgresInstalled
+                                            ? "Disponible"
+                                            : "No disponible"
+                                    }
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-4">
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="h-5 w-5"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.75"
+                            >
+                                <path
+                                    d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                                ></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-foreground">
+                                Directorio
+                            </p>
+                            <p class="text-sm text-muted-foreground font-mono">
+                                ./backups/
+                            </p>
+                            {
+                                usb.configured && (
+                                    <p
+                                        class="text-xs text-muted-foreground font-mono mt-0.5 truncate"
+                                        title={import.meta.env.USB_BACKUP_PATH}
+                                    >
+                                        USB:{" "}
+                                        {import.meta.env.USB_BACKUP_PATH ?? "—"}
+                                    </p>
+                                )
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT: Backup history table -->
+            <div class="xl:col-span-2 space-y-2">
+                <h2
+                    class="text-xl font-bold text-foreground flex items-center gap-2"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5 text-primary"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    >
+                        <path
+                            d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+                        ></path>
+                        <path d="M3 3v5h5"></path>
+                    </svg>
+                    Historial de Respaldos
+                </h2>
+
+                <BackupTable
+                    systemInfo={{
+                        postgresInstalled: systemInfo.postgresInstalled,
+                    }}
+                    initialBackupFiles={backupFiles}
+                    latestFilename={latestBackup?.filename ?? null}
+                    client:only="svelte"
+                />
+            </div>
+        </div>
+    </div>
+</Layout>

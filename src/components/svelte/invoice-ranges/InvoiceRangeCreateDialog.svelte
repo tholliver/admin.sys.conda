@@ -87,10 +87,10 @@
             const result = await response.json();
             if (!response.ok) throw new Error(parseError(result));
             toast.success("Éxito", {
-                description: "Rango de facturación creado",
+                description: "Rango de talonario creado",
             });
             isOpen = false;
-            navigate("/facturacion");
+            navigate("/talonarios");
         } catch (error: any) {
             toast.error("Error al crear el rango", {
                 description: error?.message || "Error desconocido",
@@ -133,11 +133,9 @@
     {#snippet children()}
         <div class="space-y-4">
             <div>
-                <h2 class="text-lg font-semibold">
-                    Crear Rango de Facturación
-                </h2>
+                <h2 class="text-lg font-semibold">Crear Rango de talonario</h2>
                 <p class="text-sm text-muted-foreground">
-                    Define una categoría con su rango de números de factura.
+                    Define una categoría con su rango de números de talonario.
                 </p>
             </div>
 

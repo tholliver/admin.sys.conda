@@ -103,7 +103,7 @@
                 description: "Rango actualizado correctamente",
             });
             isOpen = false;
-            navigate("/facturacion");
+            navigate("/talonarios");
         } catch (error: any) {
             toast.error("Error al actualizar", {
                 description: error?.message || "Error desconocido",
@@ -149,7 +149,7 @@
         <div class="space-y-4">
             <div>
                 <h2 class="text-lg font-semibold">
-                    Editar Rango de Facturación
+                    Editar Rango de Talonarios
                 </h2>
                 <p class="text-sm text-muted-foreground">
                     Actualizando rango <span class="font-mono font-medium"
