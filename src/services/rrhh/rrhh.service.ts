@@ -273,63 +273,74 @@ export async function createEmployeeFee(data: CreateEmployeeFeeInput) {
  * Uses each employee's baseSalary as the fee amount.
  * Skips employees that already have a fee for the period (unless overwrite=true).
  */
-export async function bulkGenerateFees(data: BulkGenerateFeesInput) {
-  const { period, sectorId, overwrite } = data;
 
-  // Get active employees (optionally filtered by sector)
-  const conditions: any[] = [eq(employees.status, "activo")];
-  if (sectorId) conditions.push(eq(employees.sectorId, sectorId));
+ export async function bulkGenerateFees(data: BulkGenerateFeesInput) {
+   const { period, sectorId, overwrite } = data;
 
-  const activeEmployees = await db
-    .select({
-      employee: employees,
-      cashboxId: sectorCashboxLink.cashboxId,
-    })
-    .from(employees)
-    .leftJoin(sectorCashboxLink, eq(sectorCashboxLink.sectorId, employees.sectorId))
-    .where(and(...conditions));
+   const conditions: any[] = [eq(employees.status, "activo")];
+   if (sectorId) conditions.push(eq(employees.sectorId, sectorId));
 
-  if (activeEmployees.length === 0) return { created: 0, skipped: 0, errors: [] };
+   const activeEmployees = await db
+     .select({
+       employee: employees,
+       cashboxId: sectorCashboxLink.cashboxId,
+     })
+     .from(employees)
+     .leftJoin(sectorCashboxLink, eq(sectorCashboxLink.sectorId, employees.sectorId))
+     .where(and(...conditions));
 
-  // Find existing fees for this period
-  const existingIds = overwrite
-    ? []
-    : (
-        await db
-          .select({ employeeId: employeeFees.employeeId })
-          .from(employeeFees)
-          .where(
-            and(
-              eq(employeeFees.period, period),
-              inArray(
-                employeeFees.employeeId,
-                activeEmployees.map((e) => e.employee.id)
-              )
-            )
-          )
-      ).map((r) => r.employeeId);
+   if (activeEmployees.length === 0) {
+     return { created: 0, skippedDuplicate: 0, skippedNoCashbox: 0, noCashboxEmployees: [], errors: [] };
+   }
 
-  const toCreate = activeEmployees.filter(
-    (e) => !existingIds.includes(e.employee.id) && e.cashboxId
-  );
-  const skipped = activeEmployees.length - toCreate.length;
-  const errors: string[] = [];
+   // Split: employees with and without a linked cashbox
+   const withCashbox = activeEmployees.filter((e) => !!e.cashboxId);
+   const noCashbox = activeEmployees.filter((e) => !e.cashboxId);
+   const noCashboxEmployees = noCashbox.map((e) => e.employee.fullName);
 
-  if (toCreate.length === 0) return { created: 0, skipped, errors };
+   // Find existing fees for this period (only among those with a cashbox)
+   const existingIds = overwrite
+     ? []
+     : (
+         await db
+           .select({ employeeId: employeeFees.employeeId })
+           .from(employeeFees)
+           .where(
+             and(
+               eq(employeeFees.period, period),
+               inArray(
+                 employeeFees.employeeId,
+                 withCashbox.map((e) => e.employee.id)
+               )
+             )
+           )
+       ).map((r) => r.employeeId);
 
-  const values = toCreate.map(({ employee, cashboxId }) => ({
-    employeeId: employee.id,
-    period,
-    amount: employee.baseSalary,
-    currency: "BOB" as const,
-    cashboxId: cashboxId!,
-    status: "pendiente" as const,
-  }));
+   const toCreate = withCashbox.filter((e) => !existingIds.includes(e.employee.id));
+   const skippedDuplicate = withCashbox.length - toCreate.length;
+   const errors: string[] = [];
 
-  await db.insert(employeeFees).values(values).onConflictDoNothing();
+   if (toCreate.length > 0) {
+     const values = toCreate.map(({ employee, cashboxId }) => ({
+       employeeId: employee.id,
+       period,
+       amount: employee.baseSalary,
+       currency: "BOB" as const,
+       cashboxId: cashboxId!,
+       status: "pendiente" as const,
+     }));
 
-  return { created: toCreate.length, skipped, errors };
-}
+     await db.insert(employeeFees).values(values).onConflictDoNothing();
+   }
+
+   return {
+     created: toCreate.length,
+     skippedDuplicate,
+     skippedNoCashbox: noCashbox.length,
+     noCashboxEmployees,
+     errors,
+   };
+ }
 
 // ─── Payment ──────────────────────────────────────────────────────────────────
 
