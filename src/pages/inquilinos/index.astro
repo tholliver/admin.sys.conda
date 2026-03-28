@@ -4,6 +4,7 @@
  * Lista de inquilinos con estado de pago mensual
  */
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
+import { actions } from "astro:actions";
 import { db } from "@/db";
 import { tenants, tenantPayments } from "@/db/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
@@ -62,9 +63,13 @@ const totalRent = allTenants
     .filter((t) => t.status === "activo")
     .reduce((s, t) => s + Number(t.monthlyRent), 0);
 
-const paidCount = currentPayments.filter((p) => p.status === "pagado").length;
-const pendingCount =
-    allTenants.filter((t) => t.status === "activo").length - paidCount;
+const activeTenantIds = new Set(
+    allTenants.filter((t) => t.status === "activo").map((t) => t.id),
+);
+const paidCount = currentPayments.filter(
+    (p) => p.status === "pagado" && activeTenantIds.has(p.tenantId),
+).length;
+const pendingCount = Math.max(0, activeTenantIds.size - paidCount);
 
 const STATUS_LABELS: Record<string, string> = {
     activo: "Activo",
@@ -173,12 +178,12 @@ const monthName = now.toLocaleDateString("es-BO", {
                         Lista de Inquilinos
                     </h2>
                 </div>
-                <a
+                <!-- <a
                     href="/inquilinos/clientes"
                     class="text-xs text-blue-600 hover:underline font-medium"
                 >
                     Ver todos los clientes
-                </a>
+                </a> -->
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -299,7 +304,11 @@ const monthName = now.toLocaleDateString("es-BO", {
                                                                 "activo" && (
                                                                 <form
                                                                     method="POST"
-                                                                    action="/api/inquilinos/pagar"
+                                                                    action={
+                                                                        actions
+                                                                            .inquilinos
+                                                                            .registerRentPayment
+                                                                    }
                                                                     class="inline"
                                                                 >
                                                                     <input
@@ -314,6 +323,13 @@ const monthName = now.toLocaleDateString("es-BO", {
                                                                         name="period"
                                                                         value={
                                                                             currentPeriod
+                                                                        }
+                                                                    />
+                                                                    <input
+                                                                        type="hidden"
+                                                                        name="tenantName"
+                                                                        value={
+                                                                            tenant.fullName
                                                                         }
                                                                     />
                                                                     <input
@@ -333,11 +349,25 @@ const monthName = now.toLocaleDateString("es-BO", {
                                                                 </form>
                                                             )}
                                                         <a
-                                                            href={`/inquilinos/clientes/${tenant.id}`}
+                                                            href={`/inquilinos/${tenant.id}`}
                                                             class="rounded border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                                                         >
                                                             Ver
                                                         </a>
+                                                        {tenant.status ===
+                                                            "activo" && (
+                                                            <DeleteConfirmDialog
+                                                                client:load
+                                                                entityType="tenant"
+                                                                entityId={
+                                                                    tenant.id
+                                                                }
+                                                                entityName={
+                                                                    tenant.fullName
+                                                                }
+                                                                entityLabel={`Amb. ${tenant.roomNumber}`}
+                                                            />
+                                                        )}
                                                     </div>
                                                 </td>
                                             )}
