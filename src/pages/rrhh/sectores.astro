@@ -22,20 +22,20 @@ import { db } from "@/db";
 import { sectors, cashboxes, transactionCategories } from "@/db/schema";
 import { asc, eq } from "drizzle-orm";
 import { Building2, Wallet, AlertTriangle, PlusCircle } from "@lucide/astro";
-import SectorCashboxAssignDialog from "@/components/svelte/rrhh/SectorCashboxAssignDialog.svelte";
 import CreateSectorDialog from "@/components/svelte/dialogs/CreateSectorDialog.svelte";
 import EditSectorDialog from "@/components/svelte/dialogs/EditSectorDialog.svelte";
 import SectorDepositDialog from "@/components/svelte/dialogs/SectorDepositDialog.svelte";
+import SectorCashboxAssignDialog from "@/components/svelte/rrhh/SectorCashboxAssignDialog.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
 if (!["ADMIN", "ADMON"].includes(user.role ?? "")) return Astro.redirect("/rrhh");
 
-const linkResult = Astro.getActionResult(actions.rrhh.linkSectorCashbox);
+const linkResult = Astro.getActionResult(actions.sector.linkSectorCashbox);
 const successMsg = !linkResult?.error && linkResult?.data?.message ? linkResult.data.message : null;
 const errorMsg = isActionError(linkResult?.error) ? linkResult.error.message : null;
 
-const [links, summary, allSectors, allCashboxes, incomeCategories] = await Promise.all([
+const [rawLinks, summary, allSectors, allCashboxes, incomeCategories] = await Promise.all([
   getSectorCashboxLinks(),
   getSectorSalarySummary(),
   db
@@ -43,9 +43,6 @@ const [links, summary, allSectors, allCashboxes, incomeCategories] = await Promi
       id: sectors.id,
       name: sectors.name,
       description: sectors.description,
-      feeAmount: sectors.feeAmount,
-      feeCurrency: sectors.feeCurrency,
-      monthlyFeeAmount: sectors.monthlyFeeAmount,
     })
     .from(sectors)
     .where(eq(sectors.isActive, true))
@@ -73,7 +70,8 @@ const [links, summary, allSectors, allCashboxes, incomeCategories] = await Promi
     .orderBy(asc(transactionCategories.sortOrder)),
 ]);
 
-const linkedSectorIds = new Set(links.map((l) => l.link.sectorId));
+const links = rawLinks.filter((l) => !!l.cashboxId);
+const linkedSectorIds = new Set(links.map((l) => l.sectorId));
 const unlinkedSectors = allSectors.filter((s) => !linkedSectorIds.has(s.id));
 
 // Build a lookup map for sector fee config so we can show it per card
@@ -133,34 +131,34 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
       {links.length === 0 ? (
         <div class="rounded-xl border-2 border-dashed border-slate-200 p-8 text-center text-slate-400">
           <Building2 class="h-8 w-8 mx-auto mb-2 opacity-30" />
-          <p class="text-sm">Ningún sector vinculado aún.</p>
-          <p class="text-xs mt-1">Cree un sector y luego asígnele una caja.</p>
+          <p class="text-sm">Ningun sector vinculado aun.</p>
+          <p class="text-xs mt-1">Cree un sector y luego asignele una caja.</p>
         </div>
       ) : (
         <div class="grid gap-4 md:grid-cols-2">
           {links.map((l) => {
-            const s = summary.find((x) => x.sectorId === l.link.sectorId);
-            const cfg = sectorConfigMap.get(l.link.sectorId);
+            const s = summary.find((x) => x.sectorId === l.sectorId);
+            const cfg = sectorConfigMap.get(l.sectorId);
             const balance = parseFloat(l.cashboxBalance ?? "0");
             const monthlySalary = s?.totalMonthlySalary ?? 0;
             const canCover = balance >= monthlySalary;
             const coverPct = monthlySalary > 0 ? Math.min((balance / monthlySalary) * 100, 100) : 100;
-            const sectorOption = [{ id: l.link.sectorId, name: l.sectorName ?? "Sector" }];
+            const sectorOption = [{ id: l.sectorId, name: l.sectorName ?? "Sector" }];
 
             return (
               <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-5">
                 <div class="flex items-start justify-between gap-4 mb-4">
-                  <div class="min-w-0">
+                  <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
                       <Building2 class="h-4 w-4 text-slate-400 shrink-0" />
-                      <h3 class="font-semibold text-slate-900 truncate">{l.sectorName}</h3>
-                      {!l.link.isActive && (
+                      <h3 class="font-semibold text-slate-900 leading-tight break-words">{l.sectorName}</h3>
+                      {l.cashboxStatus !== "active" && (
                         <span class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600 shrink-0">Inactiva</span>
                       )}
                     </div>
                     <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
                       <Wallet class="h-3 w-3" />
-                      {l.cashboxName ?? "-"} · {l.link.cashboxId.slice(0, 8)}…
+                      {l.cashboxName ?? "-"} - {l.cashboxId ? l.cashboxId.slice(0, 8) : "-"}...
                     </p>
                   </div>
 
@@ -176,10 +174,10 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
                     </div>
 
                     <!-- Action buttons row -->
-                    <div class="flex items-center gap-1.5">
+                    <div class="flex items-center gap-1.5 flex-wrap justify-end">
                       <!-- NEW: Deposit button -->
                       <SectorDepositDialog
-                        sectorId={l.link.sectorId}
+                        sectorId={l.sectorId}
                         sectorName={l.sectorName ?? ""}
                         cashboxName={l.cashboxName ?? ""}
                         currentBalance={balance}
@@ -193,12 +191,9 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
                       <!-- NEW: Edit sector config button -->
                       {cfg && (
                         <EditSectorDialog
-                          sectorId={l.link.sectorId}
+                          sectorId={l.sectorId}
                           initialName={cfg.name}
                           initialDescription={cfg.description}
-                          initialFeeAmount={cfg.feeAmount}
-                          initialFeeCurrency={cfg.feeCurrency}
-                          initialMonthlyFeeAmount={cfg.monthlyFeeAmount}
                           triggerLabel="Configurar"
                           triggerClass="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
                           client:load
@@ -209,9 +204,8 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
                       <SectorCashboxAssignDialog
                         sectors={sectorOption as any}
                         cashboxes={allCashboxes as any}
-                        initialSectorId={l.link.sectorId}
-                        initialCashboxId={l.link.cashboxId}
-                        initialLabel={l.link.label}
+                        initialSectorId={l.sectorId}
+                        initialCashboxId={l.cashboxId}
                         lockSector={true}
                         triggerLabel="Caja"
                         triggerClass="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
@@ -223,8 +217,8 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
                   </div>
                 </div>
 
-                <!-- Stats grid — now 4 columns to include fee config -->
-                <div class="grid grid-cols-4 gap-2 text-center text-xs mb-4">
+                <!-- Stats grid -- now 4 columns to include fee config -->
+                <div class="grid grid-cols-3 gap-2 text-center text-xs mb-4">
                   <div class="rounded-lg bg-slate-50 p-2.5">
                     <p class="text-slate-500">Personal</p>
                     <p class="font-bold text-slate-800 text-base tabular-nums">{s?.totalEmployees ?? 0}</p>
@@ -236,12 +230,6 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
                     </p>
                   </div>
                   <!-- NEW: Monthly fee amount from sector config -->
-                  <div class="rounded-lg bg-blue-50 p-2.5">
-                    <p class="text-blue-600">Cuota Mens.</p>
-                    <p class="font-bold text-blue-800 tabular-nums">
-                      Bs {cfg ? Number(cfg.monthlyFeeAmount).toLocaleString("es-BO", { minimumFractionDigits: 0 }) : "—"}
-                    </p>
-                  </div>
                   <div class:list={[
                     "rounded-lg p-2.5",
                     s?.pendingFees && s.pendingFees > 0 ? "bg-amber-50" : "bg-slate-50",
@@ -262,7 +250,7 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
                     <span>Cobertura salarial</span>
                     <span class:list={[canCover ? "text-emerald-600" : "text-red-600", "font-medium"]}>
                       {Math.round(coverPct)}%
-                      {!canCover && " — Fondos insuficientes"}
+                      {!canCover && " -- Fondos insuficientes"}
                     </span>
                   </div>
                   <div class="h-2 w-full rounded-full bg-slate-100">
@@ -297,12 +285,7 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
           <ul class="space-y-1.5">
             {unlinkedSectors.map((s) => (
               <li class="flex items-center justify-between text-xs text-amber-700">
-                <span>· {s.name}</span>
-                <!-- Show fee config inline so admin knows what the sector earns -->
-                <span class="text-amber-500 tabular-nums">
-                  Cuota: Bs {Number(s.feeAmount).toLocaleString("es-BO")}
-                  · Mensual: Bs {Number(s.monthlyFeeAmount).toLocaleString("es-BO")}
-                </span>
+                <span>- {s.name}</span>
               </li>
             ))}
           </ul>
@@ -314,3 +297,4 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
     </div>
   </main>
 </FinanceLayout>
+

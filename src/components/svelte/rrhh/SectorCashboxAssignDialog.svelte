@@ -20,7 +20,6 @@
         cashboxes: CashboxOption[];
         initialSectorId?: number | null;
         initialCashboxId?: string | null;
-        initialLabel?: string | null;
         lockSector?: boolean;
         triggerLabel?: string;
         triggerClass?: string;
@@ -33,14 +32,11 @@
         cashboxes,
         initialSectorId = null,
         initialCashboxId = null,
-        initialLabel = null,
         lockSector = false,
         triggerLabel = "Vincular",
-        triggerClass =
-            "rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors",
+        triggerClass = "rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors",
         title = "Vincular sector a caja",
-        description =
-            "Seleccione el sector y la caja para guardar la asignacion",
+        description = "Seleccione el sector y la caja para guardar la asignacion",
     }: Props = $props();
 
     let isOpen = $state(false);
@@ -52,7 +48,6 @@
 
     let sectorId = $state(initialSectorId ? String(initialSectorId) : "");
     let cashboxId = $state(initialCashboxId ?? "");
-    let label = $state(initialLabel ?? "");
     const selectedSectorName = $derived(
         sectors.find((s) => String(s.id) === sectorId)?.name ??
             "Sector no encontrado",
@@ -69,7 +64,6 @@
         successMsg = null;
         sectorId = initialSectorId ? String(initialSectorId) : "";
         cashboxId = initialCashboxId ?? "";
-        label = initialLabel ?? "";
     }
 
     async function handleSubmit(e: SubmitEvent) {
@@ -80,11 +74,10 @@
         const fd = new FormData();
         fd.set("sectorId", sectorId);
         fd.set("cashboxId", cashboxId);
-        if (label.trim()) fd.set("label", label.trim());
 
         isSubmitting = true;
         try {
-            const result = await actions.rrhh.linkSectorCashbox(fd);
+            const result = await actions.sector.linkSectorCashbox(fd);
 
             if (isInputError(result?.error)) {
                 inputErrors = result.error.fields as any;
@@ -157,7 +150,11 @@
                 </div>
             {/if}
 
-            <form id={formId} class="space-y-4 px-1 pt-1 pb-1" onsubmit={handleSubmit}>
+            <form
+                id={formId}
+                class="space-y-4 px-1 pt-1 pb-1"
+                onsubmit={handleSubmit}
+            >
                 <div>
                     <label
                         class="block text-xs font-medium text-slate-600 mb-1"
@@ -215,20 +212,6 @@
                         </p>
                     {/if}
                 </div>
-
-                <div>
-                    <label
-                        class="block text-xs font-medium text-slate-600 mb-1"
-                    >
-                        Etiqueta (opcional)
-                    </label>
-                    <input
-                        type="text"
-                        bind:value={label}
-                        placeholder="Ej: Caja Sector Norte"
-                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
             </form>
         {/if}
     {/snippet}
@@ -272,4 +255,3 @@
         {/if}
     {/snippet}
 </Dialog>
-

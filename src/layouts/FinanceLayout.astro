@@ -20,6 +20,7 @@ import {
     ChevronDown,
     ArrowLeftRight,
     Handshake,
+    ChevronRight,
 } from "@lucide/astro";
 import Toaster from "@/lib/toast/Toaster.astro";
 import UserNav from "@/components/UserNav.astro";
@@ -54,6 +55,7 @@ const navGroups = [
                 href: "/transferencias",
                 icon: ArrowLeftRight,
             },
+            { label: "Cajas", href: "/cajas", icon: Layers },
             { label: "Historial", href: "/historial", icon: History },
         ],
     },
@@ -114,225 +116,180 @@ const isActiveGroup = (group: NavGroup) => {
         <title>{getPageTitle(title)}</title>
         <script is:inline>
             document.addEventListener("DOMContentLoaded", () => {
-                // Mobile menu toggle
-                const menuBtn = document.getElementById("mobile-menu-btn");
-                const mobileMenu = document.getElementById("mobile-menu");
-                menuBtn?.addEventListener("click", () => {
-                    mobileMenu?.classList.toggle("hidden");
+                const sidebar = document.getElementById("app-sidebar");
+                const collapseBtn = document.getElementById(
+                    "sidebar-collapse-btn",
+                );
+                const mobileBtn = document.getElementById("sidebar-mobile-btn");
+                const mobileOverlay =
+                    document.getElementById("sidebar-overlay");
+                const storageKey = "financeSidebarCollapsed";
+
+                const toggleMobile = () => {
+                    sidebar?.classList.toggle("sidebar-mobile-open");
+                    mobileOverlay?.classList.toggle("hidden");
+                };
+
+                const applyCollapsed = (value) => {
+                    sidebar?.setAttribute("data-collapsed", value);
+                    document.body.setAttribute("data-sidebar-collapsed", value);
+                };
+
+                const stored = localStorage.getItem(storageKey);
+                if (stored === "true" || stored === "false") {
+                    applyCollapsed(stored);
+                }
+
+                collapseBtn?.addEventListener("click", () => {
+                    const isCollapsed =
+                        sidebar?.getAttribute("data-collapsed") === "true";
+                    const next = (!isCollapsed).toString();
+                    applyCollapsed(next);
+                    localStorage.setItem(storageKey, next);
                 });
 
-                // Desktop group dropdowns
-                document.querySelectorAll("[data-group-btn]").forEach((btn) => {
-                    btn.addEventListener("click", (e) => {
-                        e.stopPropagation();
-                        const id = btn.getAttribute("data-group-btn");
-                        const panel = document.getElementById(
-                            `group-panel-${id}`,
-                        );
-                        const isOpen = !panel?.classList.contains("hidden");
-                        // Close all
-                        document
-                            .querySelectorAll("[id^='group-panel-']")
-                            .forEach((p) => p.classList.add("hidden"));
-                        document
-                            .querySelectorAll("[data-group-btn]")
-                            .forEach((b) =>
-                                b.setAttribute("data-open", "false"),
-                            );
-                        if (!isOpen) {
-                            panel?.classList.remove("hidden");
-                            btn.setAttribute("data-open", "true");
-                        }
-                    });
-                });
+                mobileBtn?.addEventListener("click", toggleMobile);
+                mobileOverlay?.addEventListener("click", toggleMobile);
 
-                // Close on outside click
-                document.addEventListener("click", () => {
-                    document
-                        .querySelectorAll("[id^='group-panel-']")
-                        .forEach((p) => p.classList.add("hidden"));
-                    document
-                        .querySelectorAll("[data-group-btn]")
-                        .forEach((b) => b.setAttribute("data-open", "false"));
-                });
-
-                // Mobile group accordion
                 document
-                    .querySelectorAll("[data-mobile-group-btn]")
+                    .querySelectorAll("[data-accordion-btn]")
                     .forEach((btn) => {
                         btn.addEventListener("click", () => {
-                            const id = btn.getAttribute(
-                                "data-mobile-group-btn",
-                            );
+                            if (
+                                sidebar?.getAttribute("data-collapsed") ===
+                                "true"
+                            ) {
+                                const href = btn.getAttribute("data-href");
+                                if (href) window.location.href = href;
+                                return;
+                            }
+                            const id = btn.getAttribute("data-accordion-btn");
                             const panel = document.getElementById(
-                                `mobile-group-panel-${id}`,
+                                `accordion-panel-${id}`,
                             );
-                            panel?.classList.toggle("hidden");
+                            const isOpen =
+                                panel && !panel.classList.contains("hidden");
+                            document
+                                .querySelectorAll("[id^='accordion-panel-']")
+                                .forEach((p) => p.classList.add("hidden"));
+                            document
+                                .querySelectorAll("[data-accordion-btn]")
+                                .forEach((b) => {
+                                    b.setAttribute("data-open", "false");
+                                    b.setAttribute("aria-expanded", "false");
+                                });
+                            if (!isOpen) {
+                                panel?.classList.remove("hidden");
+                                btn.setAttribute("data-open", "true");
+                                btn.setAttribute("aria-expanded", "true");
+                            }
                         });
                     });
+
+                const tooltip = document.getElementById("sidebar-tooltip");
+                const showTooltip = (target) => {
+                    if (!tooltip || !target) return;
+                    if (sidebar?.getAttribute("data-collapsed") !== "true") {
+                        tooltip.classList.add("hidden");
+                        return;
+                    }
+                    const label = target.getAttribute("data-tooltip");
+                    if (!label) return;
+                    tooltip.textContent = label;
+                    const rect = target.getBoundingClientRect();
+                    tooltip.style.top = `${rect.top + rect.height / 2}px`;
+                    tooltip.style.left = `${rect.right + 12}px`;
+                    tooltip.classList.remove("hidden");
+                };
+
+                const hideTooltip = () => {
+                    tooltip?.classList.add("hidden");
+                };
+
+                document.querySelectorAll("[data-tooltip]").forEach((item) => {
+                    item.addEventListener("mouseenter", () =>
+                        showTooltip(item),
+                    );
+                    item.addEventListener("focus", () => showTooltip(item));
+                    item.addEventListener("mouseleave", hideTooltip);
+                    item.addEventListener("blur", hideTooltip);
+                });
             });
         </script>
     </head>
-    <body class="flex flex-col min-h-screen bg-slate-50">
-        <header class="border-b border-slate-200 bg-white sticky top-0 z-50">
-            <div
-                class="mx-auto flex gap-3 max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8"
+    <body class="min-h-screen bg-slate-50" data-sidebar-collapsed="false">
+        <div class="layout-shell min-h-screen">
+            <aside
+                id="app-sidebar"
+                data-collapsed="false"
+                class="sidebar-shell z-50 w-full bg-white border-r border-slate-200/80 shadow-sm flex flex-col"
             >
-                <!-- Logo -->
-                <div class="flex items-center gap-3 shrink-0">
-                    <div class="bg-emerald-100 p-2 rounded-lg">
+                <div
+                    class="sidebar-header px-4 py-4 flex items-center gap-3 border-b border-slate-200/60"
+                >
+                    <div class="bg-emerald-100 p-2 rounded-lg shrink-0">
                         <Landmark class="size-5 text-emerald-600" />
                     </div>
-                    <div>
-                        <a href="/">
-                            <h1
-                                class="text-lg font-semibold text-slate-900 leading-tight"
-                            >
-                                Administración
-                            </h1>
-                            <p class="text-xs text-slate-500">
-                                Trans Carrasco Tropical
-                            </p>
-                        </a>
+                    <div class="sidebar-label">
+                        <p class="text-sm font-semibold text-slate-900">
+                            Administración
+                        </p>
+                        <p class="text-xs text-slate-500">
+                            Trans Carrasco Tropical
+                        </p>
                     </div>
+                    <button
+                        id="sidebar-collapse-btn"
+                        class="sidebar-toggle ml-auto shrink-0 p-2 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
+                        aria-label="Contraer barra lateral"
+                    >
+                        <ChevronRight class="size-4 sidebar-collapse-icon" />
+                    </button>
                 </div>
 
-                <!-- Desktop Nav with grouped dropdowns -->
                 <nav
-                    class="hidden md:flex items-center gap-1 ml-auto bg-slate-100/80 rounded-xl p-1.5 border border-slate-200/60"
+                    class="flex-1 px-3 py-4 space-y-4 overflow-y-auto"
+                    aria-label="Menú principal"
                 >
                     {
                         navGroups.map((group, i) => {
                             const groupActive = isActiveGroup(group);
-                            const singleLink = group.links.length === 1;
-                            return singleLink ? (
-                                <a
-                                    href={group.links[0].href}
-                                    class:list={[
-                                        "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200",
-                                        groupActive
-                                            ? "bg-white text-emerald-700 shadow-sm ring-1 ring-black/5"
-                                            : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
-                                    ]}
-                                >
-                                    <group.icon
-                                        class:list={[
-                                            groupActive
-                                                ? "size-4 text-emerald-600"
-                                                : "size-4 text-slate-500",
-                                        ]}
-                                    />
-                                    {group.label}
-                                </a>
-                            ) : (
-                                <div class="relative">
-                                    <button
-                                        data-group-btn={i}
-                                        data-open="false"
-                                        class:list={[
-                                            "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer select-none",
-                                            groupActive
-                                                ? "bg-white text-emerald-700 shadow-sm ring-1 ring-black/5"
-                                                : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
-                                        ]}
-                                    >
-                                        <group.icon
-                                            class:list={[
-                                                groupActive
-                                                    ? "size-4 text-emerald-600"
-                                                    : "size-4 text-slate-500",
-                                            ]}
-                                        />
-                                        {group.label}
-                                        <ChevronDown class="size-3 opacity-50" />
-                                    </button>
-                                    <div
-                                        id={`group-panel-${i}`}
-                                        class="hidden absolute left-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg z-50"
-                                    >
-                                        {group.links.map((link) => {
-                                            const active = isActiveLink(
-                                                link.href,
-                                            );
-                                            return (
-                                                <a
-                                                    href={link.href}
-                                                    class:list={[
-                                                        "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg mb-0.5 last:mb-0 transition-colors",
-                                                        active
-                                                            ? "bg-emerald-50 text-emerald-700 font-medium"
-                                                            : "text-slate-700 hover:bg-slate-50",
-                                                    ]}
-                                                >
-                                                    <link.icon
-                                                        class:list={[
-                                                            active
-                                                                ? "size-4 text-emerald-500"
-                                                                : "size-4 text-slate-400",
-                                                        ]}
-                                                    />
-                                                    {link.label}
-                                                    {active && (
-                                                        <span class="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                    )}
-                                                </a>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })
-                    }
-                </nav>
-
-                <div class="flex items-center gap-2">
-                    <UserNav user={user} />
-                    <button
-                        id="mobile-menu-btn"
-                        class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                        aria-label="Abrir menú"
-                    >
-                        <Menu class="size-5" />
-                    </button>
-                </div>
-            </div>
-
-            <!-- Mobile Menu -->
-            <div
-                id="mobile-menu"
-                class="hidden md:hidden border-t border-slate-200 bg-white"
-            >
-                <nav class="mx-auto max-w-6xl flex flex-col p-2 gap-0.5">
-                    {
-                        navGroups.map((group, i) => {
-                            const groupActive = isActiveGroup(group);
                             return (
-                                <div>
+                                <div class="space-y-1">
                                     <button
-                                        data-mobile-group-btn={i}
+                                        data-accordion-btn={i}
+                                        data-href={group.baseHref}
+                                        data-open={
+                                            groupActive ? "true" : "false"
+                                        }
+                                        aria-controls={`accordion-panel-${i}`}
+                                        aria-expanded={
+                                            groupActive ? "true" : "false"
+                                        }
                                         class:list={[
-                                            "w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-lg transition-all duration-200",
+                                            "sidebar-item w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200",
                                             groupActive
-                                                ? "bg-emerald-50 text-emerald-700"
-                                                : "text-slate-700 hover:bg-slate-50",
+                                                ? "bg-slate-100 text-slate-900 ring-1 ring-slate-200"
+                                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                                         ]}
+                                        data-tooltip={group.label}
                                     >
                                         <group.icon
                                             class:list={[
                                                 groupActive
-                                                    ? "size-4 text-emerald-600"
+                                                    ? "size-4 text-slate-800"
                                                     : "size-4 text-slate-400",
                                             ]}
                                         />
-                                        <span class="flex-1 text-left">
+                                        <span class="sidebar-label flex-1 text-left">
                                             {group.label}
                                         </span>
-                                        <ChevronDown class="size-4 text-slate-400" />
+                                        <ChevronDown class="sidebar-chevron size-4 text-slate-400 transition-transform duration-200" />
                                     </button>
                                     <div
-                                        id={`mobile-group-panel-${i}`}
+                                        id={`accordion-panel-${i}`}
                                         class:list={[
-                                            "pl-4 space-y-0.5 mb-1",
+                                            "sidebar-subnav ml-3 border-l border-slate-200/70 pl-3 space-y-1",
                                             !groupActive && "hidden",
                                         ]}
                                     >
@@ -344,9 +301,9 @@ const isActiveGroup = (group: NavGroup) => {
                                                 <a
                                                     href={link.href}
                                                     class:list={[
-                                                        "flex items-center gap-3 px-4 py-2.5 text-sm rounded-lg transition-colors",
+                                                        "flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors",
                                                         active
-                                                            ? "bg-white text-emerald-700 font-medium border border-emerald-100"
+                                                            ? "bg-emerald-50 text-emerald-700 font-medium"
                                                             : "text-slate-600 hover:bg-slate-50 hover:text-slate-900",
                                                     ]}
                                                 >
@@ -357,7 +314,9 @@ const isActiveGroup = (group: NavGroup) => {
                                                                 : "size-4 text-slate-400",
                                                         ]}
                                                     />
-                                                    {link.label}
+                                                    <span class="sidebar-label">
+                                                        {link.label}
+                                                    </span>
                                                     {active && (
                                                         <span class="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                                     )}
@@ -370,15 +329,70 @@ const isActiveGroup = (group: NavGroup) => {
                         })
                     }
                 </nav>
+
+                <div class="px-4 py-4 border-t border-slate-200/60">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-slate-100 p-2 rounded-lg">
+                            <Menu class="size-4 text-slate-500" />
+                        </div>
+                        <div class="sidebar-label">
+                            <p class="text-sm font-semibold text-slate-900">
+                                Panel de Finanzas
+                            </p>
+                            <p class="text-xs text-slate-500">Acceso rápido</p>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="main-shell flex-1 min-w-0">
+                <header
+                    class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur"
+                >
+                    <div
+                        class="flex items-center gap-3 px-4 py-3 sm:px-6 lg:px-8"
+                    >
+                        <button
+                            id="sidebar-mobile-btn"
+                            class="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                            aria-label="Abrir menú"
+                        >
+                            <Menu class="size-5" />
+                        </button>
+                        <div
+                            class="flex items-center gap-2 text-sm text-slate-500"
+                        >
+                            <span class="hidden sm:inline">Panel</span>
+                            <span class="hidden sm:inline">/</span>
+                            <span class="font-semibold text-slate-900">
+                                {title}
+                            </span>
+                        </div>
+                        <div class="ml-auto">
+                            <UserNav user={user} />
+                        </div>
+                    </div>
+                </header>
+
+                <BackupFreshnessNotice userRole={user.role} />
+
+                <main class="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+                    <slot />
+                    <Toaster richColors position="top-center" />
+                </main>
             </div>
-        </header>
+        </div>
 
-        <BackupFreshnessNotice userRole={user.role} />
-
-        <main class="flex-1">
-            <slot />
-            <Toaster richColors position="top-center" />
-        </main>
+        <div
+            id="sidebar-overlay"
+            class="hidden fixed inset-0 bg-slate-900/30 z-40 md:hidden"
+        >
+        </div>
+        <div
+            id="sidebar-tooltip"
+            class="fixed z-[60] hidden px-3 py-1.5 text-xs font-semibold text-white bg-slate-900 rounded-lg shadow-lg -translate-y-1/2"
+        >
+        </div>
 
         <style>
             html,
@@ -386,6 +400,94 @@ const isActiveGroup = (group: NavGroup) => {
                 margin: 0;
                 padding: 0;
                 width: 100%;
+            }
+
+            body {
+                overflow-x: hidden;
+            }
+
+            .layout-shell {
+                display: grid;
+                grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+                min-height: 100vh;
+                --sidebar-width: 18rem;
+            }
+
+            body[data-sidebar-collapsed="true"] .layout-shell {
+                --sidebar-width: 4.5rem;
+            }
+
+            .sidebar-shell {
+                position: sticky;
+                top: 0;
+                height: 100vh;
+                transition:
+                    width 200ms ease,
+                    transform 200ms ease;
+            }
+
+            #app-sidebar[data-collapsed="true"] {
+                width: 4.5rem;
+            }
+
+            #app-sidebar[data-collapsed="true"] .sidebar-label,
+            #app-sidebar[data-collapsed="true"] .sidebar-subnav,
+            #app-sidebar[data-collapsed="true"] .sidebar-chevron {
+                display: none;
+            }
+
+            #app-sidebar[data-collapsed="true"] .sidebar-item {
+                justify-content: center;
+                position: relative;
+            }
+
+            #app-sidebar[data-collapsed="true"] .sidebar-collapse-icon {
+                transform: rotate(180deg);
+            }
+
+            .sidebar-header {
+                position: relative;
+                overflow: visible;
+            }
+
+            .sidebar-toggle {
+                position: absolute;
+                right: -1.25rem;
+                top: 50%;
+                transform: translateY(-50%);
+                background: #fff;
+                border: 1px solid rgba(148, 163, 184, 0.5);
+                box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+                z-index: 20;
+            }
+
+            #app-sidebar[data-collapsed="true"] .sidebar-toggle {
+                right: -1.15rem;
+            }
+
+            .sidebar-item[data-open="true"] .sidebar-chevron {
+                transform: rotate(180deg);
+            }
+
+            #app-sidebar nav {
+                overflow-x: hidden;
+            }
+
+            @media (max-width: 768px) {
+                .layout-shell {
+                    grid-template-columns: minmax(0, 1fr);
+                }
+
+                #app-sidebar {
+                    position: fixed;
+                    inset: 0 auto 0 0;
+                    transform: translateX(-100%);
+                    width: 16rem;
+                }
+
+                #app-sidebar.sidebar-mobile-open {
+                    transform: translateX(0);
+                }
             }
         </style>
     </body>

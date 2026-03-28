@@ -81,7 +81,7 @@ const pendingAmt = Number(pendingRow?.totalAmount ?? 0);
 const paidAmt = Number(paidRow?.totalAmount ?? 0);
 
 // Default cashbox for quick-pay (first active link)
-const defaultCashboxId = cashboxLinks[0]?.link?.cashboxId ?? "";
+const defaultCashboxId = cashboxLinks[0]?.cashboxId ?? "";
 
 const STATUS_LABELS: Record<string, string> = {
     pendiente: "Pendiente",
@@ -97,8 +97,8 @@ const STATUS_COLORS: Record<string, string> = {
 };
 ---
 
-<FinanceLayout title={`Salarios — ${formatPeriod(period)}`} user={user}>
-    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-5">
+ <FinanceLayout title={`Salarios -- ${formatPeriod(period)}`} user={user}>
+    <main class="mx-auto max-w-6xl px-4 py-2 sm:px-6 lg:px-8 space-y-5">
         <!-- Header + Period Nav -->
         <div
             class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
@@ -146,7 +146,7 @@ const STATUS_COLORS: Record<string, string> = {
                             <input type="hidden" name="period" value={period} />
                             <button
                                 type="submit"
-                                onclick="return confirm('¿Generar cuotas para todo el personal activo en este período?')"
+                                onclick="return confirm('Generar cuotas para todo el personal activo en este periodo?')"
                                 class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
                             >
                                 <RefreshCw class="h-3.5 w-3.5" />
@@ -308,7 +308,7 @@ const STATUS_COLORS: Record<string, string> = {
                                         colspan="6"
                                         class="py-12 text-center text-sm text-slate-400"
                                     >
-                                        No hay cuotas para este período. Usa
+                                        No hay cuotas para este periodo. Usa
                                         "Generar Cuotas" para crearlas.
                                     </td>
                                 </tr>
@@ -407,7 +407,7 @@ const STATUS_COLORS: Record<string, string> = {
                                                     </form>
                                                 ) : (
                                                     <span class="text-xs text-slate-300">
-                                                        —
+                                                        --
                                                     </span>
                                                 )}
                                             </td>

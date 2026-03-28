@@ -22,10 +22,9 @@ import {
   createEmployeeFeeSchema,
   bulkGenerateFeesSchema,
   payEmployeeFeeSchema,
-  linkSectorCashboxSchema,
 } from "@/lib/schemas/rrhh.schemas";
 import { db } from "@/db";
-import { employees, sectorCashboxLink } from "@/db/schema";
+import { employees } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 const ADMIN_ROLES = ["ADMIN", "ADMON"] as const;
@@ -129,9 +128,11 @@ export const bulkGenerateFeesAction = defineAction({
     requireAdmin(user.role);
 
     const result = await bulkGenerateFees(input);
+    const skipped =
+      (result.skippedDuplicate ?? 0) + (result.skippedNoCashbox ?? 0);
     return {
       success: true,
-      message: `${result.created} cuotas generadas. ${result.skipped} omitidas.`,
+      message: `${result.created} cuotas generadas. ${skipped} omitidas.`,
       ...result,
     };
   },
@@ -176,32 +177,6 @@ export const voidEmployeeFeeAction = defineAction({
   },
 });
 
-// ─── Sector Cashbox Link ──────────────────────────────────────────────────────
-
-export const linkSectorCashboxAction = defineAction({
-  accept: "form",
-  input: linkSectorCashboxSchema,
-  handler: async (input, ctx) => {
-    const user = ctx.locals.user;
-    if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
-    requireAdmin(user.role);
-
-    await db
-      .insert(sectorCashboxLink)
-      .values(input)
-      .onConflictDoUpdate({
-        target: sectorCashboxLink.sectorId,
-        set: {
-          cashboxId: input.cashboxId,
-          label: input.label,
-          updatedAt: new Date(),
-        },
-      });
-
-    return { success: true, message: "Caja vinculada al sector." };
-  },
-});
-
 // ─── Barrel export for src/actions/index.ts ───────────────────────────────────
 
 export const rrhh = {
@@ -212,5 +187,4 @@ export const rrhh = {
   bulkGenerateFees: bulkGenerateFeesAction,
   payEmployeeFee: payEmployeeFeeAction,
   voidEmployeeFee: voidEmployeeFeeAction,
-  linkSectorCashbox: linkSectorCashboxAction,
 };

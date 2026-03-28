@@ -13,9 +13,6 @@
         sectorId: number;
         initialName: string;
         initialDescription?: string | null;
-        initialFeeAmount: number;
-        initialFeeCurrency: string;
-        initialMonthlyFeeAmount: number;
         triggerLabel?: string;
         triggerClass?: string;
     }
@@ -24,9 +21,6 @@
         sectorId,
         initialName,
         initialDescription = null,
-        initialFeeAmount,
-        initialFeeCurrency,
-        initialMonthlyFeeAmount,
         triggerLabel = "Configurar",
         triggerClass = "rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors",
     }: Props = $props();
@@ -42,9 +36,6 @@
 
     let name = $state(initialName);
     let description = $state(initialDescription ?? "");
-    let feeAmount = $state(String(initialFeeAmount));
-    let feeCurrency = $state(initialFeeCurrency);
-    let monthlyFeeAmount = $state(String(initialMonthlyFeeAmount));
 
     function fieldError(key: string) {
         const e = inputErrors[key];
@@ -54,9 +45,6 @@
     function reset() {
         name = initialName;
         description = initialDescription ?? "";
-        feeAmount = String(initialFeeAmount);
-        feeCurrency = initialFeeCurrency;
-        monthlyFeeAmount = String(initialMonthlyFeeAmount);
         inputErrors = {};
         serverError = null;
         successMsg = null;
@@ -72,9 +60,6 @@
         fd.set("id", String(sectorId));
         fd.set("name", name.trim());
         if (description.trim()) fd.set("description", description.trim());
-        fd.set("feeAmount", feeAmount);
-        fd.set("feeCurrency", feeCurrency);
-        fd.set("monthlyFeeAmount", monthlyFeeAmount);
 
         isSubmitting = true;
         try {
@@ -137,7 +122,7 @@
     bind:isOpen
     size="md"
     title="Editar Sector"
-    description="Actualice la configuración del sector y sus cuotas."
+    description="Actualice la configuracion del sector."
     preventCloseOnEscapeKeyDown={true}
     preventCloseOnInteractOutside={true}
     onClose={reset}
@@ -168,12 +153,12 @@
                     class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
                 >
                     <p class="font-semibold mb-1">
-                        ¿Desactivar "{initialName}"?
+                        Desactivar "{initialName}"?
                     </p>
                     <p class="text-xs text-amber-700">
-                        El sector quedará inactivo. El personal asignado seguirá
-                        existiendo pero no podrá vincularse a una caja ni
-                        generar cuotas. Esta acción puede revertirse editando el
+                        El sector quedara inactivo. El personal asignado seguira
+                        existiendo pero no podra vincularse a una caja ni
+                        generar cuotas. Esta accion puede revertirse editando el
                         sector directamente en la BD.
                     </p>
                 </div>
@@ -226,6 +211,7 @@
             >
                 <div>
                     <label
+                        for="name"
                         class="block text-xs font-medium text-slate-600 mb-1"
                     >
                         Nombre <span class="text-red-500">*</span>
@@ -248,8 +234,10 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-medium text-slate-600 mb-1"
-                        >Descripción</label
+                    <label
+                        for="description"
+                        class="block text-xs font-medium text-slate-600 mb-1"
+                        >Descripcion</label
                     >
                     <input
                         type="text"
@@ -257,95 +245,6 @@
                         maxlength="500"
                         class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
-                </div>
-
-                <div
-                    class="rounded-lg border border-slate-100 bg-slate-50 p-3 space-y-3"
-                >
-                    <p
-                        class="text-xs font-semibold text-slate-600 uppercase tracking-wide"
-                    >
-                        Cuotas
-                    </p>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label
-                                class="block text-xs font-medium text-slate-600 mb-1"
-                            >
-                                Cuota de ingreso <span class="text-red-500"
-                                    >*</span
-                                >
-                            </label>
-                            <div class="relative">
-                                <span
-                                    class="absolute left-3 top-2.5 text-slate-400 text-xs pointer-events-none"
-                                    >Bs</span
-                                >
-                                <input
-                                    type="number"
-                                    bind:value={feeAmount}
-                                    min="0"
-                                    step="0.01"
-                                    required
-                                    class="w-full rounded-lg border border-slate-200 pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                                        {fieldError('feeAmount')
-                                        ? 'border-red-400'
-                                        : ''}"
-                                />
-                            </div>
-                            {#if fieldError("feeAmount")}
-                                <p class="mt-1 text-xs text-red-600">
-                                    {fieldError("feeAmount")}
-                                </p>
-                            {/if}
-                        </div>
-
-                        <div>
-                            <label
-                                class="block text-xs font-medium text-slate-600 mb-1"
-                            >
-                                Cuota mensual <span class="text-red-500">*</span
-                                >
-                            </label>
-                            <div class="relative">
-                                <span
-                                    class="absolute left-3 top-2.5 text-slate-400 text-xs pointer-events-none"
-                                    >Bs</span
-                                >
-                                <input
-                                    type="number"
-                                    bind:value={monthlyFeeAmount}
-                                    min="0"
-                                    step="0.01"
-                                    required
-                                    class="w-full rounded-lg border border-slate-200 pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                                        {fieldError('monthlyFeeAmount')
-                                        ? 'border-red-400'
-                                        : ''}"
-                                />
-                            </div>
-                            {#if fieldError("monthlyFeeAmount")}
-                                <p class="mt-1 text-xs text-red-600">
-                                    {fieldError("monthlyFeeAmount")}
-                                </p>
-                            {/if}
-                        </div>
-                    </div>
-
-                    <div>
-                        <label
-                            class="block text-xs font-medium text-slate-600 mb-1"
-                            >Moneda</label
-                        >
-                        <select
-                            bind:value={feeCurrency}
-                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="BOB">BOB — Boliviano</option>
-                            <option value="USD">USD — Dólar</option>
-                        </select>
-                    </div>
                 </div>
             </form>
         {/if}
@@ -400,3 +299,5 @@
         {/if}
     {/snippet}
 </Dialog>
+
+

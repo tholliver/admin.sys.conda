@@ -1,8 +1,8 @@
 /**
  * RRHH Service
- * ─────────────────────────────────────────────────────────────
+ * -------------------------------------------------------------
  * All DB queries and business logic for the employees module.
- * Keeps pages/actions thin — they only call these functions.
+ * Keeps pages/actions thin � they only call these functions.
  */
 
 import { db } from "@/db";
@@ -12,7 +12,6 @@ import {
   employees,
   employeeFees,
   employeePayments,
-  sectorCashboxLink,
   type SelectEmployee,
   type SelectEmployeeFee,
   type SectorSalarySummary,
@@ -40,17 +39,17 @@ import type {
   BulkGenerateFeesInput,
 } from "@/lib/schemas/rrhh.schemas";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// --- Constants ----------------------------------------------------------------
 export const MAX_DIRECTORIO = 20;
 export const MAX_PLANTA = 50;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// --- Helpers ------------------------------------------------------------------
 
 export function getEmployeeFullName(e: Pick<SelectEmployee, "fullName">): string {
   return e.fullName;
 }
 
-/** Format period "2025-03" → "Marzo 2025" */
+/** Format period "2025-03" ? "Marzo 2025" */
 export function formatPeriod(period: string): string {
   const [year, month] = period.split("-");
   const date = new Date(Number(year), Number(month) - 1, 1);
@@ -64,7 +63,7 @@ export function currentPeriod(): string {
   return `${now.getFullYear()}-${m}`;
 }
 
-// ─── Employee Queries ─────────────────────────────────────────────────────────
+// --- Employee Queries ---------------------------------------------------------
 
 export async function getEmployees(filters: EmployeeFilters = {} as EmployeeFilters) {
   const { type = "all", sectorId, status = "all", search, page = 1, pageSize = 20 } = filters;
@@ -141,7 +140,7 @@ export async function getEmployeeById(id: number) {
   };
 }
 
-/** Count active employees by type — used to enforce capacity limits */
+/** Count active employees by type � used to enforce capacity limits */
 export async function getEmployeeCountByType() {
   const rows = await db
     .select({
@@ -163,11 +162,11 @@ export async function createEmployee(data: CreateEmployeeInput, createdByUserId:
   // Enforce capacity
   const counts = await getEmployeeCountByType();
   if (data.employeeType === "directorio" && counts.directorio >= MAX_DIRECTORIO) {
-    throw new Error(`El directorio ya alcanzó el máximo de ${MAX_DIRECTORIO} miembros activos.`);
+    throw new Error(`El directorio ya alcanz� el m�ximo de ${MAX_DIRECTORIO} miembros activos.`);
   }
   if (data.employeeType === "planta" && counts.planta >= MAX_PLANTA) {
     throw new Error(
-      `La planta ya alcanzó el máximo de ${MAX_PLANTA} miembros del personal activos.`
+      `La planta ya alcanz� el m�ximo de ${MAX_PLANTA} miembros del personal activos.`
     );
   }
 
@@ -193,7 +192,7 @@ export async function updateEmployee(data: UpdateEmployeeInput) {
   return updated;
 }
 
-// ─── Fee Queries ──────────────────────────────────────────────────────────────
+// --- Fee Queries --------------------------------------------------------------
 
 export async function getFeesWithEmployees(filters: FeeFilters = {} as FeeFilters) {
   const { period, sectorId, status = "all", employeeType = "all" } = filters;
@@ -256,7 +255,7 @@ export async function createEmployeeFee(data: CreateEmployeeFeeInput) {
 
   if (existing[0]) {
     throw new Error(
-      `Ya existe una cuota para este miembro del personal en el período ${data.period}.`
+      `Ya existe una cuota para este miembro del personal en el per�odo ${data.period}.`
     );
   }
 
@@ -280,14 +279,14 @@ export async function createEmployeeFee(data: CreateEmployeeFeeInput) {
    const conditions: any[] = [eq(employees.status, "activo")];
    if (sectorId) conditions.push(eq(employees.sectorId, sectorId));
 
-   const activeEmployees = await db
-     .select({
-       employee: employees,
-       cashboxId: sectorCashboxLink.cashboxId,
-     })
-     .from(employees)
-     .leftJoin(sectorCashboxLink, eq(sectorCashboxLink.sectorId, employees.sectorId))
-     .where(and(...conditions));
+  const activeEmployees = await db
+    .select({
+      employee: employees,
+      cashboxId: sectors.cashboxId,
+    })
+    .from(employees)
+    .leftJoin(sectors, eq(sectors.id, employees.sectorId))
+    .where(and(...conditions));
 
    if (activeEmployees.length === 0) {
      return { created: 0, skippedDuplicate: 0, skippedNoCashbox: 0, noCashboxEmployees: [], errors: [] };
@@ -342,7 +341,7 @@ export async function createEmployeeFee(data: CreateEmployeeFeeInput) {
    };
  }
 
-// ─── Payment ──────────────────────────────────────────────────────────────────
+// --- Payment ------------------------------------------------------------------
 
 export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserId: string) {
   const feeRow = await db
@@ -363,56 +362,53 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
 
   const amountToPay = Number(data.amountPaid);
   if (!Number.isFinite(amountToPay) || amountToPay <= 0) {
-    throw new Error("El monto de pago es inválido.");
+    throw new Error("El monto de pago es inv�lido.");
   }
 
-  // Resolve cashbox by sector:
-  // - sectorId 0 => general cashbox (code GEN)
-  // - any other sector => linked sector cashbox
+  // Resolve cashbox by sector (direct FK on sectors)
   let resolvedCashbox: { id: string; name: string; balance: string | null; status: string | null };
 
-  if (employeeSectorId === 0) {
-    const general = await db
-      .select({
-        id: cashboxes.id,
-        name: cashboxes.name,
-        balance: cashboxes.balance,
-        status: cashboxes.status,
-      })
-      .from(cashboxes)
-      .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "active")))
-      .limit(1);
+  const linked = await db
+    .select({
+      id: cashboxes.id,
+      name: cashboxes.name,
+      balance: cashboxes.balance,
+      status: cashboxes.status,
+    })
+    .from(sectors)
+    .innerJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
+    .where(eq(sectors.id, employeeSectorId))
+    .limit(1);
 
-    if (!general[0]) {
-      throw new Error(
-        'No existe una caja general activa con código "GEN" para el sector SIN SECTOR.'
-      );
-    }
+  if (!linked[0]) {
+    if (employeeSectorId === 0) {
+      const general = await db
+        .select({
+          id: cashboxes.id,
+          name: cashboxes.name,
+          balance: cashboxes.balance,
+          status: cashboxes.status,
+        })
+        .from(cashboxes)
+        .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "active")))
+        .limit(1);
 
-    resolvedCashbox = general[0];
-  } else {
-    const linked = await db
-      .select({
-        id: cashboxes.id,
-        name: cashboxes.name,
-        balance: cashboxes.balance,
-        status: cashboxes.status,
-        linkActive: sectorCashboxLink.isActive,
-      })
-      .from(sectorCashboxLink)
-      .innerJoin(cashboxes, eq(cashboxes.id, sectorCashboxLink.cashboxId))
-      .where(eq(sectorCashboxLink.sectorId, employeeSectorId))
-      .limit(1);
+      if (!general[0]) {
+        throw new Error(
+          'No existe una caja general activa con c??digo "GEN" para el sector SIN SECTOR.'
+        );
+      }
 
-    if (!linked[0]) {
+      resolvedCashbox = general[0];
+    } else {
       throw new Error(
         `El sector del empleado "${employeeName}" no tiene una caja vinculada.`
       );
     }
-
-    if (!linked[0].linkActive || linked[0].status !== "active") {
+  } else {
+    if (linked[0].status !== "active") {
       throw new Error(
-        `La caja vinculada al sector del empleado "${employeeName}" está inactiva.`
+        `La caja vinculada al sector del empleado "${employeeName}" est?? inactiva.`
       );
     }
 
@@ -467,20 +463,21 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
   return payment;
 }
 
-// ─── Sector Cashbox ───────────────────────────────────────────────────────────
+// --- Sector Cashbox -----------------------------------------------------------
 
 export async function getSectorCashboxLinks() {
   return db
     .select({
-      link: sectorCashboxLink,
+      sectorId: sectors.id,
       sectorName: sectors.name,
+      sectorIsActive: sectors.isActive,
+      cashboxId: sectors.cashboxId,
       cashboxName: cashboxes.name,
       cashboxBalance: cashboxes.balance,
       cashboxStatus: cashboxes.status,
     })
-    .from(sectorCashboxLink)
-    .leftJoin(sectors, eq(sectors.id, sectorCashboxLink.sectorId))
-    .leftJoin(cashboxes, eq(cashboxes.id, sectorCashboxLink.cashboxId))
+    .from(sectors)
+    .leftJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
     .orderBy(asc(sectors.name));
 }
 
@@ -489,14 +486,13 @@ export async function getSectorSalarySummary(): Promise<SectorSalarySummary[]> {
     .select({
       sectorId: sectors.id,
       sectorName: sectors.name,
-      cashboxId: sectorCashboxLink.cashboxId,
+      cashboxId: sectors.cashboxId,
       cashboxBalance: cashboxes.balance,
       totalEmployees: count(employees.id),
       totalMonthlySalary: sum(employees.baseSalary),
     })
     .from(sectors)
-    .leftJoin(sectorCashboxLink, eq(sectorCashboxLink.sectorId, sectors.id))
-    .leftJoin(cashboxes, eq(cashboxes.id, sectorCashboxLink.cashboxId))
+    .leftJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
     .leftJoin(
       employees,
       and(eq(employees.sectorId, sectors.id), eq(employees.status, "activo"))
@@ -504,7 +500,7 @@ export async function getSectorSalarySummary(): Promise<SectorSalarySummary[]> {
     .groupBy(
       sectors.id,
       sectors.name,
-      sectorCashboxLink.cashboxId,
+      sectors.cashboxId,
       cashboxes.balance
     )
     .orderBy(asc(sectors.name));

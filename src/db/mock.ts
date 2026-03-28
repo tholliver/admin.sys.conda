@@ -104,30 +104,12 @@ export async function seedCashbox() {
 export async function seedSectors() {
   log.section("SECTORS");
   try {
-    await db.insert(schema.sectors).values(SECTORS_DATA);
-    await db.execute(sql`SELECT setval('sectors_id_seq', COALESCE((SELECT MAX(id)+1 FROM sectors), 1), false)`);
-    log.ok(`${SECTORS_DATA.length} sectors inserted`);
-  } catch (error) { log.warn(`Sectors already exist, skipping, ${error}`); }
-}
+    const allCashboxes = await db
+      .select({ id: schema.cashboxes.id, code: schema.cashboxes.code })
+      .from(schema.cashboxes);
 
-export async function seedSectorCashboxLinks() {
-  log.section("SECTOR CASHBOX LINKS");
-  try {
-    const [allSectors, allCashboxes] = await Promise.all([
-      db
-        .select({ id: schema.sectors.id, name: schema.sectors.name })
-        .from(schema.sectors),
-      db
-        .select({ id: schema.cashboxes.id, code: schema.cashboxes.code })
-        .from(schema.cashboxes),
-    ]);
-
-    if (allSectors.length === 0) {
-      log.warn("No sectors found, skipping links");
-      return;
-    }
     if (allCashboxes.length === 0) {
-      log.warn("No cashboxes found, skipping links");
+      log.warn("No cashboxes found, skipping sectors");
       return;
     }
 
@@ -135,33 +117,15 @@ export async function seedSectorCashboxLinks() {
       a.code.localeCompare(b.code),
     );
 
-    const links = allSectors.map((sector, index) => {
-      const cashbox = sortedCashboxes[index % sortedCashboxes.length];
-      return {
-        sectorId: sector.id,
-        cashboxId: cashbox.id,
-        label: `Caja ${cashbox.code} para ${sector.name}`,
-        isActive: true,
-      };
-    });
+    const sectorsToInsert = SECTORS_DATA.map((sector, index) => ({
+      ...sector,
+      cashboxId: sortedCashboxes[index % sortedCashboxes.length]!.id,
+    }));
 
-    await db
-      .insert(schema.sectorCashboxLink)
-      .values(links)
-      .onConflictDoUpdate({
-        target: schema.sectorCashboxLink.sectorId,
-        set: {
-          cashboxId: sql`excluded.cashbox_id`,
-          label: sql`excluded.label`,
-          isActive: true,
-          updatedAt: new Date(),
-        },
-      });
-
-    log.ok(`${links.length} sector-cashbox links synced`);
-  } catch (error) {
-    log.warn(`Sector-cashbox links skipped: ${error}`);
-  }
+    await db.insert(schema.sectors).values(sectorsToInsert);
+    await db.execute(sql`SELECT setval('sectors_id_seq', COALESCE((SELECT MAX(id)+1 FROM sectors), 1), false)`);
+    log.ok(`${SECTORS_DATA.length} sectors inserted`);
+  } catch (error) { log.warn(`Sectors already exist, skipping, ${error}`); }
 }
 
 export const INVOICE_RANGES_DATA = [
@@ -441,247 +405,39 @@ export const CASHBOXES_DATA = [
 ];
 
 export const SECTORS_DATA = [
-  {
-    id: 0,
-    name: "SIN SECTOR",
-    description: "......",
-    feeAmount: 0,
-    feeCurrency: "BOB",
-    isActive: false,
-    monthlyFeeAmount: 0,
-  },
-  {
-    id: 1,
-    name: "1ER GRUPO",
-    description: "......",
-    feeAmount: 500,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 2,
-    name: "2DO GRUPO",
-    description: "......",
-    feeAmount: 500,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 3,
-    name: "3ER GRUPO",
-    description: "......",
-    feeAmount: 500,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 4,
-    name: "4TO GRUPO",
-    description: "......",
-    feeAmount: 500,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 5,
-    name: "RADIO MOVIL",
-    description: "......",
-    feeAmount: 300,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 6,
-    name: "PUERTO VILLARROEL",
-    description: "......",
-    feeAmount: 300,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 7,
-    name: "TAXIS VALLE SACTA",
-    description: "......",
-    feeAmount: 300,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 90,
-  },
-  {
-    id: 8,
-    name: "MOTOS VALLE SACTA",
-    description: "......",
-    feeAmount: 1000,
-    feeCurrency: "BOB",
-    monthlyFeeAmount: 75,
-  },
-  {
-    id: 9,
-    name: "TAXIS AYOPAYA",
-    description: "......",
-    feeAmount: 150,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 90,
-  },
-  {
-    id: 10,
-    name: "MOTO AYOPAYA",
-    description: "......",
-    feeAmount: 1000,
-    feeCurrency: "BOB",
-    monthlyFeeAmount: 60,
-  },
-  {
-    id: 11,
-    name: "TAXI VALLE TUNARI",
-    description: "......",
-    feeAmount: 200,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 75,
-  },
-  {
-    id: 12,
-    name: "MOTOS VALLE TUNARI",
-    description: "......",
-    feeAmount: 1000,
-    feeCurrency: "BOB",
-    monthlyFeeAmount: 60,
-  },
-  {
-    id: 13,
-    name: "TAXI SENDA VI",
-    description: "......",
-    feeAmount: 150,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 90,
-  },
-  {
-    id: 14,
-    name: "MOTOS SENDA VI",
-    description: "......",
-    feeAmount: 1000,
-    feeCurrency: "BOB",
-    monthlyFeeAmount: 45,
-  },
-
-  {
-    id: 15,
-    name: "TAXI SENDA V",
-    description: "......",
-    feeAmount: 150,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 45,
-  },
-  {
-    id: 16,
-    name: "MOTO SENDA V",
-    description: "......",
-    feeAmount: 1000,
-    feeCurrency: "BOB",
-    monthlyFeeAmount: 45,
-  },
-  {
-    id: 17,
-    name: "TAXI ISRAEL",
-    description: "......",
-    feeAmount: 150,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 90,
-  },
-  {
-    id: 18,
-    name: "MINIBUSES",
-    description: "......",
-    feeAmount: 1500,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 19,
-    name: "TAXI MARIPOSAS",
-    description: "......",
-    feeAmount: 500,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 90,
-  },
-  {
-    id: 20,
-    name: "MOTO MARIPOSAS",
-    description: "......",
-    feeAmount: 1000,
-    feeCurrency: "BOB",
-    monthlyFeeAmount: 45,
-  },
-  {
-    id: 21,
-    name: "NUEVA ESTRELLA",
-    description: "......",
-    feeAmount: 200,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 75,
-  },
-  {
-    id: 22,
-    name: "MOTO CENTRAL",
-    description: "......",
-    feeAmount: 2500,
-    feeCurrency: "BOB",
-    monthlyFeeAmount: 75,
-  },
-  {
-    id: 23,
-    name: "CAMIONETAS",
-    description: "......",
-    feeAmount: 150,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 24,
-    name: "MICROS",
-    description: "......",
-    feeAmount: 2500,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 25,
-    name: "BUSES",
-    description: "......",
-    feeAmount: 3000,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 26,
-    name: "CAMIONES",
-    description: "......",
-    feeAmount: 1500,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 27,
-    name: "VOLQUETAS",
-    description: "......",
-    feeAmount: 500,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
-  {
-    id: 28,
-    name: "CHATA TOLVA",
-    description: "......",
-    feeAmount: 1000,
-    feeCurrency: "USD",
-    monthlyFeeAmount: 150,
-  },
+  { id: 0, name: "SIN SECTOR", description: "......", isActive: false },
+  { id: 1, name: "1ER GRUPO", description: "......", isActive: true },
+  { id: 2, name: "2DO GRUPO", description: "......", isActive: true },
+  { id: 3, name: "3ER GRUPO", description: "......", isActive: true },
+  { id: 4, name: "4TO GRUPO", description: "......", isActive: true },
+  { id: 5, name: "RADIO MOVIL", description: "......", isActive: true },
+  { id: 6, name: "PUERTO VILLARROEL", description: "......", isActive: true },
+  { id: 7, name: "TAXIS VALLE SACTA", description: "......", isActive: true },
+  { id: 8, name: "MOTOS VALLE SACTA", description: "......", isActive: true },
+  { id: 9, name: "TAXIS AYOPAYA", description: "......", isActive: true },
+  { id: 10, name: "MOTO AYOPAYA", description: "......", isActive: true },
+  { id: 11, name: "TAXI VALLE TUNARI", description: "......", isActive: true },
+  { id: 12, name: "MOTOS VALLE TUNARI", description: "......", isActive: true },
+  { id: 13, name: "TAXI SENDA VI", description: "......", isActive: true },
+  { id: 14, name: "MOTOS SENDA VI", description: "......", isActive: true },
+  { id: 15, name: "TAXI SENDA V", description: "......", isActive: true },
+  { id: 16, name: "MOTO SENDA V", description: "......", isActive: true },
+  { id: 17, name: "TAXI ISRAEL", description: "......", isActive: true },
+  { id: 18, name: "MINIBUSES", description: "......", isActive: true },
+  { id: 19, name: "TAXI MARIPOSAS", description: "......", isActive: true },
+  { id: 20, name: "MOTO MARIPOSAS", description: "......", isActive: true },
+  { id: 21, name: "NUEVA ESTRELLA", description: "......", isActive: true },
+  { id: 22, name: "MOTO CENTRAL", description: "......", isActive: true },
+  { id: 23, name: "CAMIONETAS", description: "......", isActive: true },
+  { id: 24, name: "MICROS", description: "......", isActive: true },
+  { id: 25, name: "BUSES", description: "......", isActive: true },
+  { id: 26, name: "CAMIONES", description: "......", isActive: true },
+  { id: 27, name: "VOLQUETAS", description: "......", isActive: true },
+  { id: 28, name: "CHATA TOLVA", description: "......", isActive: true },
 ];
 
-
+await seedCashbox();
 await seedSectors();
 await seedCategories();
-await seedCashbox();
-await seedSectorCashboxLinks();
 await seedInvoiceRanges();  // ranges first — categories link to them
 await seedUsers();
-

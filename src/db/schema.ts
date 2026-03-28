@@ -305,11 +305,11 @@ export type FeePaymentStatus = (typeof feePaymentStatusEnum.enumValues)[number];
 
 export const sectors = pgTable("sectors", {
   id: serial("id").primaryKey(),
+  cashboxId: uuid("cashbox_id")
+    .notNull()
+    .references(() => cashboxes.id, { onDelete: "restrict" }), // direct FK
   name: varchar("name", { length: 100 }).notNull().unique(),
   description: text("description"),
-  feeAmount: numeric("fee_amount", { mode: "number" }).notNull(),
-  feeCurrency: varchar("fee_currency", { length: 3 }).$type<Currency>().notNull(),
-  monthlyFeeAmount: numeric("monthly_fee_amount", { mode: "number" }).notNull(),
   isActive: boolean("is_active").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
@@ -318,7 +318,10 @@ export const sectors = pgTable("sectors", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+},
+(table) => [
+  index("idx_sectors_cashbox").on(table.cashboxId),
+]);
 
 export const employees = pgTable(
   "employees",
@@ -440,31 +443,25 @@ export const employeePayments = pgTable(
   ],
 );
 
-export const sectorCashboxLink = pgTable(
-  "sector_cashbox_link",
-  {
-    id: serial("id").primaryKey(),
-    sectorId: integer("sector_id").notNull(),
-    cashboxId: uuid("cashbox_id").notNull(),
-    label: varchar("label", { length: 100 }),
-    isActive: boolean("is_active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow()
-      .$onUpdate(() => new Date()),
-  },
-  (table) => [
-    uniqueIndex("unique_sector_cashbox").on(table.sectorId),
-    index("idx_sector_cashbox_cashbox").on(table.cashboxId),
-  ],
-);
-
 // ============================== RELATIONS ============================================
 
-export const employeesRelations = relations(employees, ({ many }) => ({
+export const cashboxesRelations = relations(cashboxes, ({ many }) => ({
+  sectors: many(sectors),
+}));
+
+export const sectorsRelations = relations(sectors, ({ one, many }) => ({
+  cashbox: one(cashboxes, {
+    fields: [sectors.cashboxId],
+    references: [cashboxes.id],
+  }),
+  employees: many(employees),
+}));
+
+export const employeesRelations = relations(employees, ({ one, many }) => ({
+  sector: one(sectors, {
+    fields: [employees.sectorId],
+    references: [sectors.id],
+  }),
   fees: many(employeeFees),
   payments: many(employeePayments),
 }));
@@ -765,9 +762,6 @@ export type InsertEmployeeFee = typeof employeeFees.$inferInsert;
 export type SelectEmployeePayment = typeof employeePayments.$inferSelect;
 export type InsertEmployeePayment = typeof employeePayments.$inferInsert;
 
-export type SelectSectorCashboxLink = typeof sectorCashboxLink.$inferSelect;
-export type InsertSectorCashboxLink = typeof sectorCashboxLink.$inferInsert;
-
 export type EmployeeWithFullName = SelectEmployee & {
   fullName: string;
   sectorName?: string;
@@ -787,3 +781,4 @@ export type SectorSalarySummary = {
   pendingFees: number;
   pendingAmount: number;
 };
+

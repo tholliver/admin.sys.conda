@@ -115,16 +115,6 @@ export const payEmployeeFeeSchema = z.object({
 
 export type PayEmployeeFeeInput = z.infer<typeof payEmployeeFeeSchema>;
 
-// ── Sector Cashbox Link ───────────────────────────────────────────────────────
-
-export const linkSectorCashboxSchema = z.object({
-  sectorId: z.coerce.number().int().positive("Sector requerido"),
-  cashboxId: z.string().uuid("Caja inválida"),
-  label: z.string().max(100).optional(),
-});
-
-export type LinkSectorCashboxInput = z.infer<typeof linkSectorCashboxSchema>;
-
 // ── Query/filter schemas ──────────────────────────────────────────────────────
 
 export const employeeFiltersSchema = z.object({

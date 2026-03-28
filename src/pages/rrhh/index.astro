@@ -66,7 +66,7 @@ const paidPct = totalFees > 0 ? Math.round((paidCount / totalFees) * 100) : 0;
 
 <FinanceLayout title="RRHH — Personal" user={user}>
     <div class="bg-slate-50 min-h-screen">
-        <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
+        <main class="mx-auto max-w-6xl px-4 py-2 sm:px-6 lg:px-8 space-y-6">
             <!-- ── 1. HEADER ─────────────────────────────────────────────────── -->
             <div class="flex items-center justify-between">
                 <div>
@@ -78,12 +78,12 @@ const paidPct = totalFees > 0 ? Math.round((paidCount / totalFees) * 100) : 0;
                     </p>
                 </div>
                 <CreateEmployeeDialog
-                    client:load
                     sectors={allSectors}
                     directorioCount={counts.directorio}
                     plantaCount={counts.planta}
                     maxDirectorio={MAX_DIRECTORIO}
                     maxPlanta={MAX_PLANTA}
+                    client:load
                 />
             </div>
 
