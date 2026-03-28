@@ -4,6 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import svelte from "@astrojs/svelte";
 import node from "@astrojs/node";
 
+import vercel from "@astrojs/vercel";
+
 // https://astro.build/config
 export default defineConfig({
   security: {
@@ -48,7 +50,5 @@ export default defineConfig({
     defaultStrategy: "hover",
     prefetchAll: false,
   },
-  adapter: node({
-    mode: "standalone",
-  }),
+  adapter: vercel(),
 })
