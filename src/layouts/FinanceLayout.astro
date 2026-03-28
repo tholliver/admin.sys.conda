@@ -41,13 +41,12 @@ interface NavGroup {
     links: NavLink[];
 }
 
-const navGroups: NavGroup[] = [
+const navGroups = [
     {
         label: "Finanzas",
         icon: Home,
         baseHref: "/",
         links: [
-            { label: "Inicio", href: "/", icon: Home },
             { label: "Ingresos", href: "/ingresos", icon: BanknoteArrowUp },
             { label: "Egresos", href: "/egresos", icon: BanknoteArrowDown },
             {
@@ -55,10 +54,7 @@ const navGroups: NavGroup[] = [
                 href: "/transferencias",
                 icon: ArrowLeftRight,
             },
-            { label: "Talonarios", href: "/talonarios", icon: ReceiptText },
-            { label: "Reportes", href: "/reportes", icon: ChartColumn },
             { label: "Historial", href: "/historial", icon: History },
-            { label: "Categorías", href: "/cuentas", icon: Tags },
         ],
     },
     {
@@ -66,8 +62,7 @@ const navGroups: NavGroup[] = [
         icon: Users,
         baseHref: "/rrhh",
         links: [
-            { label: "Panel RRHH", href: "/rrhh", icon: Layers },
-            { label: "Nómina", href: "/rrhh/personal", icon: Users },
+            { label: "Personal", href: "/rrhh/personal", icon: Users },
             { label: "Salarios", href: "/rrhh/salarios", icon: CalendarClock },
             { label: "Sectores", href: "/rrhh/sectores", icon: Building2 },
         ],
@@ -77,9 +72,17 @@ const navGroups: NavGroup[] = [
         icon: Building,
         baseHref: "/inquilinos",
         links: [
-            { label: "Contratistas", href: "/contratistas", icon: Handshake },
             { label: "Inquilinos", href: "/inquilinos", icon: Building },
-            { label: "Clientes", href: "/clientes", icon: Users },
+            { label: "Contratistas", href: "/contratistas", icon: Handshake },
+        ],
+    },
+    {
+        label: "Configuración",
+        icon: Tags,
+        baseHref: "/config",
+        links: [
+            { label: "Cuentas", href: "/cuentas", icon: Tags },
+            { label: "Talonarios", href: "/talonarios", icon: ReceiptText },
         ],
     },
 ];

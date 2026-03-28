@@ -19,6 +19,7 @@ import {
     CheckCircle,
     AlertCircle,
     RefreshCw,
+    TriangleAlert,
     ChevronLeft,
     ChevronRight,
 } from "@lucide/astro";
@@ -167,8 +168,9 @@ const STATUS_COLORS: Record<string, string> = {
         }
         {
             errorMsg && (
-                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {errorMsg}
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+                    <TriangleAlert class="size-4 shrink-0" />
+                    <span>{errorMsg}</span>
                 </div>
             )
         }

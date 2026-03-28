@@ -1,7 +1,7 @@
 ﻿<script lang="ts">
     import { createEventDispatcher } from "svelte";
     import { z } from "zod";
-    import { CircleAlert, CircleCheck } from "@lucide/svelte";
+    import { CircleAlert, CircleCheck, Calendar } from "@lucide/svelte";
     import { ZodForm } from "@/lib/form/create-zod-form.svelte";
     import type { SelectSector } from "@/db/schema";
     import type { EmployeeFormData } from "./employeeFormTypes";
@@ -44,7 +44,7 @@
         phone: z.string().optional(),
         address: z.string().optional(),
         chargeTitle: z.string().min(2, "Cargo requerido"),
-        sectorId: z.string().min(1, "Sector requerido"),
+        sectorId: z.string().optional(),
         hireDate: z.string().min(1, "Fecha de ingreso requerida"),
         baseSalary: z.string().min(1, "Salario requerido"),
         notes: z.string().optional(),
@@ -156,8 +156,7 @@
                     </p>
                 </div>
                 {#if directorioCount >= maxDirectorio}
-                    <span class="text-[10px] font-bold text-red-500"
-                        >LLENO</span
+                    <span class="text-[10px] font-bold text-red-500">LLENO</span
                     >
                 {/if}
             </label>
@@ -182,8 +181,7 @@
                     </p>
                 </div>
                 {#if plantaCount >= maxPlanta}
-                    <span class="text-[10px] font-bold text-red-500"
-                        >LLENO</span
+                    <span class="text-[10px] font-bold text-red-500">LLENO</span
                     >
                 {/if}
             </label>
@@ -210,7 +208,9 @@
                 })}
             onblur={() => form.onBlur("fullName")}
             class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-            {fieldError('fullName') || fieldError('name') || fieldError('pLastName')
+            {fieldError('fullName') ||
+            fieldError('name') ||
+            fieldError('pLastName')
                 ? 'border-red-400'
                 : 'border-slate-200'}"
         />
@@ -226,7 +226,11 @@
         {:else if form.values.fullName.trim().split(/\s+/).length >= 2}
             <p class="mt-1 text-xs text-emerald-600 flex items-center gap-1">
                 <CircleCheck class="h-3 w-3" />
-                {form.values.fullName.trim().split(/\s+/).slice(0, 3).join(" · ")}
+                {form.values.fullName
+                    .trim()
+                    .split(/\s+/)
+                    .slice(0, 3)
+                    .join(" · ")}
             </p>
         {/if}
     </div>
@@ -295,7 +299,9 @@
                     })}
                 onblur={() => form.onBlur("chargeTitle")}
                 class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                {fieldError('chargeTitle') ? 'border-red-400' : 'border-slate-200'}"
+                {fieldError('chargeTitle')
+                    ? 'border-red-400'
+                    : 'border-slate-200'}"
             />
             {#if fieldError("chargeTitle")}
                 <p class="mt-1 text-xs text-red-600">
@@ -307,23 +313,24 @@
         <!-- Sector -->
         <div>
             <label class="block text-sm font-medium text-slate-700 mb-1">
-                Sector <span class="text-red-500">*</span>
+                Sector
             </label>
             <select
                 name="sectorId"
                 value={form.values.sectorId}
-                required
                 onchange={(e) =>
                     form.setValue("sectorId", e.currentTarget.value, {
                         validate: false,
                     })}
                 onblur={() => form.onBlur("sectorId")}
                 class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                {fieldError('sectorId') ? 'border-red-400' : 'border-slate-200'}"
+                {fieldError('sectorId')
+                    ? 'border-red-400'
+                    : 'border-slate-200'}"
             >
                 <option value="">— Seleccionar sector —</option>
                 {#each sectors as s}
-                    <option value={s.id}>{s.name}</option>
+                    <option value={String(s.id)}>{s.name}</option>
                 {/each}
             </select>
             {#if fieldError("sectorId")}
@@ -376,19 +383,26 @@
             <label class="block text-sm font-medium text-slate-700 mb-1">
                 Fecha de Ingreso <span class="text-red-500">*</span>
             </label>
-            <input
-                type="date"
-                name="hireDate"
-                value={form.values.hireDate}
-                required
-                oninput={(e) =>
-                    form.setValue("hireDate", e.currentTarget.value, {
-                        validate: false,
-                    })}
-                onblur={() => form.onBlur("hireDate")}
-                class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                {fieldError('hireDate') ? 'border-red-400' : 'border-slate-200'}"
-            />
+            <div class="relative">
+                <input
+                    type="date"
+                    name="hireDate"
+                    value={form.values.hireDate}
+                    required
+                    oninput={(e) =>
+                        form.setValue("hireDate", e.currentTarget.value, {
+                            validate: false,
+                        })}
+                    onblur={() => form.onBlur("hireDate")}
+                    class="w-full rounded-lg border px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none date-input-icon
+                    {fieldError('hireDate')
+                        ? 'border-red-400'
+                        : 'border-slate-200'}"
+                />
+                <Calendar
+                    class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none"
+                />
+            </div>
             {#if fieldError("hireDate")}
                 <p class="mt-1 text-xs text-red-600">
                     {fieldError("hireDate")}
@@ -448,4 +462,4 @@
             class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
         ></textarea>
     </div>
-+</form>
+</form>

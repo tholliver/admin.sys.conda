@@ -82,15 +82,22 @@ async function seedInvoiceRanges() {
 export async function seedCashbox() {
   log.section("CASHBOX");
   try {
-    await db.insert(schema.cashboxes).values([{
-      name: "Caja Principal",
-      code: "GEN",
-      description: "Caja General",
-      balance: "0",
-      creditLimit: "0",
-      status: "active",
-    }]);
-    log.ok("Cashbox inserted");
+    const existing = await db
+      .select({ code: schema.cashboxes.code })
+      .from(schema.cashboxes);
+    const existingCodes = new Set(existing.map((row) => row.code));
+
+    const toInsert = CASHBOXES_DATA.filter(
+      (cashbox) => !existingCodes.has(cashbox.code),
+    );
+
+    if (toInsert.length === 0) {
+      log.warn("Cashboxes already exist, skipping");
+      return;
+    }
+
+    await db.insert(schema.cashboxes).values(toInsert);
+    log.ok(`${toInsert.length} cashboxes inserted`);
   } catch { log.warn("Cashbox already exists, skipping"); }
 }
 
@@ -101,6 +108,60 @@ export async function seedSectors() {
     await db.execute(sql`SELECT setval('sectors_id_seq', COALESCE((SELECT MAX(id)+1 FROM sectors), 1), false)`);
     log.ok(`${SECTORS_DATA.length} sectors inserted`);
   } catch (error) { log.warn(`Sectors already exist, skipping, ${error}`); }
+}
+
+export async function seedSectorCashboxLinks() {
+  log.section("SECTOR CASHBOX LINKS");
+  try {
+    const [allSectors, allCashboxes] = await Promise.all([
+      db
+        .select({ id: schema.sectors.id, name: schema.sectors.name })
+        .from(schema.sectors),
+      db
+        .select({ id: schema.cashboxes.id, code: schema.cashboxes.code })
+        .from(schema.cashboxes),
+    ]);
+
+    if (allSectors.length === 0) {
+      log.warn("No sectors found, skipping links");
+      return;
+    }
+    if (allCashboxes.length === 0) {
+      log.warn("No cashboxes found, skipping links");
+      return;
+    }
+
+    const sortedCashboxes = allCashboxes.sort((a, b) =>
+      a.code.localeCompare(b.code),
+    );
+
+    const links = allSectors.map((sector, index) => {
+      const cashbox = sortedCashboxes[index % sortedCashboxes.length];
+      return {
+        sectorId: sector.id,
+        cashboxId: cashbox.id,
+        label: `Caja ${cashbox.code} para ${sector.name}`,
+        isActive: true,
+      };
+    });
+
+    await db
+      .insert(schema.sectorCashboxLink)
+      .values(links)
+      .onConflictDoUpdate({
+        target: schema.sectorCashboxLink.sectorId,
+        set: {
+          cashboxId: sql`excluded.cashbox_id`,
+          label: sql`excluded.label`,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+
+    log.ok(`${links.length} sector-cashbox links synced`);
+  } catch (error) {
+    log.warn(`Sector-cashbox links skipped: ${error}`);
+  }
 }
 
 export const INVOICE_RANGES_DATA = [
@@ -310,6 +371,73 @@ export const TRANSACTION_CATEGORIES = [
 
 export const SYS_USERS = [
   { name: "ADMIN SISTEMA", email: "sys.carrasco@carrasco.com", password: "gatoCasaRaton4587", ci: "8888888", role: "ADMIN" },
+];
+
+export const CASHBOXES_DATA = [
+  {
+    name: "Caja General",
+    code: "GEN",
+    description: "Caja principal de operacion general",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Directorio",
+    code: "DIR",
+    description: "Caja para gastos y operaciones del directorio",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Taxis",
+    code: "TAX",
+    description: "Caja para sectores de taxis",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Motos",
+    code: "MOT",
+    description: "Caja para sectores de motos",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Minibuses",
+    code: "MIN",
+    description: "Caja para operaciones de minibuses",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Buses",
+    code: "BUS",
+    description: "Caja para operaciones de buses y micros",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Camiones",
+    code: "CAM",
+    description: "Caja para operaciones de camiones y volquetas",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Regional",
+    code: "REG",
+    description: "Caja para sectores regionales y especiales",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
 ];
 
 export const SECTORS_DATA = [
@@ -553,5 +681,7 @@ export const SECTORS_DATA = [
 await seedSectors();
 await seedCategories();
 await seedCashbox();
+await seedSectorCashboxLinks();
 await seedInvoiceRanges();  // ranges first — categories link to them
 await seedUsers();
+

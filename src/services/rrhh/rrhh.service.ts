@@ -334,41 +334,124 @@ export async function bulkGenerateFees(data: BulkGenerateFeesInput) {
 // ─── Payment ──────────────────────────────────────────────────────────────────
 
 export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserId: string) {
-  const fee = await db
-    .select()
+  const feeRow = await db
+    .select({
+      fee: employeeFees,
+      employeeSectorId: employees.sectorId,
+      employeeName: employees.fullName,
+    })
     .from(employeeFees)
+    .innerJoin(employees, eq(employees.id, employeeFees.employeeId))
     .where(eq(employeeFees.id, data.feeId))
     .limit(1);
 
-  if (!fee[0]) throw new Error("Cuota no encontrada.");
-  if (fee[0].status === "pagado") throw new Error("Esta cuota ya fue pagada.");
+  if (!feeRow[0]) throw new Error("Cuota no encontrada.");
 
-  // Insert payment record
-  const [payment] = await db
-    .insert(employeePayments)
-    .values({
-      employeeId: fee[0].employeeId,
-      feeId: data.feeId,
-      amountPaid: data.amountPaid,
-      currency: data.currency,
-      paymentMethod: data.paymentMethod,
-      cashboxId: data.cashboxId,
-      receiptNumber: data.receiptNumber,
-      notes: data.notes,
-      processedByUserId,
-    })
-    .returning();
+  const { fee, employeeSectorId, employeeName } = feeRow[0];
+  if (fee.status === "pagado") throw new Error("Esta cuota ya fue pagada.");
 
-  // Update fee status
-  const paidFully = data.amountPaid >= Number(fee[0].amount);
-  await db
-    .update(employeeFees)
-    .set({
-      status: paidFully ? "pagado" : "parcial",
-      paidAt: paidFully ? new Date() : null,
-      updatedAt: new Date(),
-    })
-    .where(eq(employeeFees.id, data.feeId));
+  const amountToPay = Number(data.amountPaid);
+  if (!Number.isFinite(amountToPay) || amountToPay <= 0) {
+    throw new Error("El monto de pago es inválido.");
+  }
+
+  // Resolve cashbox by sector:
+  // - sectorId 0 => general cashbox (code GEN)
+  // - any other sector => linked sector cashbox
+  let resolvedCashbox: { id: string; name: string; balance: string | null; status: string | null };
+
+  if (employeeSectorId === 0) {
+    const general = await db
+      .select({
+        id: cashboxes.id,
+        name: cashboxes.name,
+        balance: cashboxes.balance,
+        status: cashboxes.status,
+      })
+      .from(cashboxes)
+      .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "active")))
+      .limit(1);
+
+    if (!general[0]) {
+      throw new Error(
+        'No existe una caja general activa con código "GEN" para el sector SIN SECTOR.'
+      );
+    }
+
+    resolvedCashbox = general[0];
+  } else {
+    const linked = await db
+      .select({
+        id: cashboxes.id,
+        name: cashboxes.name,
+        balance: cashboxes.balance,
+        status: cashboxes.status,
+        linkActive: sectorCashboxLink.isActive,
+      })
+      .from(sectorCashboxLink)
+      .innerJoin(cashboxes, eq(cashboxes.id, sectorCashboxLink.cashboxId))
+      .where(eq(sectorCashboxLink.sectorId, employeeSectorId))
+      .limit(1);
+
+    if (!linked[0]) {
+      throw new Error(
+        `El sector del empleado "${employeeName}" no tiene una caja vinculada.`
+      );
+    }
+
+    if (!linked[0].linkActive || linked[0].status !== "active") {
+      throw new Error(
+        `La caja vinculada al sector del empleado "${employeeName}" está inactiva.`
+      );
+    }
+
+    resolvedCashbox = linked[0];
+  }
+
+  const availableBalance = Number(resolvedCashbox.balance ?? 0);
+  if (availableBalance < amountToPay) {
+    throw new Error(
+      `Saldo insuficiente en "${resolvedCashbox.name}". Disponible: Bs ${availableBalance.toFixed(2)}.`
+    );
+  }
+
+  const [payment] = await db.transaction(async (tx) => {
+    const [createdPayment] = await tx
+      .insert(employeePayments)
+      .values({
+        employeeId: fee.employeeId,
+        feeId: data.feeId,
+        amountPaid: data.amountPaid,
+        currency: data.currency,
+        paymentMethod: data.paymentMethod,
+        cashboxId: resolvedCashbox.id,
+        receiptNumber: data.receiptNumber,
+        notes: data.notes,
+        processedByUserId,
+      })
+      .returning();
+
+    const paidFully = amountToPay >= Number(fee.amount);
+    await tx
+      .update(employeeFees)
+      .set({
+        status: paidFully ? "pagado" : "parcial",
+        paidAt: paidFully ? new Date() : null,
+        updatedAt: new Date(),
+        cashboxId: resolvedCashbox.id,
+      })
+      .where(eq(employeeFees.id, data.feeId));
+
+    await tx
+      .update(cashboxes)
+      .set({
+        balance: sql`${cashboxes.balance} - ${String(amountToPay)}`,
+        updatedAt: new Date(),
+      })
+      .where(eq(cashboxes.id, resolvedCashbox.id));
+
+    return [createdPayment];
+  });
 
   return payment;
 }

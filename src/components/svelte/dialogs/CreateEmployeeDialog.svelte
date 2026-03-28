@@ -37,6 +37,11 @@
         successMsg = null;
     }
 
+    function normalizeSectorId(value: string | number | undefined) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    }
+
     async function handleSubmit(e: CustomEvent<EmployeeFormData>) {
         const data = e.detail;
         fieldErrors = {};
@@ -50,7 +55,7 @@
         if (data.phone) fd.set("phone", data.phone);
         if (data.address) fd.set("address", data.address);
         fd.set("chargeTitle", data.chargeTitle);
-        fd.set("sectorId", String(data.sectorId));
+        fd.set("sectorId", String(normalizeSectorId(data.sectorId as any)));
         fd.set("hireDate", data.hireDate ?? "");
         fd.set("baseSalary", String(data.baseSalary));
         if (data.notes) fd.set("notes", data.notes);
@@ -71,8 +76,7 @@
             }
             if (result?.data?.success) {
                 successMsg =
-                    result.data.message ??
-                    "Miembro del personal registrado.";
+                    result.data.message ?? "Miembro del personal registrado.";
                 setTimeout(() => {
                     isOpen = false;
                     resetState();
@@ -135,13 +139,13 @@
 
             {#key formKey}
                 <EmployeeForm
-                    formId={formId}
-                    sectors={sectors}
-                    directorioCount={directorioCount}
-                    plantaCount={plantaCount}
-                    maxDirectorio={maxDirectorio}
-                    maxPlanta={maxPlanta}
-                    fieldErrors={fieldErrors}
+                    {formId}
+                    {sectors}
+                    {directorioCount}
+                    {plantaCount}
+                    {maxDirectorio}
+                    {maxPlanta}
+                    {fieldErrors}
                     on:submit={handleSubmit}
                 />
             {/key}

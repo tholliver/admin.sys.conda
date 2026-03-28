@@ -43,6 +43,11 @@
         successMsg = null;
     }
 
+    function normalizeSectorId(value: string | number | undefined) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    }
+
     async function handleSubmit(e: CustomEvent<EmployeeFormData>) {
         const data = e.detail;
         fieldErrors = {};
@@ -57,7 +62,7 @@
         if (data.phone) fd.set("phone", data.phone);
         if (data.address) fd.set("address", data.address);
         fd.set("chargeTitle", data.chargeTitle);
-        fd.set("sectorId", String(data.sectorId));
+        fd.set("sectorId", String(normalizeSectorId(data.sectorId as any)));
         fd.set("hireDate", data.hireDate ?? "");
         fd.set("baseSalary", String(data.baseSalary));
         if (data.notes) fd.set("notes", data.notes);

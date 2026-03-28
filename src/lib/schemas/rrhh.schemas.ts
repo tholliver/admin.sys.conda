@@ -50,7 +50,7 @@ export const createEmployeeSchema = z.object({
   sectorId: z.coerce
     .number()
     .int()
-    .positive("Sector requerido"),
+    .min(0, "Sector inválido"),
   hireDate: z.coerce.date({ message: "Fecha de ingreso requerida" }),
   baseSalary: z.coerce.number().pipe(salarySchema),
   status: z
@@ -107,7 +107,7 @@ export const payEmployeeFeeSchema = z.object({
   paymentMethod: z
     .enum(["efectivo", "transferencia", "cheque"])
     .default("efectivo"),
-  cashboxId: z.string().uuid("Caja inválida"),
+  cashboxId: z.string().uuid("Caja inválida").optional(),
   receiptNumber: z.string().max(30).optional(),
   notes: z.string().max(500).optional(),
   createTransaction: z.boolean().default(true), // auto-create finance.transaction

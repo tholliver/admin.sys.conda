@@ -22,13 +22,53 @@ async function getActiveCashbox(id: string) {
 }
 
 // Fetch the system TRANSFER category id once per request (cheap — indexed by code)
+const SYSTEM_CATEGORIES = {
+  TRANSFER: {
+    name: "Transferencias internas",
+    type: "outcome" as const,
+    description: "Categoria de sistema para transferencias entre cajas.",
+    icon: "arrow-right-left",
+  },
+  CONTRATISTA: {
+    name: "Pago a contratistas",
+    type: "outcome" as const,
+    description: "Categoria de sistema para pagos a contratistas.",
+    icon: "handshake",
+  },
+} as const;
+
 async function getSystemCategory(code: "TRANSFER" | "CONTRATISTA") {
-  const [cat] = await db
+  const [existing] = await db
     .select({ id: transactionCategories.id, name: transactionCategories.name })
     .from(transactionCategories)
     .where(and(eq(transactionCategories.code, code), eq(transactionCategories.isSystem, true)))
     .limit(1);
-  return cat ?? null;
+  if (existing) return existing;
+
+  const defaults = SYSTEM_CATEGORIES[code];
+
+  await db
+    .insert(transactionCategories)
+    .values({
+      code,
+      name: defaults.name,
+      type: defaults.type,
+      description: defaults.description,
+      icon: defaults.icon,
+      sortOrder: 0,
+      isSystem: true,
+      status: true,
+      createdByUserId: "system",
+    })
+    .onConflictDoNothing();
+
+  const [createdOrExisting] = await db
+    .select({ id: transactionCategories.id, name: transactionCategories.name })
+    .from(transactionCategories)
+    .where(and(eq(transactionCategories.code, code), eq(transactionCategories.isSystem, true)))
+    .limit(1);
+
+  return createdOrExisting ?? null;
 }
 
 // ============================================================================
@@ -44,7 +84,7 @@ export const transfer = defineAction({
       .string()
       .regex(/^\d+(\.\d{1,2})?$/, "Monto debe ser un número válido")
       .refine((v) => parseFloat(v) > 0, "El monto debe ser mayor a 0"),
-    concept: z.string().min(1, "Concepto requerido").max(255),
+    concept: z.string().max(255).optional(),
     notes: z.string().max(1000).optional(),
   }),
   async handler(input, { locals }) {
@@ -77,11 +117,13 @@ export const transfer = defineAction({
       });
     }
 
+    const concept = input.concept?.trim() || "Transferencia interna";
+
     const transferCategory = await getSystemCategory("TRANSFER");
     if (!transferCategory) {
       throw new ActionError({
         code: "INTERNAL_SERVER_ERROR",
-        message: 'Categoría de sistema "TRANSFER" no encontrada. Contacta al administrador.',
+        message: 'No se pudo crear/obtener la categoría de sistema "TRANSFER".',
       });
     }
 
@@ -96,7 +138,7 @@ export const transfer = defineAction({
           type: "withdraw",
           amount,
           categoryId: transferCategory.id,
-          concept: `Transferencia → ${to.name}: ${input.concept}`,
+          concept: `Transferencia → ${to.name}: ${concept}`,
           cashboxId: from.id,
           description: input.notes?.trim() || null,
           createdByUserId: user.id,
@@ -112,7 +154,7 @@ export const transfer = defineAction({
         type: "deposit",
         amount,
         categoryId: transferCategory.id,
-        concept: `Transferencia ← ${from.name}: ${input.concept}`,
+        concept: `Transferencia ← ${from.name}: ${concept}`,
         cashboxId: to.id,
         description: input.notes?.trim() || null,
         createdByUserId: user.id,
@@ -142,7 +184,7 @@ export const transfer = defineAction({
       transaction: {
         id: outTx.id,
         amount: formatBOB(amount),
-        concept: input.concept,
+        concept,
         reference: null,
         timestamp: outTx.createdAt.toISOString(),
       },
@@ -174,6 +216,7 @@ export const payContractor = defineAction({
     if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
 
     const amount = DecimalService.normalize(input.amount);
+    const concept = input.concept.trim();
 
     const [contractor] = await db
       .select()
@@ -212,7 +255,7 @@ export const payContractor = defineAction({
           type: "withdraw",
           amount,
           categoryId: contractorCategory.id,
-          concept: `Pago contratista: ${contractor.fullName} — ${input.concept}`,
+          concept: `Pago contratista: ${contractor.fullName} — ${concept}`,
           cashboxId: cashbox.id,
           description: input.notes?.trim() || null,
           createdByUserId: user.id,
@@ -238,7 +281,7 @@ export const payContractor = defineAction({
           cashboxId: cashbox.id,
           amount: parseFloat(amount),
           currency: "BOB",
-          concept: input.concept,
+          concept,
           receiptNumber: input.receiptNumber?.trim() || null,
           notes: input.notes?.trim() || null,
           paidAt: new Date(),
@@ -255,7 +298,7 @@ export const payContractor = defineAction({
       transaction: {
         id: payment.uuid,
         amount: formatBOB(amount),
-        concept: `${contractor.fullName} — ${input.concept}`,
+        concept: `${contractor.fullName} — ${concept}`,
         reference: input.receiptNumber || null,
         timestamp: payment.createdAt.toISOString(),
       },

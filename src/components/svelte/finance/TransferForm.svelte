@@ -52,7 +52,6 @@
     let fromCashboxId = $state("");
     let toCashboxId = $state("");
     let amount = $state("");
-    let concept = $state("");
     let notes = $state("");
 
     let fromCashbox = $derived(
@@ -75,7 +74,6 @@
         fromCashboxId = "";
         toCashboxId = "";
         amount = "";
-        concept = "";
         notes = "";
         inputErrors = {};
         serverError = null;
@@ -107,11 +105,6 @@
             inputErrors.amount = `Saldo insuficiente. Disponible: ${formatBOB(fromBalance)}`;
             return;
         }
-        if (!concept.trim()) {
-            inputErrors.concept = "Concepto requerido";
-            return;
-        }
-
         showConfirmDialog = true;
     }
 
@@ -121,7 +114,6 @@
         formData.append("fromCashboxId", fromCashboxId);
         formData.append("toCashboxId", toCashboxId);
         formData.append("amount", amount);
-        formData.append("concept", concept.trim());
         if (notes.trim()) formData.append("notes", notes.trim());
 
         isSubmitting = true;
@@ -312,13 +304,6 @@
                             >{formatBOB(amount)}</span
                         >
                     </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-slate-600">Concepto:</span>
-                        <span
-                            class="text-sm font-medium text-slate-900 text-right max-w-[60%] truncate"
-                            >{concept}</span
-                        >
-                    </div>
                 </div>
 
                 <div class="flex gap-3 pt-2">
@@ -498,31 +483,6 @@
             {/if}
         </div>
 
-        <!-- CONCEPT -->
-        <div>
-            <label
-                for="concept"
-                class="block text-sm font-medium text-slate-700 mb-2"
-            >
-                Concepto
-            </label>
-            <input
-                id="concept"
-                bind:value={concept}
-                type="text"
-                maxlength="255"
-                placeholder="Ej: Fondos para gastos operativos"
-                class="w-full rounded-lg border border-slate-300 px-4 py-2 text-slate-900 placeholder-slate-400 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-100 transition {inputErrors.concept
-                    ? 'border-red-500'
-                    : ''}"
-            />
-            {#if inputErrors.concept}
-                <p class="mt-1 text-sm text-red-600 flex items-center gap-1">
-                    <CircleAlert class="h-4 w-4" />{inputErrors.concept}
-                </p>
-            {/if}
-        </div>
-
         <!-- NOTES (optional) -->
         <div>
             <label
@@ -547,7 +507,6 @@
                 !fromCashboxId ||
                 !toCashboxId ||
                 !amount ||
-                !concept.trim() ||
                 !hasEnough}
             class="w-full rounded-lg bg-violet-600 py-2.5 font-semibold text-white hover:bg-violet-700 active:bg-violet-800 transition-colors duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
