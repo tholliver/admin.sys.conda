@@ -1,20 +1,3 @@
-/**
- * Sector CRUD + Cashbox Deposit Actions
- * ─────────────────────────────────────────────────────────────
- * PR: feat/sector-economy-management
- *
- * New actions:
- *  createSector             — create sector with fee config
- *  updateSector             — edit name / description / fee amounts
- *  deactivateSector         — soft-disable (isActive = false)
- *  depositToSectorCashbox   — deposit into the linked sector cashbox,
- *                             records a finance.transaction for full audit trail
- *
- * Register in src/actions/index.ts:
- *   import { sectorActions } from "@/actions/rrhh/sector.actions";
- *   export const server = { finance, inquilinos, rrhh, rrhhExtra, sector: sectorActions };
- */
-
 import { defineAction, ActionError } from "astro:actions";
 import { z } from "zod";
 import { db } from "@/db";
@@ -33,8 +16,6 @@ function requireAdmin(role: string | undefined) {
     throw new ActionError({ code: "FORBIDDEN", message: "Acceso denegado." });
   }
 }
-
-// ─── Shared schema ────────────────────────────────────────────────────────────
 
 const sectorBodySchema = z.object({
   name: z.string().min(2, "Nombre requerido").max(100),
@@ -72,14 +53,9 @@ export const createSectorAction = defineAction({
         .where(eq(cashboxes.id, input.cashboxId))
         .limit(1);
 
-      if (!cashbox) {
-        throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
-      }
+      if (!cashbox) throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
       if (cashbox.status !== "active") {
-        throw new ActionError({
-          code: "PRECONDITION_FAILED",
-          message: "La caja seleccionada está inactiva.",
-        });
+        throw new ActionError({ code: "PRECONDITION_FAILED", message: "La caja seleccionada está inactiva." });
       }
       targetCashboxId = cashbox.id;
     } else {
@@ -131,9 +107,7 @@ export const updateSectorAction = defineAction({
       .from(sectors)
       .where(eq(sectors.id, id));
 
-    if (!existing) {
-      throw new ActionError({ code: "NOT_FOUND", message: "Sector no encontrado." });
-    }
+    if (!existing) throw new ActionError({ code: "NOT_FOUND", message: "Sector no encontrado." });
 
     if (cashboxId) {
       const [cashbox] = await db
@@ -142,14 +116,9 @@ export const updateSectorAction = defineAction({
         .where(eq(cashboxes.id, cashboxId))
         .limit(1);
 
-      if (!cashbox) {
-        throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
-      }
+      if (!cashbox) throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
       if (cashbox.status !== "active") {
-        throw new ActionError({
-          code: "PRECONDITION_FAILED",
-          message: "La caja seleccionada está inactiva.",
-        });
+        throw new ActionError({ code: "PRECONDITION_FAILED", message: "La caja seleccionada está inactiva." });
       }
     }
 
@@ -170,15 +139,13 @@ export const updateSectorAction = defineAction({
   },
 });
 
-// ─── Deactivate Sector ────────────────────────────────────────────────────────
-
-// --- Link Sector -> Cashbox ----------------------------------------------------
+// ─── Link Sector -> Cashbox ───────────────────────────────────────────────────
 
 export const linkSectorCashboxAction = defineAction({
   accept: "form",
   input: z.object({
     sectorId: z.coerce.number().int().positive("Sector requerido"),
-    cashboxId: z.string().uuid("Caja inv?lida"),
+    cashboxId: z.string().uuid("Caja inválida"),
   }),
   handler: async (input, ctx) => {
     const user = ctx.locals.user;
@@ -191,9 +158,7 @@ export const linkSectorCashboxAction = defineAction({
       .where(eq(sectors.id, input.sectorId))
       .limit(1);
 
-    if (!sector) {
-      throw new ActionError({ code: "NOT_FOUND", message: "Sector no encontrado." });
-    }
+    if (!sector) throw new ActionError({ code: "NOT_FOUND", message: "Sector no encontrado." });
 
     const [cashbox] = await db
       .select({ id: cashboxes.id, name: cashboxes.name, status: cashboxes.status })
@@ -201,15 +166,9 @@ export const linkSectorCashboxAction = defineAction({
       .where(eq(cashboxes.id, input.cashboxId))
       .limit(1);
 
-    if (!cashbox) {
-      throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
-    }
-
+    if (!cashbox) throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
     if (cashbox.status !== "active") {
-      throw new ActionError({
-        code: "PRECONDITION_FAILED",
-        message: "La caja seleccionada est? inactiva.",
-      });
+      throw new ActionError({ code: "PRECONDITION_FAILED", message: "La caja seleccionada está inactiva." });
     }
 
     const [updated] = await db
@@ -226,6 +185,8 @@ export const linkSectorCashboxAction = defineAction({
   },
 });
 
+// ─── Deactivate Sector ────────────────────────────────────────────────────────
+
 export const deactivateSectorAction = defineAction({
   accept: "form",
   input: z.object({ id: z.coerce.number().int().positive() }),
@@ -239,9 +200,7 @@ export const deactivateSectorAction = defineAction({
       .from(sectors)
       .where(eq(sectors.id, input.id));
 
-    if (!existing) {
-      throw new ActionError({ code: "NOT_FOUND", message: "Sector no encontrado." });
-    }
+    if (!existing) throw new ActionError({ code: "NOT_FOUND", message: "Sector no encontrado." });
 
     await db
       .update(sectors)
@@ -252,35 +211,19 @@ export const deactivateSectorAction = defineAction({
   },
 });
 
-// ─── Deposit to Sector Cashbox ────────────────────────────────────────────────
-/**
- * Missing flow on /rrhh/sectores:
- *
- * The page showed salary coverage going red when balance < monthlySalary,
- * but there was no way to top up the sector cashbox from that context.
- * Admins had to navigate to /cuentas, find the right cashbox manually, and
- * deposit from there — error-prone and slow.
- *
- * This action wires a direct deposit from the sector card, and records
- * a proper finance.transaction entry for the full audit trail, matching
- * the existing deposit action pattern in src/actions/finance/index.ts.
- *
- * NOTE: `linkedEntityType: "sector"` requires that value exists in the
- * `linked_entity_type` enum. If it doesn't, add it in a migration:
- *   ALTER TYPE linked_entity_type ADD VALUE 'sector';
- * Or omit the linkedEntityType/Id fields if you skip the polymorphic link.
- */
+// ─── Deposit to Cashbox ───────────────────────────────────────────────────────
+// Deposits directly into a cashbox by cashboxId.
+// The cashbox is the wallet — sectors are just groupings of employees within it.
 
-export const depositToSectorCashboxAction = defineAction({
+export const depositToCashboxAction = defineAction({
   accept: "form",
   input: z.object({
-    sectorId: z.coerce.number().int().positive("Sector requerido"),
+    cashboxId: z.string().uuid("Caja inválida"),
     categoryId: z.string().uuid("Categoría inválida"),
     amount: z.coerce
       .number()
       .min(0.01, "El monto debe ser mayor a 0")
       .max(999_999_999, "Monto fuera de rango"),
-    currency: z.enum(["BOB", "USD"]).default("BOB"),
     concept: z.string().min(1, "Concepto requerido").max(255),
     reference: z.string().max(100).optional(),
     notes: z.string().max(500).optional(),
@@ -315,37 +258,32 @@ export const depositToSectorCashboxAction = defineAction({
       });
     }
 
-    // 2. Resolve sector → cashbox directly
-    const [link] = await db
+    // 2. Validate cashbox
+    const [cashbox] = await db
       .select({
-        cashboxId: sectors.cashboxId,
-        cashboxName: cashboxes.name,
-        cashboxBalance: cashboxes.balance,
-        cashboxStatus: cashboxes.status,
-        sectorName: sectors.name,
+        id: cashboxes.id,
+        name: cashboxes.name,
+        balance: cashboxes.balance,
+        status: cashboxes.status,
       })
-      .from(sectors)
-      .innerJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
-      .where(eq(sectors.id, input.sectorId));
+      .from(cashboxes)
+      .where(eq(cashboxes.id, input.cashboxId))
+      .limit(1);
 
-    if (!link) {
-      throw new ActionError({
-        code: "NOT_FOUND",
-        message: "Este sector no tiene una caja vinculada.",
-      });
+    if (!cashbox) {
+      throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
     }
-
-    if (link.cashboxStatus !== "active") {  // ← remove linkActive check, no longer exists
+    if (cashbox.status !== "active") {
       throw new ActionError({
         code: "PRECONDITION_FAILED",
-        message: `La caja vinculada al sector "${link.sectorName}" está inactiva.`,
+        message: `La caja "${cashbox.name}" está inactiva.`,
       });
     }
 
     const amountStr = input.amount.toFixed(2);
-    const newBalance = (Number(link.cashboxBalance ?? 0) + input.amount).toFixed(2);
+    const newBalance = (Number(cashbox.balance ?? 0) + input.amount).toFixed(2);
 
-    // 3. Atomically update balance + insert transaction record
+    // 3. Atomically update balance + insert transaction
     await db.transaction(async (tx) => {
       await tx
         .update(cashboxes)
@@ -353,10 +291,10 @@ export const depositToSectorCashboxAction = defineAction({
           balance: sql`${cashboxes.balance} + ${amountStr}`,
           updatedAt: new Date(),
         })
-        .where(eq(cashboxes.id, link.cashboxId));
+        .where(eq(cashboxes.id, cashbox.id));
 
       await tx.insert(transactions).values({
-        cashboxId: link.cashboxId,
+        cashboxId: cashbox.id,
         categoryId: input.categoryId,
         type: "deposit",
         amount: amountStr,
@@ -366,15 +304,13 @@ export const depositToSectorCashboxAction = defineAction({
         createdByUserId: user.id,
         status: "completed",
         balanceAfter: newBalance,
-        linkedEntityType: "sector",
-        linkedEntityId: input.sectorId,
       });
     });
 
     return {
       success: true,
-      message: `Bs ${input.amount.toLocaleString("es-BO", { minimumFractionDigits: 2 })} depositados en "${link.cashboxName}".`,
-      cashboxName: link.cashboxName,
+      message: `Bs ${input.amount.toLocaleString("es-BO", { minimumFractionDigits: 2 })} depositados en "${cashbox.name}".`,
+      cashboxName: cashbox.name,
       newBalance,
     };
   },
@@ -387,5 +323,5 @@ export const sectorActions = {
   updateSector: updateSectorAction,
   linkSectorCashbox: linkSectorCashboxAction,
   deactivateSector: deactivateSectorAction,
-  depositToSectorCashbox: depositToSectorCashboxAction,
+  depositToCashbox: depositToCashboxAction,
 };

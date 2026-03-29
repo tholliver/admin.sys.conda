@@ -65,288 +65,278 @@ const summary = todaysSummary || { totalPaid: "0.00", paymentCount: 0 };
 
 <FinanceLayout title="Contratistas" user={user}>
     <div class="min-h-screen bg-linear-to-br from-slate-50 to-slate-100">
-        <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-            <div class="grid gap-8 lg:grid-cols-3">
-                {/* Form Column */}
-                <div class="lg:col-span-2 space-y-6">
-                    {/* Pay Form */}
-                    <div
-                        class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-                    >
-                        <div class="mb-6 flex items-center gap-3">
-                            <div
-                                class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100"
-                            >
-                                <Handshake class="h-5 w-5 text-red-600" />
-                            </div>
-                            <div>
-                                <h2 class="text-xl font-bold text-slate-900">
-                                    Pago a Contratista
-                                </h2>
-                                <p class="text-sm text-slate-500">
-                                    Registra un egreso vinculado al contratista
-                                </p>
-                            </div>
+        <div class="grid gap-8 lg:grid-cols-3">
+            {/* Form Column */}
+            <div class="lg:col-span-2 space-y-6">
+                {/* Pay Form */}
+                <div
+                    class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                    <div class="mb-6 flex items-center gap-3">
+                        <div
+                            class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100"
+                        >
+                            <Handshake class="h-5 w-5 text-red-600" />
                         </div>
-
-                        {
-                            activeContractors.length === 0 ? (
-                                <div class="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center">
-                                    <Handshake class="mx-auto h-10 w-10 text-slate-300 mb-3" />
-                                    <p class="text-slate-500 text-sm">
-                                        No hay contratistas activos
-                                    </p>
-                                    <p class="text-slate-400 text-xs mt-1">
-                                        Registra uno en la sección de abajo
-                                    </p>
-                                </div>
-                            ) : (
-                                <ContractorPayForm
-                                    cashboxes={activeCashboxes as any}
-                                    contractors={activeContractors as any}
-                                    client:load
-                                />
-                            )
-                        }
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900">
+                                Pago a Contratista
+                            </h2>
+                            <p class="text-sm text-slate-500">
+                                Registra un egreso vinculado al contratista
+                            </p>
+                        </div>
                     </div>
 
-                    {/* Recent Payments */}
-                    <div
-                        class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-                    >
-                        <div class="flex justify-between mb-4">
-                            <h3 class="text-lg font-semibold text-slate-900">
-                                Pagos Recientes
-                            </h3>
-                            <span class="text-sm text-slate-500"
-                                >Últimos {recentPayments.length}</span
-                            >
-                        </div>
-                        {
-                            recentPayments.length === 0 ? (
-                                <p class="text-slate-500 text-center py-8">
-                                    No hay pagos registrados
+                    {
+                        activeContractors.length === 0 ? (
+                            <div class="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center">
+                                <Handshake class="mx-auto h-10 w-10 text-slate-300 mb-3" />
+                                <p class="text-slate-500 text-sm">
+                                    No hay contratistas activos
                                 </p>
-                            ) : (
-                                <div class="space-y-3">
-                                    {recentPayments.map((p) => (
-                                        <div class="flex items-center gap-3 rounded-lg bg-slate-50 p-4 border border-slate-200 hover:border-slate-300 transition">
-                                            <div class="shrink-0">
-                                                <div class="rounded-lg bg-red-100 p-2.5">
-                                                    <TrendingDown class="h-5 w-5 text-red-600" />
-                                                </div>
-                                            </div>
-                                            <div class="flex-1 min-w-0">
-                                                <div class="flex items-baseline justify-between gap-2 mb-1">
-                                                    <p class="font-medium text-slate-900 truncate">
-                                                        {p.contractorName}
-                                                    </p>
-                                                    <p class="font-semibold text-red-600 shrink-0">
-                                                        -{formatBOB(p.amount)}
-                                                    </p>
-                                                </div>
-                                                <div class="flex items-center gap-2 text-xs text-slate-500 truncate">
-                                                    <span class="truncate">
-                                                        {p.concept}
-                                                    </span>
-                                                    {p.receiptNumber && (
-                                                        <>
-                                                            <span>•</span>
-                                                            <span class="font-mono">
-                                                                {
-                                                                    p.receiptNumber
-                                                                }
-                                                            </span>
-                                                        </>
-                                                    )}
-                                                    <span class="ml-auto shrink-0">
-                                                        {p.cashboxName}
-                                                    </span>
-                                                </div>
-                                                <p class="text-xs text-slate-400 mt-0.5">
-                                                    {p.paidAt
-                                                        ? formatter.format(
-                                                              p.paidAt,
-                                                          )
-                                                        : "—"}
-                                                </p>
+                                <p class="text-slate-400 text-xs mt-1">
+                                    Registra uno en la sección de abajo
+                                </p>
+                            </div>
+                        ) : (
+                            <ContractorPayForm
+                                cashboxes={activeCashboxes as any}
+                                contractors={activeContractors as any}
+                                client:load
+                            />
+                        )
+                    }
+                </div>
+
+                {/* Recent Payments */}
+                <div
+                    class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                    <div class="flex justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-slate-900">
+                            Pagos Recientes
+                        </h3>
+                        <span class="text-sm text-slate-500"
+                            >Últimos {recentPayments.length}</span
+                        >
+                    </div>
+                    {
+                        recentPayments.length === 0 ? (
+                            <p class="text-slate-500 text-center py-8">
+                                No hay pagos registrados
+                            </p>
+                        ) : (
+                            <div class="space-y-3">
+                                {recentPayments.map((p) => (
+                                    <div class="flex items-center gap-3 rounded-lg bg-slate-50 p-4 border border-slate-200 hover:border-slate-300 transition">
+                                        <div class="shrink-0">
+                                            <div class="rounded-lg bg-red-100 p-2.5">
+                                                <TrendingDown class="h-5 w-5 text-red-600" />
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            )
-                        }
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-baseline justify-between gap-2 mb-1">
+                                                <p class="font-medium text-slate-900 truncate">
+                                                    {p.contractorName}
+                                                </p>
+                                                <p class="font-semibold text-red-600 shrink-0">
+                                                    -{formatBOB(p.amount)}
+                                                </p>
+                                            </div>
+                                            <div class="flex items-center gap-2 text-xs text-slate-500 truncate">
+                                                <span class="truncate">
+                                                    {p.concept}
+                                                </span>
+                                                {p.receiptNumber && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span class="font-mono">
+                                                            {p.receiptNumber}
+                                                        </span>
+                                                    </>
+                                                )}
+                                                <span class="ml-auto shrink-0">
+                                                    {p.cashboxName}
+                                                </span>
+                                            </div>
+                                            <p class="text-xs text-slate-400 mt-0.5">
+                                                {p.paidAt
+                                                    ? formatter.format(p.paidAt)
+                                                    : "—"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    }
+                </div>
+
+                {/* Contractor Directory */}
+                <div
+                    class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-slate-900">
+                            Directorio de Contratistas
+                        </h3>
+                        <CreateContractorDialog client:load />
                     </div>
 
-                    {/* Contractor Directory */}
-                    <div
-                        class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-                    >
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-semibold text-slate-900">
-                                Directorio de Contratistas
-                            </h3>
-                            <CreateContractorDialog client:load />
-                        </div>
-
-                        {
-                            allContractors.length === 0 ? (
-                                <div class="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center">
-                                    <p class="text-slate-400 text-sm">
-                                        No hay contratistas registrados.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div class="divide-y divide-slate-100">
-                                    {allContractors.map((c) => (
-                                        <div class="flex items-center gap-4 py-3">
-                                            <div
-                                                class={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${c.status === "activo" ? "bg-green-100" : "bg-slate-100"}`}
-                                            >
-                                                {c.status === "activo" ? (
-                                                    <BadgeCheck class="h-5 w-5 text-green-600" />
-                                                ) : (
-                                                    <BadgeX class="h-5 w-5 text-slate-400" />
+                    {
+                        allContractors.length === 0 ? (
+                            <div class="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center">
+                                <p class="text-slate-400 text-sm">
+                                    No hay contratistas registrados.
+                                </p>
+                            </div>
+                        ) : (
+                            <div class="divide-y divide-slate-100">
+                                {allContractors.map((c) => (
+                                    <div class="flex items-center gap-4 py-3">
+                                        <div
+                                            class={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${c.status === "activo" ? "bg-green-100" : "bg-slate-100"}`}
+                                        >
+                                            {c.status === "activo" ? (
+                                                <BadgeCheck class="h-5 w-5 text-green-600" />
+                                            ) : (
+                                                <BadgeX class="h-5 w-5 text-slate-400" />
+                                            )}
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium text-slate-900">
+                                                {c.fullName}
+                                            </p>
+                                            <div class="flex items-center gap-2 text-xs text-slate-500">
+                                                {c.specialty && (
+                                                    <span>{c.specialty}</span>
+                                                )}
+                                                {c.phone && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span>{c.phone}</span>
+                                                    </>
                                                 )}
                                             </div>
-                                            <div class="flex-1 min-w-0">
-                                                <p class="text-sm font-medium text-slate-900">
-                                                    {c.fullName}
-                                                </p>
-                                                <div class="flex items-center gap-2 text-xs text-slate-500">
-                                                    {c.specialty && (
-                                                        <span>
-                                                            {c.specialty}
-                                                        </span>
-                                                    )}
-                                                    {c.phone && (
-                                                        <>
-                                                            <span>•</span>
-                                                            <span>
-                                                                {c.phone}
-                                                            </span>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <span
-                                                class={`text-xs font-medium px-2 py-1 rounded-full ${c.status === "activo" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}
-                                            >
-                                                {c.status}
-                                            </span>
                                         </div>
-                                    ))}
-                                </div>
-                            )
+                                        <span
+                                            class={`text-xs font-medium px-2 py-1 rounded-full ${c.status === "activo" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}
+                                        >
+                                            {c.status}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    }
+                </div>
+            </div>
+
+            {/* Sidebar */}
+            <div class="space-y-6">
+                {/* Today Summary */}
+                <div
+                    class="rounded-lg border border-red-200 bg-linear-to-br from-red-50 to-red-100 p-6 shadow-sm"
+                >
+                    <h3 class="font-semibold text-red-900 mb-4">
+                        Pagos del Día
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-sm text-red-700">Total Pagado</p>
+                            <p class="text-3xl font-bold text-red-600">
+                                -{formatBOB(summary.totalPaid)}
+                            </p>
+                        </div>
+                        <div class="border-t border-red-200 pt-4">
+                            <p class="text-sm text-red-700">Pagos</p>
+                            <p class="text-2xl font-semibold text-red-900">
+                                {summary.paymentCount}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Cashbox Availability */}
+                <div
+                    class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                    <h4 class="font-semibold text-slate-900 mb-3">
+                        Disponibilidad de Cajas
+                    </h4>
+                    <div class="space-y-3">
+                        {
+                            activeCashboxes.map((box) => {
+                                const balance = parseFloat(
+                                    box.balance?.toString() ?? "0",
+                                );
+                                const isCritical = balance < 100;
+                                return (
+                                    <div
+                                        class={`rounded-lg p-3 ${isCritical ? "bg-red-50 border border-red-200" : "bg-slate-50 border border-slate-200"}`}
+                                    >
+                                        <div class="flex items-center justify-between">
+                                            <div>
+                                                <p class="text-sm font-medium text-slate-900">
+                                                    {box.name}
+                                                </p>
+                                                <p class="text-xs text-slate-500">
+                                                    {box.code}
+                                                </p>
+                                            </div>
+                                            <p
+                                                class={`text-sm font-semibold ${isCritical ? "text-red-600" : "text-green-600"}`}
+                                            >
+                                                {formatBOB(balance)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                );
+                            })
                         }
                     </div>
                 </div>
 
-                {/* Sidebar */}
-                <div class="space-y-6">
-                    {/* Today Summary */}
-                    <div
-                        class="rounded-lg border border-red-200 bg-linear-to-br from-red-50 to-red-100 p-6 shadow-sm"
-                    >
-                        <h3 class="font-semibold text-red-900 mb-4">
-                            Pagos del Día
-                        </h3>
-                        <div class="space-y-4">
-                            <div>
-                                <p class="text-sm text-red-700">Total Pagado</p>
-                                <p class="text-3xl font-bold text-red-600">
-                                    -{formatBOB(summary.totalPaid)}
-                                </p>
-                            </div>
-                            <div class="border-t border-red-200 pt-4">
-                                <p class="text-sm text-red-700">Pagos</p>
-                                <p class="text-2xl font-semibold text-red-900">
-                                    {summary.paymentCount}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Cashbox Availability */}
-                    <div
-                        class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-                    >
-                        <h4 class="font-semibold text-slate-900 mb-3">
-                            Disponibilidad de Cajas
-                        </h4>
-                        <div class="space-y-3">
-                            {
-                                activeCashboxes.map((box) => {
-                                    const balance = parseFloat(
-                                        box.balance?.toString() ?? "0",
-                                    );
-                                    const isCritical = balance < 100;
-                                    return (
-                                        <div
-                                            class={`rounded-lg p-3 ${isCritical ? "bg-red-50 border border-red-200" : "bg-slate-50 border border-slate-200"}`}
-                                        >
-                                            <div class="flex items-center justify-between">
-                                                <div>
-                                                    <p class="text-sm font-medium text-slate-900">
-                                                        {box.name}
-                                                    </p>
-                                                    <p class="text-xs text-slate-500">
-                                                        {box.code}
-                                                    </p>
-                                                </div>
-                                                <p
-                                                    class={`text-sm font-semibold ${isCritical ? "text-red-600" : "text-green-600"}`}
-                                                >
-                                                    {formatBOB(balance)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            }
-                        </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div
-                        class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-                    >
-                        <h4 class="font-semibold text-slate-900 mb-3">
-                            Contratistas
-                        </h4>
-                        <div class="space-y-2 text-sm">
-                            <div class="flex justify-between">
-                                <span class="text-slate-600">Activos</span>
-                                <span class="font-semibold text-green-600"
-                                    >{
-                                        allContractors.filter(
-                                            (c) => c.status === "activo",
-                                        ).length
-                                    }</span
-                                >
-                            </div>
-                            <div class="flex justify-between">
-                                <span class="text-slate-600">Inactivos</span>
-                                <span class="font-semibold text-slate-500"
-                                    >{
-                                        allContractors.filter(
-                                            (c) => c.status === "inactivo",
-                                        ).length
-                                    }</span
-                                >
-                            </div>
-                            <div
-                                class="flex justify-between border-t border-slate-100 pt-2"
+                {/* Stats */}
+                <div
+                    class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                    <h4 class="font-semibold text-slate-900 mb-3">
+                        Contratistas
+                    </h4>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-slate-600">Activos</span>
+                            <span class="font-semibold text-green-600"
+                                >{
+                                    allContractors.filter(
+                                        (c) => c.status === "activo",
+                                    ).length
+                                }</span
                             >
-                                <span class="text-slate-600">Total</span>
-                                <span class="font-semibold text-slate-900"
-                                    >{allContractors.length}</span
-                                >
-                            </div>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-600">Inactivos</span>
+                            <span class="font-semibold text-slate-500"
+                                >{
+                                    allContractors.filter(
+                                        (c) => c.status === "inactivo",
+                                    ).length
+                                }</span
+                            >
+                        </div>
+                        <div
+                            class="flex justify-between border-t border-slate-100 pt-2"
+                        >
+                            <span class="text-slate-600">Total</span>
+                            <span class="font-semibold text-slate-900"
+                                >{allContractors.length}</span
+                            >
                         </div>
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
 </FinanceLayout>

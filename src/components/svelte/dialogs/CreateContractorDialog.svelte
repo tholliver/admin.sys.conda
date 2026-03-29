@@ -9,13 +9,7 @@
         fullName: z.string().trim().min(2, "Nombre requerido").max(200),
         specialty: z.string().trim().max(120).optional().or(z.literal("")),
         phone: z.string().trim().max(20).optional().or(z.literal("")),
-        email: z
-            .string()
-            .trim()
-            .max(150)
-            .email("Email invalido")
-            .optional()
-            .or(z.literal("")),
+        email: z.email("Email invalido").optional().or(z.literal("")),
         ci: z.string().trim().max(20).optional().or(z.literal("")),
         ruc: z.string().trim().max(20).optional().or(z.literal("")),
         address: z.string().trim().max(255).optional().or(z.literal("")),
@@ -53,17 +47,25 @@
         form.reset(initialValues);
     }
 
-    function toFormData(values: typeof initialValues) {
+    type FormValues = z.infer<typeof schema>;
+
+    function toFormData(values: FormValues) {
         const fd = new FormData();
         fd.set("fullName", values.fullName.trim());
-        if (values.specialty.trim())
-            fd.set("specialty", values.specialty.trim());
-        if (values.phone.trim()) fd.set("phone", values.phone.trim());
-        if (values.email.trim()) fd.set("email", values.email.trim());
-        if (values.ci.trim()) fd.set("ci", values.ci.trim());
-        if (values.ruc.trim()) fd.set("ruc", values.ruc.trim());
-        if (values.address.trim()) fd.set("address", values.address.trim());
-        if (values.notes.trim()) fd.set("notes", values.notes.trim());
+        const specialty = values.specialty?.trim();
+        if (specialty) fd.set("specialty", specialty);
+        const phone = values.phone?.trim();
+        if (phone) fd.set("phone", phone);
+        const email = values.email?.trim();
+        if (email) fd.set("email", email);
+        const ci = values.ci?.trim();
+        if (ci) fd.set("ci", ci);
+        const ruc = values.ruc?.trim();
+        if (ruc) fd.set("ruc", ruc);
+        const address = values.address?.trim();
+        if (address) fd.set("address", address);
+        const notes = values.notes?.trim();
+        if (notes) fd.set("notes", notes);
         return fd;
     }
 
@@ -162,6 +164,7 @@
             >
                 <div>
                     <label
+                        for="fullName"
                         class="block text-sm font-medium text-slate-700 mb-1"
                     >
                         Nombre completo <span class="text-red-500">*</span>
@@ -191,6 +194,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label
+                            for="specialty"
                             class="block text-sm font-medium text-slate-700 mb-1"
                         >
                             Especialidad
@@ -221,6 +225,7 @@
                     </div>
                     <div>
                         <label
+                            for="phone"
                             class="block text-sm font-medium text-slate-700 mb-1"
                         >
                             Telefono
@@ -250,6 +255,7 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label
+                            for="email"
                             class="block text-sm font-medium text-slate-700 mb-1"
                         >
                             Email
@@ -276,6 +282,7 @@
                     </div>
                     <div>
                         <label
+                            for="ci"
                             class="block text-sm font-medium text-slate-700 mb-1"
                         >
                             CI
@@ -304,6 +311,7 @@
 
                 <div>
                     <label
+                        for="ruc"
                         class="block text-sm font-medium text-slate-700 mb-1"
                     >
                         RUC / NIT
@@ -331,6 +339,7 @@
 
                 <div>
                     <label
+                        for="address"
                         class="block text-sm font-medium text-slate-700 mb-1"
                     >
                         Direccion
@@ -358,6 +367,7 @@
 
                 <div>
                     <label
+                        for="notes"
                         class="block text-sm font-medium text-slate-700 mb-1"
                     >
                         Notas

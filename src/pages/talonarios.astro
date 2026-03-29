@@ -44,9 +44,6 @@ function getPct(r: typeof ranges[number]): number {
 ---
 
 <FinanceLayout title="Talonarios" user={user}>
-    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-
-        <!-- Page header -->
         <div class="flex items-start justify-between gap-4 mb-6">
             <div>
                 <h1 class="text-xl font-semibold text-slate-900">Rangos de talonarios</h1>
@@ -159,7 +156,7 @@ function getPct(r: typeof ranges[number]): number {
 
                                         <!-- Usage bar -->
                                         <td class="px-4 py-3.5">
-                                            <div class="flex flex-col gap-1 min-w-[110px]">
+                                            <div class="flex flex-col gap-1 min-w-27.5">
                                                 <div class="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
                                                     <div
                                                         class={`h-full rounded-full ${barColor}`}
@@ -227,6 +224,4 @@ function getPct(r: typeof ranges[number]): number {
                 {total} {total === 1 ? "rango" : "rangos"} en total
             </p>
         )}
-
-    </main>
 </FinanceLayout>

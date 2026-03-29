@@ -107,270 +107,245 @@ const formatDate = (value: Date | null) =>
 ---
 
 <FinanceLayout title={`Inquilino - ${tenant.fullName}`} user={user}>
-    <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
-        <!-- Header -->
-        <div class="flex items-center justify-between">
-            <div>
-                <a
-                    href="/inquilinos"
-                    class="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700"
+    <div class="flex items-center justify-between">
+        <div>
+            <a
+                href="/inquilinos"
+                class="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700"
+            >
+                <ArrowLeft class="h-4 w-4" />
+                Volver a Inquilinos
+            </a>
+            <h1 class="text-2xl font-bold text-slate-900 mt-2">
+                {tenant.fullName}
+            </h1>
+            <div class="flex items-center gap-2 mt-1">
+                <span
+                    class:list={[
+                        "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                        STATUS_COLORS[tenant.status] ??
+                            "bg-slate-100 text-slate-500",
+                    ]}
                 >
-                    <ArrowLeft class="h-4 w-4" />
-                    Volver a Inquilinos
-                </a>
-                <h1 class="text-2xl font-bold text-slate-900 mt-2">
-                    {tenant.fullName}
-                </h1>
-                <div class="flex items-center gap-2 mt-1">
-                    <span
-                        class:list={[
-                            "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                            STATUS_COLORS[tenant.status] ??
-                                "bg-slate-100 text-slate-500",
-                        ]}
-                    >
-                        {STATUS_LABELS[tenant.status] ?? tenant.status}
-                    </span>
-                    <span class="text-xs text-slate-400">
-                        Amb. {tenant.roomNumber}
-                        {tenant.floor ? ` / Piso ${tenant.floor}` : ""}
-                    </span>
-                </div>
-            </div>
-            <div class="text-right">
-                <p class="text-xs text-slate-500">Alquiler mensual</p>
-                <p class="text-xl font-bold text-slate-900 font-mono">
-                    {money(tenant.monthlyRent, tenant.currency)}
-                </p>
-            </div>
-        </div>
-
-        <!-- Summary -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div
-                class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-                <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
-                    Total Pagado
-                </p>
-                <p class="text-2xl font-bold text-slate-900 tabular-nums">
-                    {money(totalPaidAmount, tenant.currency)}
-                </p>
-            </div>
-            <div
-                class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-                <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
-                    Meses Pendientes
-                </p>
-                <p class="text-3xl font-bold text-amber-700 tabular-nums">
-                    {pendingCount}
-                </p>
-            </div>
-            <div
-                class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-                <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
-                    Último Pago
-                </p>
-                <p class="text-lg font-semibold text-slate-900">
-                    {formatDate(lastPaidAt)}
-                </p>
-            </div>
-        </div>
-
-        <!-- Details + Contact -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div
-                class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2"
-            >
-                <h2
-                    class="font-semibold text-slate-900 mb-4 flex items-center gap-2"
-                >
-                    <User class="h-4 w-4 text-slate-400" />
-                    Datos del Inquilino
-                </h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    <div class="flex items-start gap-3">
-                        <IdCard class="h-4 w-4 text-slate-400 mt-0.5" />
-                        <div>
-                            <p class="text-xs text-slate-500">CI</p>
-                            <p class="font-medium text-slate-900">
-                                {tenant.ci ?? "-"}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <Building class="h-4 w-4 text-slate-400 mt-0.5" />
-                        <div>
-                            <p class="text-xs text-slate-500">Ambiente</p>
-                            <p class="font-medium text-slate-900">
-                                {tenant.roomNumber}
-                                {tenant.floor ? ` / Piso ${tenant.floor}` : ""}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <Calendar class="h-4 w-4 text-slate-400 mt-0.5" />
-                        <div>
-                            <p class="text-xs text-slate-500">Inicio</p>
-                            <p class="font-medium text-slate-900">
-                                {formatDate(tenant.startDate)}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-start gap-3">
-                        <Calendar class="h-4 w-4 text-slate-400 mt-0.5" />
-                        <div>
-                            <p class="text-xs text-slate-500">Fin</p>
-                            <p class="font-medium text-slate-900">
-                                {formatDate(tenant.endDate)}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                {
-                    tenant.description && (
-                        <div class="mt-4 text-sm text-slate-600">
-                            <p class="text-xs text-slate-500 mb-1">
-                                Descripción
-                            </p>
-                            <p>{tenant.description}</p>
-                        </div>
-                    )
-                }
-                {
-                    tenant.notes && (
-                        <div class="mt-4 text-sm text-slate-600">
-                            <p class="text-xs text-slate-500 mb-1">Notas</p>
-                            <p>{tenant.notes}</p>
-                        </div>
-                    )
-                }
-            </div>
-            <div
-                class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-                <h2
-                    class="font-semibold text-slate-900 mb-4 flex items-center gap-2"
-                >
-                    <Phone class="h-4 w-4 text-slate-400" />
-                    Contacto
-                </h2>
-                <div class="space-y-3 text-sm">
-                    <div class="flex items-center gap-3">
-                        <Phone class="h-4 w-4 text-slate-400" />
-                        <div>
-                            <p class="text-xs text-slate-500">Teléfono</p>
-                            <p class="font-medium text-slate-900">
-                                {tenant.phone ?? "-"}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-3">
-                        <Mail class="h-4 w-4 text-slate-400" />
-                        <div>
-                            <p class="text-xs text-slate-500">Email</p>
-                            <p class="font-medium text-slate-900">
-                                {tenant.email ?? "-"}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Payment History -->
-        <div
-            class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
-        >
-            <div
-                class="flex items-center justify-between px-6 py-4 border-b border-slate-100"
-            >
-                <div class="flex items-center gap-2">
-                    <ReceiptText class="h-5 w-5 text-slate-400" />
-                    <h2 class="font-semibold text-slate-900">
-                        Historial de Pagos
-                    </h2>
-                </div>
-                <span class="text-xs text-slate-500">
-                    {payments.length} registro(s)
+                    {STATUS_LABELS[tenant.status] ?? tenant.status}
+                </span>
+                <span class="text-xs text-slate-400">
+                    Amb. {tenant.roomNumber}
+                    {tenant.floor ? ` / Piso ${tenant.floor}` : ""}
                 </span>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead
-                        class="bg-slate-50 text-xs text-slate-500 border-b border-slate-100"
-                    >
-                        <tr>
-                            <th class="py-3 px-5 text-left font-medium"
-                                >Periodo</th
-                            >
-                            <th class="py-3 px-4 text-right font-medium"
-                                >Monto</th
-                            >
-                            <th class="py-3 px-4 text-center font-medium"
-                                >Estado</th
-                            >
-                            <th class="py-3 px-4 text-center font-medium"
-                                >Vence</th
-                            >
-                            <th class="py-3 px-4 text-center font-medium"
-                                >Pagado</th
-                            >
-                            <th class="py-3 px-4 text-right font-medium"
-                                >Recibo</th
-                            >
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-50">
-                        {
-                            payments.length === 0 ? (
-                                <tr>
-                                    <td
-                                        colspan="6"
-                                        class="py-10 text-center text-slate-400 text-sm"
-                                    >
-                                        Sin pagos registrados.
-                                    </td>
-                                </tr>
-                            ) : (
-                                payments.map((p) => (
-                                    <tr class="hover:bg-slate-50/60 transition-colors">
-                                        <td class="py-3.5 px-5 font-mono text-slate-700">
-                                            {p.period}
-                                        </td>
-                                        <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
-                                            {money(p.amount, p.currency)}
-                                        </td>
-                                        <td class="py-3.5 px-4 text-center">
-                                            <span
-                                                class:list={[
-                                                    "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                                                    PAYMENT_COLORS[p.status] ??
-                                                        "bg-slate-100 text-slate-500",
-                                                ]}
-                                            >
-                                                {PAYMENT_LABELS[p.status] ??
-                                                    p.status}
-                                            </span>
-                                        </td>
-                                        <td class="py-3.5 px-4 text-center text-slate-500">
-                                            {formatDate(p.dueDate)}
-                                        </td>
-                                        <td class="py-3.5 px-4 text-center text-slate-500">
-                                            {formatDate(p.paidAt)}
-                                        </td>
-                                        <td class="py-3.5 px-4 text-right text-slate-500">
-                                            {p.receiptNumber ?? "-"}
-                                        </td>
-                                    </tr>
-                                ))
-                            )
-                        }
-                    </tbody>
-                </table>
+        </div>
+        <div class="text-right">
+            <p class="text-xs text-slate-500">Alquiler mensual</p>
+            <p class="text-xl font-bold text-slate-900 font-mono">
+                {money(tenant.monthlyRent, tenant.currency)}
+            </p>
+        </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
+                Total Pagado
+            </p>
+            <p class="text-2xl font-bold text-slate-900 tabular-nums">
+                {money(totalPaidAmount, tenant.currency)}
+            </p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
+                Meses Pendientes
+            </p>
+            <p class="text-3xl font-bold text-amber-700 tabular-nums">
+                {pendingCount}
+            </p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
+                Último Pago
+            </p>
+            <p class="text-lg font-semibold text-slate-900">
+                {formatDate(lastPaidAt)}
+            </p>
+        </div>
+    </div>
+
+    <!-- Details + Contact -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div
+            class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2"
+        >
+            <h2
+                class="font-semibold text-slate-900 mb-4 flex items-center gap-2"
+            >
+                <User class="h-4 w-4 text-slate-400" />
+                Datos del Inquilino
+            </h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div class="flex items-start gap-3">
+                    <IdCard class="h-4 w-4 text-slate-400 mt-0.5" />
+                    <div>
+                        <p class="text-xs text-slate-500">CI</p>
+                        <p class="font-medium text-slate-900">
+                            {tenant.ci ?? "-"}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3">
+                    <Building class="h-4 w-4 text-slate-400 mt-0.5" />
+                    <div>
+                        <p class="text-xs text-slate-500">Ambiente</p>
+                        <p class="font-medium text-slate-900">
+                            {tenant.roomNumber}
+                            {tenant.floor ? ` / Piso ${tenant.floor}` : ""}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3">
+                    <Calendar class="h-4 w-4 text-slate-400 mt-0.5" />
+                    <div>
+                        <p class="text-xs text-slate-500">Inicio</p>
+                        <p class="font-medium text-slate-900">
+                            {formatDate(tenant.startDate)}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3">
+                    <Calendar class="h-4 w-4 text-slate-400 mt-0.5" />
+                    <div>
+                        <p class="text-xs text-slate-500">Fin</p>
+                        <p class="font-medium text-slate-900">
+                            {formatDate(tenant.endDate)}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {
+                tenant.description && (
+                    <div class="mt-4 text-sm text-slate-600">
+                        <p class="text-xs text-slate-500 mb-1">Descripción</p>
+                        <p>{tenant.description}</p>
+                    </div>
+                )
+            }
+            {
+                tenant.notes && (
+                    <div class="mt-4 text-sm text-slate-600">
+                        <p class="text-xs text-slate-500 mb-1">Notas</p>
+                        <p>{tenant.notes}</p>
+                    </div>
+                )
+            }
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2
+                class="font-semibold text-slate-900 mb-4 flex items-center gap-2"
+            >
+                <Phone class="h-4 w-4 text-slate-400" />
+                Contacto
+            </h2>
+            <div class="space-y-3 text-sm">
+                <div class="flex items-center gap-3">
+                    <Phone class="h-4 w-4 text-slate-400" />
+                    <div>
+                        <p class="text-xs text-slate-500">Teléfono</p>
+                        <p class="font-medium text-slate-900">
+                            {tenant.phone ?? "-"}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <Mail class="h-4 w-4 text-slate-400" />
+                    <div>
+                        <p class="text-xs text-slate-500">Email</p>
+                        <p class="font-medium text-slate-900">
+                            {tenant.email ?? "-"}
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
-    </main>
+    </div>
+
+    <!-- Payment History -->
+    <div
+        class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+    >
+        <div
+            class="flex items-center justify-between px-6 py-4 border-b border-slate-100"
+        >
+            <div class="flex items-center gap-2">
+                <ReceiptText class="h-5 w-5 text-slate-400" />
+                <h2 class="font-semibold text-slate-900">Historial de Pagos</h2>
+            </div>
+            <span class="text-xs text-slate-500">
+                {payments.length} registro(s)
+            </span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead
+                    class="bg-slate-50 text-xs text-slate-500 border-b border-slate-100"
+                >
+                    <tr>
+                        <th class="py-3 px-5 text-left font-medium">Periodo</th>
+                        <th class="py-3 px-4 text-right font-medium">Monto</th>
+                        <th class="py-3 px-4 text-center font-medium">Estado</th
+                        >
+                        <th class="py-3 px-4 text-center font-medium">Vence</th>
+                        <th class="py-3 px-4 text-center font-medium">Pagado</th
+                        >
+                        <th class="py-3 px-4 text-right font-medium">Recibo</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {
+                        payments.length === 0 ? (
+                            <tr>
+                                <td
+                                    colspan="6"
+                                    class="py-10 text-center text-slate-400 text-sm"
+                                >
+                                    Sin pagos registrados.
+                                </td>
+                            </tr>
+                        ) : (
+                            payments.map((p) => (
+                                <tr class="hover:bg-slate-50/60 transition-colors">
+                                    <td class="py-3.5 px-5 font-mono text-slate-700">
+                                        {p.period}
+                                    </td>
+                                    <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
+                                        {money(p.amount, p.currency)}
+                                    </td>
+                                    <td class="py-3.5 px-4 text-center">
+                                        <span
+                                            class:list={[
+                                                "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                                                PAYMENT_COLORS[p.status] ??
+                                                    "bg-slate-100 text-slate-500",
+                                            ]}
+                                        >
+                                            {PAYMENT_LABELS[p.status] ??
+                                                p.status}
+                                        </span>
+                                    </td>
+                                    <td class="py-3.5 px-4 text-center text-slate-500">
+                                        {formatDate(p.dueDate)}
+                                    </td>
+                                    <td class="py-3.5 px-4 text-center text-slate-500">
+                                        {formatDate(p.paidAt)}
+                                    </td>
+                                    <td class="py-3.5 px-4 text-right text-slate-500">
+                                        {p.receiptNumber ?? "-"}
+                                    </td>
+                                </tr>
+                            ))
+                        )
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
 </FinanceLayout>

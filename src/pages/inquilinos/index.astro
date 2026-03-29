@@ -121,352 +121,333 @@ const monthName = now.toLocaleDateString("es-BO", {
 ---
 
 <FinanceLayout title="Inquilinos" user={user}>
-    <main class="mx-auto max-w-6xl px-4 py-2 sm:px-6 lg:px-8 space-y-6">
-        <!-- Header -->
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-2xl font-bold text-slate-900">Inquilinos</h1>
-                <p class="text-sm text-slate-500 mt-0.5 capitalize">
-                    Control de alquiler — {monthName}
-                </p>
-            </div>
-            {canEdit && <CreateTenantDialog client:load />}
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Inquilinos</h1>
+            <p class="text-sm text-slate-500 mt-0.5 capitalize">
+                Control de alquiler — {monthName}
+            </p>
         </div>
+        {canEdit && <CreateTenantDialog client:load />}
+    </div>
 
-        <!-- OVERDUE BANNER — pending payments from past periods -->
-        {
-            overdueCount > 0 && (
-                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between gap-4">
-                    <div class="flex items-center gap-2.5 text-sm text-red-800 min-w-0">
-                        <Clock class="size-4 shrink-0 text-red-500" />
-                        <span>
-                            <strong>
-                                {overdueCount}{" "}
-                                {overdueCount === 1
-                                    ? "pago atrasado"
-                                    : "pagos atrasados"}
-                            </strong>{" "}
-                            de meses anteriores sin registrar.
-                        </span>
-                    </div>
-                    <a
-                        href="/inquilinos?filter=atrasados"
-                        class="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
-                    >
-                        Revisar
-                    </a>
-                </div>
-            )
-        }
-
-        <!-- PERIOD STATUS ALERT -->
-        {
-            activeTenantIds.size > 0 && pendingCount > 0 && (
-                <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between gap-4">
-                    <div class="flex items-center gap-2.5 text-sm text-amber-800 min-w-0">
-                        <AlertCircle class="size-4 shrink-0 text-amber-500" />
-                        <span>
-                            <strong>
-                                {pendingCount}{" "}
-                                {pendingCount === 1
-                                    ? "inquilino pendiente"
-                                    : "inquilinos pendientes"}
-                            </strong>{" "}
-                            de pagar en{" "}
-                            <span class="capitalize">{monthName}</span>.
-                        </span>
-                    </div>
-                </div>
-            )
-        }
-
-        {
-            allPaid && (
-                <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center gap-2.5 text-sm text-emerald-800">
-                    <CheckCircle class="size-4 shrink-0 text-emerald-500" />
+    <!-- OVERDUE BANNER — pending payments from past periods -->
+    {
+        overdueCount > 0 && (
+            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 text-sm text-red-800 min-w-0">
+                    <Clock class="size-4 shrink-0 text-red-500" />
                     <span>
-                        Todos los inquilinos activos pagaron en{" "}
-                        <span class="capitalize">{monthName}</span>. ✓
+                        <strong>
+                            {overdueCount}{" "}
+                            {overdueCount === 1
+                                ? "pago atrasado"
+                                : "pagos atrasados"}
+                        </strong>{" "}
+                        de meses anteriores sin registrar.
                     </span>
                 </div>
-            )
-        }
+                <a
+                    href="/inquilinos?filter=atrasados"
+                    class="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
+                >
+                    Revisar
+                </a>
+            </div>
+        )
+    }
 
-        <!-- KPIs -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div
-                class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-                <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
-                    Total Inquilinos
-                </p>
-                <p class="text-3xl font-bold text-slate-900 tabular-nums">
-                    {activeTenants.length}
-                </p>
-            </div>
-            <div
-                class="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-5"
-            >
-                <div class="flex items-center justify-between mb-2">
-                    <p class="text-xs text-emerald-600 uppercase tracking-wide">
-                        Pagaron
-                    </p>
-                    <CheckCircle class="h-4 w-4 text-emerald-500" />
+    <!-- PERIOD STATUS ALERT -->
+    {
+        activeTenantIds.size > 0 && pendingCount > 0 && (
+            <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center justify-between gap-4">
+                <div class="flex items-center gap-2.5 text-sm text-amber-800 min-w-0">
+                    <AlertCircle class="size-4 shrink-0 text-amber-500" />
+                    <span>
+                        <strong>
+                            {pendingCount}{" "}
+                            {pendingCount === 1
+                                ? "inquilino pendiente"
+                                : "inquilinos pendientes"}
+                        </strong>{" "}
+                        de pagar en <span class="capitalize">{monthName}</span>.
+                    </span>
                 </div>
-                <p class="text-3xl font-bold text-emerald-900 tabular-nums">
-                    {paidCount}
-                </p>
             </div>
-            <div class="rounded-xl border-2 border-amber-200 bg-amber-50 p-5">
-                <div class="flex items-center justify-between mb-2">
-                    <p class="text-xs text-amber-600 uppercase tracking-wide">
-                        Pendientes
-                    </p>
-                    <AlertCircle class="h-4 w-4 text-amber-500" />
-                </div>
-                <p class="text-3xl font-bold text-amber-900 tabular-nums">
-                    {pendingCount}
-                </p>
+        )
+    }
+
+    {
+        allPaid && (
+            <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center gap-2.5 text-sm text-emerald-800">
+                <CheckCircle class="size-4 shrink-0 text-emerald-500" />
+                <span>
+                    Todos los inquilinos activos pagaron en{" "}
+                    <span class="capitalize">{monthName}</span>. ✓
+                </span>
             </div>
-            <div
-                class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
-            >
-                <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
-                    Ingreso Mensual
+        )
+    }
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
+                Total Inquilinos
+            </p>
+            <p class="text-3xl font-bold text-slate-900 tabular-nums">
+                {activeTenants.length}
+            </p>
+        </div>
+        <div class="rounded-xl border-2 border-emerald-200 bg-emerald-50 p-5">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs text-emerald-600 uppercase tracking-wide">
+                    Pagaron
                 </p>
-                <p class="text-xl font-bold text-slate-900 tabular-nums">
-                    Bs {
-                        totalRent.toLocaleString("es-BO", {
-                            minimumFractionDigits: 2,
-                        })
-                    }
+                <CheckCircle class="h-4 w-4 text-emerald-500" />
+            </div>
+            <p class="text-3xl font-bold text-emerald-900 tabular-nums">
+                {paidCount}
+            </p>
+        </div>
+        <div class="rounded-xl border-2 border-amber-200 bg-amber-50 p-5">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs text-amber-600 uppercase tracking-wide">
+                    Pendientes
                 </p>
+                <AlertCircle class="h-4 w-4 text-amber-500" />
+            </div>
+            <p class="text-3xl font-bold text-amber-900 tabular-nums">
+                {pendingCount}
+            </p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
+                Ingreso Mensual
+            </p>
+            <p class="text-xl font-bold text-slate-900 tabular-nums">
+                Bs {
+                    totalRent.toLocaleString("es-BO", {
+                        minimumFractionDigits: 2,
+                    })
+                }
+            </p>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div
+        class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+    >
+        <div
+            class="flex items-center justify-between px-6 py-4 border-b border-slate-100"
+        >
+            <div class="flex items-center gap-2">
+                <Building class="h-5 w-5 text-slate-400" />
+                <h2 class="font-semibold text-slate-900">
+                    Lista de Inquilinos
+                </h2>
             </div>
         </div>
-
-        <!-- Table -->
-        <div
-            class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
-        >
-            <div
-                class="flex items-center justify-between px-6 py-4 border-b border-slate-100"
-            >
-                <div class="flex items-center gap-2">
-                    <Building class="h-5 w-5 text-slate-400" />
-                    <h2 class="font-semibold text-slate-900">
-                        Lista de Inquilinos
-                    </h2>
-                </div>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead
-                        class="bg-slate-50 text-xs text-slate-500 border-b border-slate-100"
-                    >
-                        <tr>
-                            <th class="py-3 px-5 text-left font-medium"
-                                >Ambiente / Piso</th
-                            >
-                            <th class="py-3 px-4 text-left font-medium"
-                                >Inquilino</th
-                            >
-                            <th class="py-3 px-4 text-left font-medium"
-                                >Teléfono</th
-                            >
-                            <th class="py-3 px-4 text-right font-medium"
-                                >Alquiler/Mes</th
-                            >
-                            <th
-                                class="py-3 px-4 text-center font-medium capitalize"
-                                >{monthName}</th
-                            >
-                            <th class="py-3 px-4 text-center font-medium"
-                                >Estado</th
-                            >
-                            {
-                                canEdit && (
-                                    <th class="py-3 px-4 text-right font-medium">
-                                        Acciones
-                                    </th>
-                                )
-                            }
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-50">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead
+                    class="bg-slate-50 text-xs text-slate-500 border-b border-slate-100"
+                >
+                    <tr>
+                        <th class="py-3 px-5 text-left font-medium"
+                            >Ambiente / Piso</th
+                        >
+                        <th class="py-3 px-4 text-left font-medium"
+                            >Inquilino</th
+                        >
+                        <th class="py-3 px-4 text-left font-medium">Teléfono</th
+                        >
+                        <th class="py-3 px-4 text-right font-medium"
+                            >Alquiler/Mes</th
+                        >
+                        <th class="py-3 px-4 text-center font-medium capitalize"
+                            >{monthName}</th
+                        >
+                        <th class="py-3 px-4 text-center font-medium">Estado</th
+                        >
                         {
-                            allTenants.length === 0 ? (
-                                <tr>
-                                    <td
-                                        colspan="7"
-                                        class="py-12 text-center text-slate-400 text-sm"
+                            canEdit && (
+                                <th class="py-3 px-4 text-right font-medium">
+                                    Acciones
+                                </th>
+                            )
+                        }
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    {
+                        allTenants.length === 0 ? (
+                            <tr>
+                                <td
+                                    colspan="7"
+                                    class="py-12 text-center text-slate-400 text-sm"
+                                >
+                                    No hay inquilinos registrados todavía.
+                                </td>
+                            </tr>
+                        ) : (
+                            allTenants.map((tenant) => {
+                                const payment = paymentByTenant[tenant.id];
+                                const payStatus =
+                                    payment?.status ?? "pendiente";
+                                const isPaid = payStatus === "pagado";
+                                const isOverdue = overdueTenantsSet.has(
+                                    tenant.id,
+                                );
+                                return (
+                                    <tr
+                                        class:list={[
+                                            "hover:bg-slate-50/60 transition-colors",
+                                            isOverdue && !isPaid
+                                                ? "bg-red-50/30"
+                                                : "",
+                                        ]}
                                     >
-                                        No hay inquilinos registrados todavía.
-                                    </td>
-                                </tr>
-                            ) : (
-                                allTenants.map((tenant) => {
-                                    const payment = paymentByTenant[tenant.id];
-                                    const payStatus =
-                                        payment?.status ?? "pendiente";
-                                    const isPaid = payStatus === "pagado";
-                                    const isOverdue = overdueTenantsSet.has(
-                                        tenant.id,
-                                    );
-                                    return (
-                                        <tr
-                                            class:list={[
-                                                "hover:bg-slate-50/60 transition-colors",
-                                                isOverdue && !isPaid
-                                                    ? "bg-red-50/30"
-                                                    : "",
-                                            ]}
-                                        >
-                                            <td class="py-3.5 px-5">
-                                                <div>
-                                                    <p class="font-bold text-slate-900 font-mono">
-                                                        Amb. {tenant.roomNumber}
+                                        <td class="py-3.5 px-5">
+                                            <div>
+                                                <p class="font-bold text-slate-900 font-mono">
+                                                    Amb. {tenant.roomNumber}
+                                                </p>
+                                                {tenant.floor && (
+                                                    <p class="text-xs text-slate-400">
+                                                        Piso {tenant.floor}
                                                     </p>
-                                                    {tenant.floor && (
-                                                        <p class="text-xs text-slate-400">
-                                                            Piso {tenant.floor}
-                                                        </p>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td class="py-3.5 px-4">
+                                            <p class="font-medium text-slate-900">
+                                                {tenant.fullName}
+                                            </p>
+                                            {isOverdue && (
+                                                <p class="text-[10px] text-red-500 font-medium mt-0.5">
+                                                    Tiene pagos atrasados
+                                                </p>
+                                            )}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-sm text-slate-500">
+                                            {tenant.phone ?? "—"}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
+                                            Bs{" "}
+                                            {Number(
+                                                tenant.monthlyRent,
+                                            ).toLocaleString("es-BO", {
+                                                minimumFractionDigits: 2,
+                                            })}
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center">
+                                            <span
+                                                class:list={[
+                                                    "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                                                    PAYMENT_COLORS[payStatus] ??
+                                                        "bg-slate-100 text-slate-500",
+                                                ]}
+                                            >
+                                                {PAYMENT_LABELS[payStatus] ??
+                                                    payStatus}
+                                            </span>
+                                        </td>
+                                        <td class="py-3.5 px-4 text-center">
+                                            <span
+                                                class:list={[
+                                                    "rounded-full px-2 py-0.5 text-xs font-medium",
+                                                    STATUS_COLORS[
+                                                        tenant.status
+                                                    ] ??
+                                                        "bg-slate-100 text-slate-500",
+                                                ]}
+                                            >
+                                                {STATUS_LABELS[tenant.status] ??
+                                                    tenant.status}
+                                            </span>
+                                        </td>
+                                        {canEdit && (
+                                            <td class="py-3.5 px-4 text-right">
+                                                <div class="flex items-center justify-end gap-2">
+                                                    {!isPaid &&
+                                                        tenant.status ===
+                                                            "activo" && (
+                                                            <form
+                                                                method="POST"
+                                                                action={
+                                                                    actions
+                                                                        .inquilinos
+                                                                        .registerRentPayment
+                                                                }
+                                                                class="inline"
+                                                            >
+                                                                <input
+                                                                    type="hidden"
+                                                                    name="tenantId"
+                                                                    value={
+                                                                        tenant.id
+                                                                    }
+                                                                />
+                                                                <input
+                                                                    type="hidden"
+                                                                    name="period"
+                                                                    value={
+                                                                        currentPeriod
+                                                                    }
+                                                                />
+                                                                <input
+                                                                    type="hidden"
+                                                                    name="tenantName"
+                                                                    value={
+                                                                        tenant.fullName
+                                                                    }
+                                                                />
+                                                                <input
+                                                                    type="hidden"
+                                                                    name="amount"
+                                                                    value={
+                                                                        tenant.monthlyRent
+                                                                    }
+                                                                />
+                                                                <button
+                                                                    type="submit"
+                                                                    onclick={`return confirm('Registrar pago de Bs ${Number(tenant.monthlyRent).toLocaleString("es-BO")} para ${tenant.fullName}?')`}
+                                                                    class="rounded border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                                                >
+                                                                    Pagar
+                                                                </button>
+                                                            </form>
+                                                        )}
+                                                    <a
+                                                        href={`/inquilinos/${tenant.id}`}
+                                                        class="rounded border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                                                    >
+                                                        Ver
+                                                    </a>
+                                                    {tenant.status ===
+                                                        "activo" && (
+                                                        <DeleteConfirmDialog
+                                                            client:load
+                                                            entityType="tenant"
+                                                            entityId={tenant.id}
+                                                            entityName={
+                                                                tenant.fullName
+                                                            }
+                                                            entityLabel={`Amb. ${tenant.roomNumber}`}
+                                                        />
                                                     )}
                                                 </div>
                                             </td>
-                                            <td class="py-3.5 px-4">
-                                                <p class="font-medium text-slate-900">
-                                                    {tenant.fullName}
-                                                </p>
-                                                {isOverdue && (
-                                                    <p class="text-[10px] text-red-500 font-medium mt-0.5">
-                                                        Tiene pagos atrasados
-                                                    </p>
-                                                )}
-                                            </td>
-                                            <td class="py-3.5 px-4 text-sm text-slate-500">
-                                                {tenant.phone ?? "—"}
-                                            </td>
-                                            <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
-                                                Bs{" "}
-                                                {Number(
-                                                    tenant.monthlyRent,
-                                                ).toLocaleString("es-BO", {
-                                                    minimumFractionDigits: 2,
-                                                })}
-                                            </td>
-                                            <td class="py-3.5 px-4 text-center">
-                                                <span
-                                                    class:list={[
-                                                        "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                                                        PAYMENT_COLORS[
-                                                            payStatus
-                                                        ] ??
-                                                            "bg-slate-100 text-slate-500",
-                                                    ]}
-                                                >
-                                                    {PAYMENT_LABELS[
-                                                        payStatus
-                                                    ] ?? payStatus}
-                                                </span>
-                                            </td>
-                                            <td class="py-3.5 px-4 text-center">
-                                                <span
-                                                    class:list={[
-                                                        "rounded-full px-2 py-0.5 text-xs font-medium",
-                                                        STATUS_COLORS[
-                                                            tenant.status
-                                                        ] ??
-                                                            "bg-slate-100 text-slate-500",
-                                                    ]}
-                                                >
-                                                    {STATUS_LABELS[
-                                                        tenant.status
-                                                    ] ?? tenant.status}
-                                                </span>
-                                            </td>
-                                            {canEdit && (
-                                                <td class="py-3.5 px-4 text-right">
-                                                    <div class="flex items-center justify-end gap-2">
-                                                        {!isPaid &&
-                                                            tenant.status ===
-                                                                "activo" && (
-                                                                <form
-                                                                    method="POST"
-                                                                    action={
-                                                                        actions
-                                                                            .inquilinos
-                                                                            .registerRentPayment
-                                                                    }
-                                                                    class="inline"
-                                                                >
-                                                                    <input
-                                                                        type="hidden"
-                                                                        name="tenantId"
-                                                                        value={
-                                                                            tenant.id
-                                                                        }
-                                                                    />
-                                                                    <input
-                                                                        type="hidden"
-                                                                        name="period"
-                                                                        value={
-                                                                            currentPeriod
-                                                                        }
-                                                                    />
-                                                                    <input
-                                                                        type="hidden"
-                                                                        name="tenantName"
-                                                                        value={
-                                                                            tenant.fullName
-                                                                        }
-                                                                    />
-                                                                    <input
-                                                                        type="hidden"
-                                                                        name="amount"
-                                                                        value={
-                                                                            tenant.monthlyRent
-                                                                        }
-                                                                    />
-                                                                    <button
-                                                                        type="submit"
-                                                                        onclick={`return confirm('Registrar pago de Bs ${Number(tenant.monthlyRent).toLocaleString("es-BO")} para ${tenant.fullName}?')`}
-                                                                        class="rounded border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
-                                                                    >
-                                                                        Pagar
-                                                                    </button>
-                                                                </form>
-                                                            )}
-                                                        <a
-                                                            href={`/inquilinos/${tenant.id}`}
-                                                            class="rounded border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                                                        >
-                                                            Ver
-                                                        </a>
-                                                        {tenant.status ===
-                                                            "activo" && (
-                                                            <DeleteConfirmDialog
-                                                                client:load
-                                                                entityType="tenant"
-                                                                entityId={
-                                                                    tenant.id
-                                                                }
-                                                                entityName={
-                                                                    tenant.fullName
-                                                                }
-                                                                entityLabel={`Amb. ${tenant.roomNumber}`}
-                                                            />
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    );
-                                })
-                            )
-                        }
-                    </tbody>
-                </table>
-            </div>
+                                        )}
+                                    </tr>
+                                );
+                            })
+                        )
+                    }
+                </tbody>
+            </table>
         </div>
-    </main>
+    </div>
 </FinanceLayout>

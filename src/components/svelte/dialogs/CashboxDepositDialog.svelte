@@ -1,13 +1,4 @@
 <script lang="ts">
-    /**
-     * SectorDepositDialog
-     * ──────────────────────────────────────────────────────────
-     * The missing cashbox top-up flow from /rrhh/sectores.
-     *
-     * Shows the current cashbox balance + the monthly salary target
-     * so the admin can immediately see how much is needed to reach
-     * 100% coverage, with a quick-fill button for the exact gap.
-     */
     import Dialog from "@/components/svelte/Dialog.svelte";
     import { actions, isInputError } from "astro:actions";
     import {
@@ -25,23 +16,20 @@
     }
 
     interface Props {
-        sectorId: number;
-        sectorName: string;
+        cashboxId: string;
         cashboxName: string;
         currentBalance: number;
-        monthlySalary: number;
-        /** Pass only income categories from the page query */
+        monthlySalary?: number;
         categories: CategoryOption[];
         triggerLabel?: string;
         triggerClass?: string;
     }
 
     let {
-        sectorId,
-        sectorName,
+        cashboxId,
         cashboxName,
         currentBalance,
-        monthlySalary,
+        monthlySalary = 0,
         categories,
         triggerLabel = "Depositar",
         triggerClass = "rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors",
@@ -52,15 +40,14 @@
     let inputErrors = $state<Record<string, string | string[]>>({});
     let serverError = $state<string | null>(null);
     let successMsg = $state<string | null>(null);
-    const formId = `sector-deposit-form-${sectorId}`;
+    const formId = `cashbox-deposit-form-${cashboxId}`;
 
     let amount = $state("");
     let categoryId = $state(categories[0]?.id ?? "");
-    let concept = $state(`Depósito caja ${sectorName}`);
+    let concept = $state(`Depósito ${cashboxName}`);
     let reference = $state("");
     let notes = $state("");
 
-    // Gap to cover 100% salary
     const gap = $derived(Math.max(0, monthlySalary - currentBalance));
     const coveragePct = $derived(
         monthlySalary > 0
@@ -76,7 +63,7 @@
     function reset() {
         amount = "";
         categoryId = categories[0]?.id ?? "";
-        concept = `Depósito caja ${sectorName}`;
+        concept = `Depósito ${cashboxName}`;
         reference = notes = "";
         inputErrors = {};
         serverError = null;
@@ -93,7 +80,7 @@
         serverError = null;
 
         const fd = new FormData();
-        fd.set("sectorId", String(sectorId));
+        fd.set("cashboxId", cashboxId);
         fd.set("categoryId", categoryId);
         fd.set("amount", amount);
         fd.set("concept", concept.trim());
@@ -102,7 +89,7 @@
 
         isSubmitting = true;
         try {
-            const result = await actions.sector.depositToSectorCashbox(fd);
+            const result = await actions.sector.depositToCashbox(fd);
 
             if (isInputError(result?.error)) {
                 inputErrors = result.error.fields as any;
@@ -131,8 +118,8 @@
 <Dialog
     bind:isOpen
     size="md"
-    title="Depositar a caja sectorial"
-    description="Acredite fondos en la caja vinculada a este sector."
+    title={`Depositar a ${cashboxName}`}
+    description="Acredite fondos en esta caja."
     preventCloseOnEscapeKeyDown={true}
     preventCloseOnInteractOutside={true}
     onClose={reset}
@@ -163,10 +150,6 @@
                 class="mb-4 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 space-y-2"
             >
                 <div class="flex justify-between text-xs">
-                    <span class="text-slate-500">Sector</span>
-                    <span class="font-medium text-slate-800">{sectorName}</span>
-                </div>
-                <div class="flex justify-between text-xs">
                     <span class="text-slate-500">Caja</span>
                     <span class="font-medium text-slate-800">{cashboxName}</span
                     >
@@ -188,7 +171,6 @@
                             })}
                         </span>
                     </div>
-                    <!-- Mini coverage bar -->
                     <div>
                         <div
                             class="h-1.5 w-full rounded-full bg-slate-200 mt-1"
@@ -202,7 +184,7 @@
                             ></div>
                         </div>
                         <p class="text-[10px] text-slate-400 mt-0.5 text-right">
-                            {Math.round(coveragePct)}% cobertura actual
+                            {Math.round(coveragePct)}% cobertura salarial
                         </p>
                     </div>
                 {/if}
@@ -261,10 +243,8 @@
                             step="0.01"
                             required
                             placeholder="0.00"
-                            class="w-full rounded-lg border pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                                {fieldError('amount')
-                                ? 'border-red-400'
-                                : 'border-slate-200'}"
+                            class="w-full rounded-lg border pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500
+                {fieldError('amount') ? 'border-red-400' : 'border-slate-200'}"
                         />
                     </div>
                     {#if fieldError("amount")}
@@ -284,8 +264,8 @@
                     <select
                         bind:value={categoryId}
                         required
-                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                            {fieldError('categoryId') ? 'border-red-400' : ''}"
+                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500
+              {fieldError('categoryId') ? 'border-red-400' : ''}"
                     >
                         <option value="">-- Seleccionar --</option>
                         {#each categories as cat}
@@ -313,8 +293,8 @@
                         bind:value={concept}
                         required
                         maxlength="255"
-                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                            {fieldError('concept') ? 'border-red-400' : ''}"
+                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500
+              {fieldError('concept') ? 'border-red-400' : ''}"
                     />
                     {#if fieldError("concept")}
                         <p class="mt-1 text-xs text-red-600">
@@ -323,7 +303,7 @@
                     {/if}
                 </div>
 
-                <!-- Referencia (opcional) -->
+                <!-- Referencia -->
                 <div>
                     <label
                         class="block text-xs font-medium text-slate-600 mb-1"
@@ -337,11 +317,11 @@
                         bind:value={reference}
                         maxlength="100"
                         placeholder="Nro. recibo, cheque, transferencia..."
-                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                 </div>
 
-                <!-- Notas (opcional) -->
+                <!-- Notas -->
                 <div>
                     <label
                         class="block text-xs font-medium text-slate-600 mb-1"
@@ -355,7 +335,7 @@
                         maxlength="500"
                         rows="2"
                         placeholder="Observaciones adicionales..."
-                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
                     ></textarea>
                 </div>
             </form>

@@ -61,366 +61,353 @@ const STATUS_COLORS: Record<string, string> = {
 ---
 
 <FinanceLayout title="Nómina — Personal" user={user}>
-    <main class="mx-auto max-w-6xl px-4 py-2 sm:px-6 lg:px-8 space-y-5">
-        <!-- Header -->
-        <div class="flex items-center justify-between">
-            <div>
-                <div
-                    class="flex items-center gap-2 text-sm text-slate-500 mb-1"
-                >
-                    <a href="/rrhh" class="hover:text-slate-700">RRHH</a>
-                    <span>/</span>
-                    <span class="text-slate-900 font-medium">Personal</span>
-                </div>
-                <h1 class="text-xl font-bold text-slate-900">
-                    Nómina ({result.total})
-                </h1>
+    <div class="flex items-center justify-between">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                <a href="/rrhh" class="hover:text-slate-700">RRHH</a>
+                <span>/</span>
+                <span class="text-slate-900 font-medium">Personal</span>
             </div>
+            <h1 class="text-xl font-bold text-slate-900">
+                Nómina ({result.total})
+            </h1>
+        </div>
+        {
+            canEdit && (
+                <div class="flex items-center gap-2">
+                    <CreateCashboxDialog client:load />
+                    <CreateEmployeeDialog
+                        sectors={allSectors}
+                        directorioCount={counts.directorio}
+                        plantaCount={counts.planta}
+                        maxDirectorio={MAX_DIRECTORIO}
+                        maxPlanta={MAX_PLANTA}
+                        client:load
+                    />
+                </div>
+            )
+        }
+    </div>
+
+    <!-- Capacity badges -->
+    <div class="flex flex-wrap items-center gap-3">
+        <div
+            class="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm"
+        >
+            <UserCheck class="h-4 w-4 text-blue-500" />
+            <span class="font-medium text-blue-800">Directorio:</span>
+            <span class="font-bold text-blue-900 tabular-nums"
+                >{counts.directorio}/{MAX_DIRECTORIO}</span
+            >
             {
-                canEdit && (
-                    <div class="flex items-center gap-2">
-                        <CreateCashboxDialog client:load />
-                        <CreateEmployeeDialog
-                            sectors={allSectors}
-                            directorioCount={counts.directorio}
-                            plantaCount={counts.planta}
-                            maxDirectorio={MAX_DIRECTORIO}
-                            maxPlanta={MAX_PLANTA}
-                            client:load
-                        />
-                    </div>
+                counts.directorio >= MAX_DIRECTORIO && (
+                    <span class="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+                        LLENO
+                    </span>
                 )
             }
         </div>
+        <div
+            class="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm"
+        >
+            <Users class="h-4 w-4 text-violet-500" />
+            <span class="font-medium text-violet-800">Planta:</span>
+            <span class="font-bold text-violet-900 tabular-nums"
+                >{counts.planta}/{MAX_PLANTA}</span
+            >
+            {
+                counts.planta >= MAX_PLANTA && (
+                    <span class="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+                        LLENO
+                    </span>
+                )
+            }
+        </div>
+    </div>
 
-        <!-- Capacity badges -->
-        <div class="flex flex-wrap items-center gap-3">
-            <div
-                class="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm"
+    <!-- Filters -->
+    <form
+        method="GET"
+        class="flex flex-wrap gap-3 items-end rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+    >
+        <div class="flex-1 min-w-40">
+            <label class="block text-xs font-medium text-slate-600 mb-1"
+                >Buscar</label
             >
-                <UserCheck class="h-4 w-4 text-blue-500" />
-                <span class="font-medium text-blue-800">Directorio:</span>
-                <span class="font-bold text-blue-900 tabular-nums"
-                    >{counts.directorio}/{MAX_DIRECTORIO}</span
-                >
-                {
-                    counts.directorio >= MAX_DIRECTORIO && (
-                        <span class="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
-                            LLENO
-                        </span>
-                    )
-                }
-            </div>
-            <div
-                class="flex items-center gap-2 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm"
-            >
-                <Users class="h-4 w-4 text-violet-500" />
-                <span class="font-medium text-violet-800">Planta:</span>
-                <span class="font-bold text-violet-900 tabular-nums"
-                    >{counts.planta}/{MAX_PLANTA}</span
-                >
-                {
-                    counts.planta >= MAX_PLANTA && (
-                        <span class="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
-                            LLENO
-                        </span>
-                    )
-                }
+            <div class="relative">
+                <Search
+                    class="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400"
+                />
+                <input
+                    type="text"
+                    name="search"
+                    value={filters.search ?? ""}
+                    placeholder="Nombre, CI..."
+                    class="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
             </div>
         </div>
-
-        <!-- Filters -->
-        <form
-            method="GET"
-            class="flex flex-wrap gap-3 items-end rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-        >
-            <div class="flex-1 min-w-40">
-                <label class="block text-xs font-medium text-slate-600 mb-1"
-                    >Buscar</label
-                >
-                <div class="relative">
-                    <Search
-                        class="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400"
-                    />
-                    <input
-                        type="text"
-                        name="search"
-                        value={filters.search ?? ""}
-                        placeholder="Nombre, CI..."
-                        class="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1"
-                    >Tipo</label
-                >
-                <select
-                    name="type"
-                    class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="all" selected={filters.type === "all"}
-                        >Todos</option
-                    >
-                    <option
-                        value="directorio"
-                        selected={filters.type === "directorio"}
-                        >Directorio</option
-                    >
-                    <option value="planta" selected={filters.type === "planta"}
-                        >Planta</option
-                    >
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1"
-                    >Sector</label
-                >
-                <select
-                    name="sectorId"
-                    class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="">Todos</option>
-                    {
-                        allSectors.map((s) => (
-                            <option
-                                value={s.id}
-                                selected={filters.sectorId === s.id}
-                            >
-                                {s.name}
-                            </option>
-                        ))
-                    }
-                </select>
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1"
-                    >Estado</label
-                >
-                <select
-                    name="status"
-                    class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                    <option value="all" selected={filters.status === "all"}
-                        >Todos</option
-                    >
-                    <option
-                        value="activo"
-                        selected={filters.status === "activo"}>Activo</option
-                    >
-                    <option
-                        value="suspendido"
-                        selected={filters.status === "suspendido"}
-                        >Suspendido</option
-                    >
-                    <option
-                        value="licencia"
-                        selected={filters.status === "licencia"}
-                        >Licencia</option
-                    >
-                    <option value="baja" selected={filters.status === "baja"}
-                        >Baja</option
-                    >
-                </select>
-            </div>
-            <button
-                type="submit"
-                class="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 transition-colors"
+        <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1"
+                >Tipo</label
             >
-                <Filter class="h-3.5 w-3.5" />
-                Filtrar
-            </button>
-        </form>
-
-        <!-- Table -->
-        <div
-            class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+            <select
+                name="type"
+                class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                <option value="all" selected={filters.type === "all"}
+                    >Todos</option
+                >
+                <option
+                    value="directorio"
+                    selected={filters.type === "directorio"}>Directorio</option
+                >
+                <option value="planta" selected={filters.type === "planta"}
+                    >Planta</option
+                >
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1"
+                >Sector</label
+            >
+            <select
+                name="sectorId"
+                class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                <option value="">Todos</option>
+                {
+                    allSectors.map((s) => (
+                        <option
+                            value={s.id}
+                            selected={filters.sectorId === s.id}
+                        >
+                            {s.name}
+                        </option>
+                    ))
+                }
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1"
+                >Estado</label
+            >
+            <select
+                name="status"
+                class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                <option value="all" selected={filters.status === "all"}
+                    >Todos</option
+                >
+                <option value="activo" selected={filters.status === "activo"}
+                    >Activo</option
+                >
+                <option
+                    value="suspendido"
+                    selected={filters.status === "suspendido"}
+                    >Suspendido</option
+                >
+                <option
+                    value="licencia"
+                    selected={filters.status === "licencia"}>Licencia</option
+                >
+                <option value="baja" selected={filters.status === "baja"}
+                    >Baja</option
+                >
+            </select>
+        </div>
+        <button
+            type="submit"
+            class="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 transition-colors"
         >
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left">
-                    <thead
-                        class="bg-slate-50 text-slate-500 text-xs border-b border-slate-200"
-                    >
-                        <tr>
-                            <th class="py-3 px-5 font-medium">Personal</th>
-                            <th class="py-3 px-4 font-medium">Tipo / Cargo</th>
-                            <th class="py-3 px-4 font-medium">Sector</th>
-                            <th class="py-3 px-4 font-medium text-right"
-                                >Salario Base</th
-                            >
-                            <th class="py-3 px-4 font-medium">Estado</th>
-                            {
-                                canEdit && (
-                                    <th class="py-3 px-4 font-medium text-right">
-                                        Acciones
-                                    </th>
-                                )
-                            }
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
+            <Filter class="h-3.5 w-3.5" />
+            Filtrar
+        </button>
+    </form>
+
+    <!-- Table -->
+    <div
+        class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+    >
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead
+                    class="bg-slate-50 text-slate-500 text-xs border-b border-slate-200"
+                >
+                    <tr>
+                        <th class="py-3 px-5 font-medium">Personal</th>
+                        <th class="py-3 px-4 font-medium">Tipo / Cargo</th>
+                        <th class="py-3 px-4 font-medium">Sector</th>
+                        <th class="py-3 px-4 font-medium text-right"
+                            >Salario Base</th
+                        >
+                        <th class="py-3 px-4 font-medium">Estado</th>
                         {
-                            result.data.length === 0 ? (
-                                <tr>
-                                    <td
-                                        colspan="6"
-                                        class="py-12 text-center text-slate-400 text-sm"
-                                    >
-                                        No se encontró personal con los filtros
-                                        actuales.
-                                    </td>
-                                </tr>
-                            ) : (
-                                result.data.map((emp) => (
-                                    <tr class="hover:bg-slate-50/60 transition-colors">
-                                        <td class="py-3.5 px-5">
-                                            <p class="font-medium text-slate-900">
-                                                {emp.fullName}
-                                            </p>
-                                            <p class="text-xs text-slate-400 font-mono">
-                                                {emp.ci}
-                                            </p>
-                                        </td>
-                                        <td class="py-3.5 px-4">
-                                            <span
-                                                class:list={[
-                                                    "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                                                    emp.employeeType ===
-                                                    "directorio"
-                                                        ? "bg-blue-100 text-blue-700"
-                                                        : "bg-violet-100 text-violet-700",
-                                                ]}
-                                            >
-                                                {emp.employeeType}
-                                            </span>
-                                            <p class="text-xs text-slate-500 mt-0.5">
-                                                {emp.chargeTitle}
-                                            </p>
-                                        </td>
-                                        <td class="py-3.5 px-4 text-slate-700 text-xs">
-                                            {emp.sectorName}
-                                        </td>
-                                        <td class="py-3.5 px-4 text-right font-mono text-slate-700">
-                                            Bs{" "}
-                                            {Number(
-                                                emp.baseSalary,
-                                            ).toLocaleString("es-BO", {
-                                                minimumFractionDigits: 2,
-                                            })}
-                                        </td>
-                                        <td class="py-3.5 px-4">
-                                            <span
-                                                class:list={[
-                                                    "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                                                    STATUS_COLORS[emp.status] ??
-                                                        "bg-slate-100 text-slate-600",
-                                                ]}
-                                            >
-                                                {STATUS_LABELS[emp.status] ??
-                                                    emp.status}
-                                            </span>
-                                        </td>
-                                        {canEdit && (
-                                            <td class="py-3.5 px-4 text-right">
-                                                <div class="flex items-center justify-end gap-2">
-                                                    <EditEmployeeDialog
-                                                        sectors={allSectors}
-                                                        directorioCount={
-                                                            counts.directorio
-                                                        }
-                                                        plantaCount={
-                                                            counts.planta
-                                                        }
-                                                        maxDirectorio={
-                                                            MAX_DIRECTORIO
-                                                        }
-                                                        maxPlanta={MAX_PLANTA}
-                                                        employee={{
-                                                            id: emp.id,
-                                                            employeeType:
-                                                                emp.employeeType,
-                                                            fullName:
-                                                                emp.fullName,
-                                                            ci: emp.ci,
-                                                            ciCity: emp.ciCity,
-                                                            phone: emp.phone,
-                                                            address:
-                                                                emp.address,
-                                                            chargeTitle:
-                                                                emp.chargeTitle,
-                                                            sectorId:
-                                                                emp.sectorId,
-                                                            hireDate:
-                                                                toDateInput(
-                                                                    emp.hireDate,
-                                                                ),
-                                                            baseSalary:
-                                                                emp.baseSalary,
-                                                            notes: emp.notes,
-                                                        }}
-                                                        client:load
-                                                    />
-                                                    {emp.status !== "baja" && (
-                                                        <DeleteConfirmDialog
-                                                            client:load
-                                                            entityType="employee"
-                                                            entityId={emp.id}
-                                                            entityName={
-                                                                emp.fullName
-                                                            }
-                                                            entityLabel={
-                                                                emp.chargeTitle
-                                                            }
-                                                        />
-                                                    )}
-                                                </div>
-                                            </td>
-                                        )}
-                                    </tr>
-                                ))
+                            canEdit && (
+                                <th class="py-3 px-4 font-medium text-right">
+                                    Acciones
+                                </th>
                             )
                         }
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Pagination -->
-            {
-                result.totalPages > 1 && (
-                    <div class="flex items-center justify-between border-t border-slate-100 px-5 py-3">
-                        <p class="text-xs text-slate-500">
-                            Página {result.page} de {result.totalPages} ·{" "}
-                            {result.total} resultados
-                        </p>
-                        <div class="flex gap-2">
-                            {result.page > 1 ? (
-                                <a
-                                    href={buildUrl({ page: result.page - 1 })}
-                                    class="inline-flex items-center gap-1 rounded border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {
+                        result.data.length === 0 ? (
+                            <tr>
+                                <td
+                                    colspan="6"
+                                    class="py-12 text-center text-slate-400 text-sm"
                                 >
-                                    ← Anterior
-                                </a>
-                            ) : (
-                                <span class="inline-flex items-center gap-1 rounded border border-slate-100 px-3 py-1.5 text-xs font-medium text-slate-300 cursor-not-allowed">
-                                    ← Anterior
-                                </span>
-                            )}
-                            {result.page < result.totalPages ? (
-                                <a
-                                    href={buildUrl({ page: result.page + 1 })}
-                                    class="inline-flex items-center gap-1 rounded border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                                >
-                                    Siguiente →
-                                </a>
-                            ) : (
-                                <span class="inline-flex items-center gap-1 rounded border border-slate-100 px-3 py-1.5 text-xs font-medium text-slate-300 cursor-not-allowed">
-                                    Siguiente →
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                )
-            }
+                                    No se encontró personal con los filtros
+                                    actuales.
+                                </td>
+                            </tr>
+                        ) : (
+                            result.data.map((emp) => (
+                                <tr class="hover:bg-slate-50/60 transition-colors">
+                                    <td class="py-3.5 px-5">
+                                        <p class="font-medium text-slate-900">
+                                            {emp.fullName}
+                                        </p>
+                                        <p class="text-xs text-slate-400 font-mono">
+                                            {emp.ci}
+                                        </p>
+                                    </td>
+                                    <td class="py-3.5 px-4">
+                                        <span
+                                            class:list={[
+                                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                                                emp.employeeType ===
+                                                "directorio"
+                                                    ? "bg-blue-100 text-blue-700"
+                                                    : "bg-violet-100 text-violet-700",
+                                            ]}
+                                        >
+                                            {emp.employeeType}
+                                        </span>
+                                        <p class="text-xs text-slate-500 mt-0.5">
+                                            {emp.chargeTitle}
+                                        </p>
+                                    </td>
+                                    <td class="py-3.5 px-4 text-slate-700 text-xs">
+                                        {emp.sectorName}
+                                    </td>
+                                    <td class="py-3.5 px-4 text-right font-mono text-slate-700">
+                                        Bs{" "}
+                                        {Number(emp.baseSalary).toLocaleString(
+                                            "es-BO",
+                                            {
+                                                minimumFractionDigits: 2,
+                                            },
+                                        )}
+                                    </td>
+                                    <td class="py-3.5 px-4">
+                                        <span
+                                            class:list={[
+                                                "rounded-full px-2.5 py-0.5 text-xs font-medium",
+                                                STATUS_COLORS[emp.status] ??
+                                                    "bg-slate-100 text-slate-600",
+                                            ]}
+                                        >
+                                            {STATUS_LABELS[emp.status] ??
+                                                emp.status}
+                                        </span>
+                                    </td>
+                                    {canEdit && (
+                                        <td class="py-3.5 px-4 text-right">
+                                            <div class="flex items-center justify-end gap-2">
+                                                <EditEmployeeDialog
+                                                    sectors={allSectors}
+                                                    directorioCount={
+                                                        counts.directorio
+                                                    }
+                                                    plantaCount={counts.planta}
+                                                    maxDirectorio={
+                                                        MAX_DIRECTORIO
+                                                    }
+                                                    maxPlanta={MAX_PLANTA}
+                                                    employee={{
+                                                        id: emp.id,
+                                                        employeeType:
+                                                            emp.employeeType,
+                                                        fullName: emp.fullName,
+                                                        ci: emp.ci,
+                                                        ciCity: emp.ciCity,
+                                                        phone: emp.phone,
+                                                        address: emp.address,
+                                                        chargeTitle:
+                                                            emp.chargeTitle,
+                                                        sectorId: emp.sectorId,
+                                                        hireDate: toDateInput(
+                                                            emp.hireDate,
+                                                        ),
+                                                        baseSalary:
+                                                            emp.baseSalary,
+                                                        notes: emp.notes,
+                                                    }}
+                                                    client:load
+                                                />
+                                                {emp.status !== "baja" && (
+                                                    <DeleteConfirmDialog
+                                                        client:load
+                                                        entityType="employee"
+                                                        entityId={emp.id}
+                                                        entityName={
+                                                            emp.fullName
+                                                        }
+                                                        entityLabel={
+                                                            emp.chargeTitle
+                                                        }
+                                                    />
+                                                )}
+                                            </div>
+                                        </td>
+                                    )}
+                                </tr>
+                            ))
+                        )
+                    }
+                </tbody>
+            </table>
         </div>
-    </main>
+
+        <!-- Pagination -->
+        {
+            result.totalPages > 1 && (
+                <div class="flex items-center justify-between border-t border-slate-100 px-5 py-3">
+                    <p class="text-xs text-slate-500">
+                        Página {result.page} de {result.totalPages} ·{" "}
+                        {result.total} resultados
+                    </p>
+                    <div class="flex gap-2">
+                        {result.page > 1 ? (
+                            <a
+                                href={buildUrl({ page: result.page - 1 })}
+                                class="inline-flex items-center gap-1 rounded border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                                ← Anterior
+                            </a>
+                        ) : (
+                            <span class="inline-flex items-center gap-1 rounded border border-slate-100 px-3 py-1.5 text-xs font-medium text-slate-300 cursor-not-allowed">
+                                ← Anterior
+                            </span>
+                        )}
+                        {result.page < result.totalPages ? (
+                            <a
+                                href={buildUrl({ page: result.page + 1 })}
+                                class="inline-flex items-center gap-1 rounded border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                            >
+                                Siguiente →
+                            </a>
+                        ) : (
+                            <span class="inline-flex items-center gap-1 rounded border border-slate-100 px-3 py-1.5 text-xs font-medium text-slate-300 cursor-not-allowed">
+                                Siguiente →
+                            </span>
+                        )}
+                    </div>
+                </div>
+            )
+        }
+    </div>
 </FinanceLayout>
