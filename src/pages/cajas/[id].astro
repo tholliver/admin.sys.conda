@@ -38,6 +38,18 @@ const cashboxSectors = await db
   .where(and(eq(sectors.cashboxId, id!), eq(sectors.isActive, true)))
   .orderBy(asc(sectors.name));
 
+const allActiveSectors = await db
+  .select({
+    id: sectors.id,
+    name: sectors.name,
+    cashboxId: sectors.cashboxId,
+  })
+  .from(sectors)
+  .where(eq(sectors.isActive, true))
+  .orderBy(asc(sectors.name));
+
+const linkableSectors = allActiveSectors.filter((s) => s.cashboxId !== id);
+
 const sectorEmployees = await db
   .select({
     sectorId: employees.sectorId,
@@ -130,6 +142,44 @@ const canCover = balance >= totalSalary;
 
     <!-- Sectors list -->
     <div class="space-y-4">
+      {linkableSectors.length > 0 && (
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-800">Vincular sector existente</h2>
+              <p class="text-xs text-slate-500">
+                Seleccione un sector activo para asignarlo a esta caja.
+              </p>
+            </div>
+            <form
+              method="post"
+              action={actions.sector.linkSectorCashbox}
+              class="flex flex-col gap-2 sm:flex-row sm:items-center"
+              onsubmit={`return confirm(${JSON.stringify(
+                `¿Vincular el sector seleccionado a la caja "${cashbox.name}"?`,
+              )})`}
+            >
+              <input type="hidden" name="cashboxId" value={cashbox.id} />
+              <select
+                name="sectorId"
+                required
+                class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:min-w-[240px]"
+              >
+                <option value="">-- Seleccionar sector --</option>
+                {linkableSectors.map((s) => (
+                  <option value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
+              >
+                Agregar
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
       {cashboxSectors.length === 0 ? (
         <div class="rounded-xl border-2 border-dashed border-slate-200 p-8 text-center text-slate-400">
           <Building2 class="h-8 w-8 mx-auto mb-2 opacity-30" />
@@ -173,7 +223,14 @@ const canCover = balance >= totalSalary;
                   client:load
                 />
                 {defaultCashbox && cashbox.code !== "GEN" && (
-                  <form method="post" action={actions.sector.linkSectorCashbox} class="inline">
+                  <form
+                    method="post"
+                    action={actions.sector.linkSectorCashbox}
+                    class="inline"
+                    onsubmit={`return confirm(${JSON.stringify(
+                      `¿Quitar el sector "${sector.name}" de la caja "${cashbox.name}"? Se asignará a la caja general.`,
+                    )})`}
+                  >
                     <input type="hidden" name="sectorId" value={sector.id} />
                     <input type="hidden" name="cashboxId" value={defaultCashbox.id} />
                     <button
@@ -198,7 +255,7 @@ const canCover = balance >= totalSalary;
             <!-- Sector stats -->
             <div class="grid grid-cols-3 gap-2 text-center text-xs mb-4">
               <div class="rounded-lg bg-slate-50 p-2">
-                <p class="text-slate-500">Empleados</p>
+                <p class="text-slate-500">Personal</p>
                 <p class="font-bold text-slate-800 text-base">{emps.length}</p>
               </div>
               <div class="rounded-lg bg-blue-50 p-2">

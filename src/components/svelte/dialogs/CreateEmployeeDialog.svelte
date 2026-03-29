@@ -110,7 +110,7 @@
             class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm"
         >
             <UserPlus class="h-4 w-4" />
-            Registrar miembro del personal
+            Agregar personal
         </button>
     {/snippet}
 

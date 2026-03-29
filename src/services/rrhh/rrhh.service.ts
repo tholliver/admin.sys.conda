@@ -535,3 +535,29 @@ export async function getSectorSalarySummary(): Promise<SectorSalarySummary[]> {
     pendingAmount: pendingMap.get(r.sectorId)?.amount ?? 0,
   }));
 }
+
+// --- Overdue Fees (past periods with pending status) --------------------------
+
+/**
+ * Returns count + total amount of pending fees from periods BEFORE currentPer.
+ * Used to surface a cross-period overdue warning on the salary dashboard.
+ */
+export async function getOverdueFeesSummary(currentPer: string) {
+  const rows = await db
+    .select({
+      count: count(),
+      totalAmount: sum(employeeFees.amount),
+    })
+    .from(employeeFees)
+    .where(
+      and(
+        eq(employeeFees.status, "pendiente"),
+        sql`${employeeFees.period} < ${currentPer}`
+      )
+    );
+
+  return {
+    count: Number(rows[0]?.count ?? 0),
+    totalAmount: Number(rows[0]?.totalAmount ?? 0),
+  };
+}

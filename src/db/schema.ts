@@ -515,6 +515,7 @@ export const linkedEntityTypeEnum = pgEnum("linked_entity_type", [
   "tenant_payment",
   "contractor_payment",
   "employee_payment",
+  "sector",
 ]);
 
 export const transactions = financeSchema.table(
@@ -781,4 +782,3 @@ export type SectorSalarySummary = {
   pendingFees: number;
   pendingAmount: number;
 };
-

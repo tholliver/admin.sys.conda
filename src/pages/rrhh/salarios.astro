@@ -8,6 +8,7 @@ import { actions, isActionError } from "astro:actions";
 import {
     getFeesWithEmployees,
     getFeeSummaryByPeriod,
+    getOverdueFeesSummary,
     currentPeriod,
     formatPeriod,
 } from "@/services/rrhh/rrhh.service";
@@ -22,6 +23,8 @@ import {
     TriangleAlert,
     ChevronLeft,
     ChevronRight,
+    Clock,
+    Info,
 } from "@lucide/astro";
 
 const { user } = Astro.locals;
@@ -53,34 +56,56 @@ const filters = feeFiltersSchema.parse({
     ...rawFilters,
     status: rawFilters.status ?? "all",
 });
-const period = filters.period ?? currentPeriod();
 
-// Navigate between periods
-const periodDate = new Date(`${period}-01`);
+const today = currentPeriod();
+const period = filters.period ?? today;
+const isCurrentPeriod = period === today;
+
+const periodDate = (() => {
+    const [y, m] = period.split("-").map(Number);
+    return { year: y, month: m }; // month is 1-based
+})();
+
 const prevPeriod = (() => {
-    const d = new Date(periodDate);
-    d.setMonth(d.getMonth() - 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-})();
-const nextPeriod = (() => {
-    const d = new Date(periodDate);
-    d.setMonth(d.getMonth() + 1);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    let y = periodDate.year,
+        m = periodDate.month - 1;
+    if (m < 1) {
+        m = 12;
+        y -= 1;
+    }
+    return `${y}-${String(m).padStart(2, "0")}`;
 })();
 
-const [fees, summary, cashboxLinks] = await Promise.all([
+const nextPeriod = (() => {
+    let y = periodDate.year,
+        m = periodDate.month + 1;
+    if (m > 12) {
+        m = 1;
+        y += 1;
+    }
+    return `${y}-${String(m).padStart(2, "0")}`;
+})();
+
+const isFuturePeriod = period > today;
+
+const [fees, summary, cashboxLinks, overdue] = await Promise.all([
     getFeesWithEmployees({ ...filters, period }),
     getFeeSummaryByPeriod(period),
     getSectorCashboxLinks(),
+    getOverdueFeesSummary(today),
 ]);
 
 const pendingRow = summary.find((r) => r.status === "pendiente");
 const paidRow = summary.find((r) => r.status === "pagado");
+const partialRow = summary.find((r) => r.status === "parcial");
 const totalFees = summary.reduce((s, r) => s + Number(r.total), 0);
 const pendingAmt = Number(pendingRow?.totalAmount ?? 0);
 const paidAmt = Number(paidRow?.totalAmount ?? 0);
+const pendingCount = Number(pendingRow?.total ?? 0);
+const partialCount = Number(partialRow?.total ?? 0);
+const allPaid = totalFees > 0 && pendingCount === 0 && partialCount === 0;
 
-// Default cashbox for quick-pay (first active link)
+// v2: getSectorCashboxLinks returns flat rows — cashboxId is directly on the row
 const defaultCashboxId = cashboxLinks[0]?.cashboxId ?? "";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -97,7 +122,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 ---
 
- <FinanceLayout title={`Salarios -- ${formatPeriod(period)}`} user={user}>
+<FinanceLayout title={`Salarios — ${formatPeriod(period)}`} user={user}>
     <main class="mx-auto max-w-6xl px-4 py-2 sm:px-6 lg:px-8 space-y-5">
         <!-- Header + Period Nav -->
         <div
@@ -113,6 +138,13 @@ const STATUS_COLORS: Record<string, string> = {
                 </div>
                 <h1 class="text-xl font-bold text-slate-900 capitalize">
                     {formatPeriod(period)}
+                    {
+                        !isCurrentPeriod && (
+                            <span class="ml-2 text-xs font-normal text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
+                                Período pasado
+                            </span>
+                        )
+                    }
                 </h1>
             </div>
 
@@ -129,15 +161,23 @@ const STATUS_COLORS: Record<string, string> = {
                 >
                     {formatPeriod(period)}
                 </span>
-                <a
-                    href={`?period=${nextPeriod}`}
-                    class="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 transition-colors"
-                >
-                    <ChevronRight class="h-4 w-4" />
-                </a>
+                {
+                    period < today ? (
+                        <a
+                            href={`?period=${nextPeriod}`}
+                            class="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 transition-colors"
+                        >
+                            <ChevronRight class="h-4 w-4" />
+                        </a>
+                    ) : (
+                        <span class="rounded-lg border border-slate-100 p-2 text-slate-300 cursor-not-allowed">
+                            <ChevronRight class="h-4 w-4" />
+                        </span>
+                    )
+                }
 
                 {
-                    canEdit && (
+                    canEdit && !isFuturePeriod && (
                         <form
                             method="POST"
                             action={actions.rrhh.bulkGenerateFees}
@@ -158,11 +198,12 @@ const STATUS_COLORS: Record<string, string> = {
             </div>
         </div>
 
-        <!-- Feedback -->
+        <!-- ACTION FEEDBACK -->
         {
             successMsg && (
-                <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                    {successMsg}
+                <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
+                    <CheckCircle class="size-4 shrink-0 text-emerald-500" />
+                    <span>{successMsg}</span>
                 </div>
             )
         }
@@ -175,7 +216,124 @@ const STATUS_COLORS: Record<string, string> = {
             )
         }
 
-        <!-- Summary KPIs -->
+        <!-- OVERDUE BANNER — pending fees from past periods -->
+        {
+            overdue.count > 0 && (
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-2.5 text-sm text-red-800 min-w-0">
+                        <Clock class="size-4 shrink-0 text-red-500" />
+                        <span>
+                            <strong>
+                                {overdue.count}{" "}
+                                {overdue.count === 1
+                                    ? "salario atrasado"
+                                    : "salarios atrasados"}
+                            </strong>{" "}
+                            de períodos anteriores — Bs{" "}
+                            {overdue.totalAmount.toLocaleString("es-BO", {
+                                minimumFractionDigits: 2,
+                            })}{" "}
+                            pendiente{overdue.count !== 1 ? "s" : ""}.
+                        </span>
+                    </div>
+                    <a
+                        href="?status=pendiente"
+                        class="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
+                    >
+                        Revisar
+                    </a>
+                </div>
+            )
+        }
+
+        <!-- PERIOD STATUS ALERT: not generated yet -->
+        {
+            isCurrentPeriod && totalFees === 0 && !successMsg && (
+                <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3.5 flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-2.5 text-sm text-blue-800">
+                        <Info class="size-4 shrink-0 text-blue-500" />
+                        <span>
+                            Las cuotas de{" "}
+                            <strong class="capitalize">
+                                {formatPeriod(period)}
+                            </strong>{" "}
+                            aún no fueron generadas.
+                            {canEdit
+                                ? " Generálas para habilitar los pagos."
+                                : " Contacta a un administrador."}
+                        </span>
+                    </div>
+                    {canEdit && (
+                        <form
+                            method="POST"
+                            action={actions.rrhh.bulkGenerateFees}
+                            class="shrink-0"
+                        >
+                            <input type="hidden" name="period" value={period} />
+                            <button
+                                type="submit"
+                                onclick="return confirm('Generar cuotas para todo el personal activo en este periodo?')"
+                                class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                            >
+                                Generar ahora
+                            </button>
+                        </form>
+                    )}
+                </div>
+            )
+        }
+
+        <!-- PERIOD STATUS ALERT: pending fees -->
+        {
+            isCurrentPeriod && totalFees > 0 && !allPaid && !successMsg && (
+                <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5 flex items-center justify-between gap-4">
+                    <div class="flex items-center gap-2.5 text-sm text-amber-800 min-w-0">
+                        <AlertCircle class="size-4 shrink-0 text-amber-500" />
+                        <span>
+                            <strong>
+                                {pendingCount + partialCount}{" "}
+                                {pendingCount + partialCount === 1
+                                    ? "salario pendiente"
+                                    : "salarios pendientes"}
+                            </strong>{" "}
+                            por pagar en{" "}
+                            <span class="capitalize">
+                                {formatPeriod(period)}
+                            </span>{" "}
+                            — Bs{" "}
+                            {pendingAmt.toLocaleString("es-BO", {
+                                minimumFractionDigits: 2,
+                            })}
+                            .
+                        </span>
+                    </div>
+                    <a
+                        href={`?period=${period}&status=pendiente`}
+                        class="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
+                    >
+                        Ver pendientes
+                    </a>
+                </div>
+            )
+        }
+
+        <!-- PERIOD STATUS ALERT: all paid -->
+        {
+            isCurrentPeriod && allPaid && !successMsg && (
+                <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3.5 flex items-center gap-2.5 text-sm text-emerald-800">
+                    <CheckCircle class="size-4 shrink-0 text-emerald-500" />
+                    <span>
+                        Todos los salarios de{" "}
+                        <strong class="capitalize">
+                            {formatPeriod(period)}
+                        </strong>{" "}
+                        están pagados. ✓
+                    </span>
+                </div>
+            )
+        }
+
+        <!-- KPI CARDS -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div
                 class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
@@ -190,6 +348,7 @@ const STATUS_COLORS: Record<string, string> = {
                     {totalFees}
                 </p>
             </div>
+
             <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                 <div class="flex items-center justify-between mb-2">
                     <p class="text-xs text-emerald-600 uppercase tracking-wide">
@@ -208,6 +367,7 @@ const STATUS_COLORS: Record<string, string> = {
                     }
                 </p>
             </div>
+
             <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <div class="flex items-center justify-between mb-2">
                     <p class="text-xs text-amber-600 uppercase tracking-wide">
@@ -216,7 +376,7 @@ const STATUS_COLORS: Record<string, string> = {
                     <AlertCircle class="h-4 w-4 text-amber-500" />
                 </div>
                 <p class="text-2xl font-bold text-amber-800 tabular-nums">
-                    {Number(pendingRow?.total ?? 0)}
+                    {pendingCount}
                 </p>
                 <p class="text-xs text-amber-600 tabular-nums mt-0.5">
                     Bs {
@@ -226,6 +386,7 @@ const STATUS_COLORS: Record<string, string> = {
                     }
                 </p>
             </div>
+
             <div
                 class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
             >
@@ -245,7 +406,7 @@ const STATUS_COLORS: Record<string, string> = {
             </div>
         </div>
 
-        <!-- Status filter pills -->
+        <!-- STATUS FILTER PILLS -->
         <div class="flex flex-wrap gap-2">
             {
                 ["all", "pendiente", "pagado", "parcial", "anulado"].map(
@@ -260,13 +421,18 @@ const STATUS_COLORS: Record<string, string> = {
                             ]}
                         >
                             {s === "all" ? "Todos" : (STATUS_LABELS[s] ?? s)}
+                            {s === "pendiente" && pendingCount > 0 && (
+                                <span class="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold px-1.5 py-px">
+                                    {pendingCount}
+                                </span>
+                            )}
                         </a>
                     ),
                 )
             }
         </div>
 
-        <!-- Fees table -->
+        <!-- FEES TABLE -->
         <div
             class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
         >
@@ -304,17 +470,36 @@ const STATUS_COLORS: Record<string, string> = {
                         {
                             fees.length === 0 ? (
                                 <tr>
-                                    <td
-                                        colspan="6"
-                                        class="py-12 text-center text-sm text-slate-400"
-                                    >
-                                        No hay cuotas para este periodo. Usa
-                                        "Generar Cuotas" para crearlas.
+                                    <td colspan="6" class="py-14 text-center">
+                                        <div class="flex flex-col items-center gap-2 text-slate-400">
+                                            <CalendarClock class="size-8 opacity-30" />
+                                            <p class="text-sm">
+                                                {filters.status !== "all"
+                                                    ? `No hay cuotas con estado "${STATUS_LABELS[filters.status] ?? filters.status}" en este período.`
+                                                    : 'No hay cuotas para este periodo. Usa "Generar Cuotas" para crearlas.'}
+                                            </p>
+                                            {filters.status !== "all" && (
+                                                <a
+                                                    href={`?period=${period}`}
+                                                    class="text-xs text-blue-600 hover:underline"
+                                                >
+                                                    Ver todos los estados
+                                                </a>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ) : (
                                 fees.map((fee) => (
-                                    <tr class="hover:bg-slate-50/50 transition-colors">
+                                    <tr
+                                        class:list={[
+                                            "hover:bg-slate-50/50 transition-colors",
+                                            fee.status === "pendiente" &&
+                                            !isCurrentPeriod
+                                                ? "bg-red-50/30"
+                                                : "",
+                                        ]}
+                                    >
                                         <td class="py-3.5 px-5">
                                             <p class="font-medium text-slate-900">
                                                 {fee.employee.fullName}
@@ -361,6 +546,12 @@ const STATUS_COLORS: Record<string, string> = {
                                                 {STATUS_LABELS[fee.status] ??
                                                     fee.status}
                                             </span>
+                                            {fee.status === "pendiente" &&
+                                                !isCurrentPeriod && (
+                                                    <span class="block text-[10px] text-red-500 font-medium mt-0.5">
+                                                        Atrasado
+                                                    </span>
+                                                )}
                                         </td>
                                         {canEdit && (
                                             <td class="py-3.5 px-4 text-right">
