@@ -1,7 +1,13 @@
 <script lang="ts">
     import Dialog from "@/components/svelte/Dialog.svelte";
     import { actions, isInputError } from "astro:actions";
-    import { Building, CircleAlert, CircleCheck, X } from "@lucide/svelte";
+    import {
+        Building,
+        Calendar,
+        CircleAlert,
+        CircleCheck,
+        X,
+    } from "@lucide/svelte";
 
     const BO_CITIES = [
         { value: "CB", label: "Cochabamba" },
@@ -350,15 +356,20 @@
                         >
                             Inicio Contrato <span class="text-red-500">*</span>
                         </label>
-                        <input
-                            type="date"
-                            bind:value={startDate}
-                            required
-                            class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                  {fieldError('startDate')
-                                ? 'border-red-400'
-                                : 'border-slate-200'}"
-                        />
+                        <div class="relative">
+                            <input
+                                type="date"
+                                bind:value={startDate}
+                                required
+                                class="w-full rounded-lg border px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none date-input-icon
+                      {fieldError('startDate')
+                                    ? 'border-red-400'
+                                    : 'border-slate-200'}"
+                            />
+                            <Calendar
+                                class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+                            />
+                        </div>
                         {#if fieldError("startDate")}
                             <p class="mt-1 text-xs text-red-600">
                                 {fieldError("startDate")}
@@ -371,11 +382,16 @@
                             class="block text-sm font-medium text-slate-700 mb-1"
                             >Fin Contrato</label
                         >
-                        <input
-                            type="date"
-                            bind:value={endDate}
-                            class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                        <div class="relative">
+                            <input
+                                type="date"
+                                bind:value={endDate}
+                                class="w-full rounded-lg border border-slate-200 px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none date-input-icon"
+                            />
+                            <Calendar
+                                class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none"
+                            />
+                        </div>
                     </div>
                 </div>
 

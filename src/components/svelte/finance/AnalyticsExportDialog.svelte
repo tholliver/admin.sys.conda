@@ -31,13 +31,13 @@
         {
             id: "top_income",
             name: "Top Ingresos por Categoría",
-            description: "Las categorías con mayores ingresos",
+            description: "Las cuentas con mayores ingresos",
             icon: TrendingUp,
         },
         {
             id: "top_outcome",
             name: "Top Egresos por Categoría",
-            description: "Las categorías con mayores gastos",
+            description: "Las cuentas con mayores gastos",
             icon: TrendingDown,
         },
         {

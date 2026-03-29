@@ -17,7 +17,7 @@
                 .toUpperCase(),
             category: z
                 .string()
-                .min(1, "La categoría es obligatoria")
+                .min(1, "La cuenta es obligatoria")
                 .max(50)
                 .trim(),
             prefix: z.string().max(10).optional(),
@@ -135,7 +135,7 @@
             <div>
                 <h2 class="text-lg font-semibold">Crear Rango de talonario</h2>
                 <p class="text-sm text-muted-foreground">
-                    Define una categoría con su rango de números de talonario.
+                    Define una cuenta con su rango de números de talonario.
                 </p>
             </div>
 

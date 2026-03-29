@@ -123,24 +123,28 @@ export const transfer = defineAction({
     if (!transferCategory) {
       throw new ActionError({
         code: "INTERNAL_SERVER_ERROR",
-        message: 'No se pudo crear/obtener la categoría de sistema "TRANSFER".',
+        message: 'No se pudo crear/obtener la cuenta de sistema "TRANSFER".',
       });
     }
 
     const newFromBalance = DecimalService.subtract(String(from.balance ?? "0"), amount);
     const newToBalance = DecimalService.add(String(to.balance ?? "0"), amount);
 
+    const notes = input.notes?.trim() || null;
+    const outConcept = `Transferencia → ${to.name}`;
+    const inConcept  = `Transferencia ← ${from.name}`;
+    const outDesc    = [concept, notes].filter(Boolean).join(" · ");
+
     const { outTx } = await db.transaction(async (tx) => {
-      // Debit from source cashbox
       const [outTx] = await tx
         .insert(transactions)
         .values({
           type: "withdraw",
           amount,
           categoryId: transferCategory.id,
-          concept: `Transferencia → ${to.name}: ${concept}`,
+          concept: outConcept,
+          description: outDesc || null,
           cashboxId: from.id,
-          description: input.notes?.trim() || null,
           createdByUserId: user.id,
           status: "completed",
           balanceAfter: newFromBalance,
@@ -149,14 +153,13 @@ export const transfer = defineAction({
         })
         .returning();
 
-      // Credit to destination cashbox
       await tx.insert(transactions).values({
         type: "deposit",
         amount,
         categoryId: transferCategory.id,
-        concept: `Transferencia ← ${from.name}: ${concept}`,
+        concept: inConcept,
+        description: outDesc || null,
         cashboxId: to.id,
-        description: input.notes?.trim() || null,
         createdByUserId: user.id,
         status: "completed",
         balanceAfter: newToBalance,

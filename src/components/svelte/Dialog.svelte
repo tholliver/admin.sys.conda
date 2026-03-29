@@ -49,7 +49,7 @@
     // low opacity + blur guarded by supports-backdrop-filter
     const OVERLAY =
         "data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 " +
-        "bg-black/10 duration-100 p-6 supports-backdrop-filter:backdrop-blur-xs fixed inset-0 isolate z-50";
+        "bg-black/10 duration-100 p-6 supports-backdrop-filter:backdrop-blur-xs fixed inset-0 isolate z-[90]";
 
     const CLOSE_BTN =
         "absolute top-2 right-2 rounded-md p-1 opacity-70 transition-opacity " +
@@ -63,7 +63,7 @@
     const CONTENT_CLS =
         "bg-background data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 " +
         "data-closed:zoom-out-95 data-open:zoom-in-95 ring-foreground/10 flex flex-col max-w-[calc(100%-2rem)] " +
-        "gap-4 rounded-xl p-4 text-sm ring-1 duration-100 fixed top-1/2 left-1/2 z-50 w-full " +
+        "gap-4 rounded-xl p-4 text-sm ring-1 duration-100 fixed top-1/2 left-1/2 z-[95] w-full " +
         "-translate-x-1/2 -translate-y-1/2 outline-none max-h-[calc(100vh-3rem)] overflow-hidden";
     // Bleeds to panel edges (panel is p-4), bg + border-t like shadcn
     const FOOTER_CLS =

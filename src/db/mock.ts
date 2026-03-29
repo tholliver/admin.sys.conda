@@ -129,58 +129,6 @@ export async function seedSectors() {
 }
 
 export const INVOICE_RANGES_DATA = [
-  {
-    // Cuotas de afiliación — used by payment-service.ts & installments.service.ts
-    code: "AFI",
-    category: "Cuotas de afiliación",
-    prefix: "AFI",
-    rangeStart: 1,
-    rangeEnd: 99999,
-    current: 1,
-    isSystem: true,
-    authorizationNumber: "AFI-00000001",
-    expirationDate: new Date("2026-12-31"),
-    isActive: true,
-  },
-  {
-    // Multas / penalizaciones — used by event-payment.json.ts & penalties/pay.json.ts
-    code: "MULT",
-    category: "Multas y Faltas",
-    prefix: "MULT",
-    rangeStart: 1,
-    rangeEnd: 99999,
-    current: 1,
-    isSystem: true,
-    authorizationNumber: "MULT-00000001",
-    expirationDate: new Date("2026-12-31"),
-    isActive: true,
-  },
-  {
-    // Venta de ítems (kit, uniformes, viñetas) — used by items/update.json.ts
-    code: "ITEM",
-    category: "Venta de ítems",
-    prefix: "ITEM",
-    rangeStart: 1,
-    rangeEnd: 99999,
-    current: 1,
-    isSystem: true,
-    authorizationNumber: "ITEM-00000001",
-    expirationDate: new Date("2026-12-31"),
-    isActive: true,
-  },
-  {
-    // Pagos parciales de cuotas — used by partial-pay-installments.action.ts
-    code: "AFI-R",
-    category: "Reintegros de afiliación",
-    prefix: "AFIR",
-    rangeStart: 1,
-    rangeEnd: 99999,
-    current: 1,
-    isSystem: true,
-    authorizationNumber: "AFIR-00000001",
-    expirationDate: new Date("2026-12-31"),
-    isActive: true,
-  },
   // ── Non-system ranges — used by manual cash desk (ingresos form) ──────────
   {
     // Certificaciones y documentos — INC-013
@@ -330,7 +278,9 @@ export const TRANSACTION_CATEGORIES = [
   { code: "OUT-018", name: "Compra de Materiales, Herramientas y Equipos",         type: "outcome", icon: "hammer",            description: "Compra de activos y herramientas",                    sortOrder: 4,   isSystem: true, invoiceRangeCode: null   },
   { code: "OUT-019", name: "Otros Gastos de Operación",                            type: "outcome", icon: "clipboard-list",    description: "Gastos operativos no clasificados",                   sortOrder: 20,   isSystem: true, invoiceRangeCode: null   },
   { code: "OUT-020", name: "Ayudas Sociales",                                      type: "outcome", icon: "handshake",         description: "Ayudas y aportes sociales",                           sortOrder: 6,   isSystem: true, invoiceRangeCode: null   },
-  { code: "OUT-021", name: "Otros Gastos",                                         type: "outcome", icon: "credit-card",       description: "Egresos no clasificados",                             sortOrder: 21,   isSystem: true, invoiceRangeCode: null   },
+  { code: "OUT-021", name: "Otros Gastos", type: "outcome", icon: "credit-card", description: "Egresos no clasificados", sortOrder: 21, isSystem: true, invoiceRangeCode: null },
+  { code: "TRANSFER",    name: "Transferencias internas",  type: "outcome", icon: "arrow-right-left", description: "Cuenta de sistema para transferencias entre cajas.",   sortOrder: 0, isSystem: true, invoiceRangeCode: null },
+  { code: "CONTRATISTA", name: "Pago a contratistas",      type: "outcome", icon: "handshake",        description: "Cuenta de sistema para pagos a contratistas.",       sortOrder: 0, isSystem: true, invoiceRangeCode: null },
 ];
 
 export const SYS_USERS = [

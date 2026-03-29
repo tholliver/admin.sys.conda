@@ -19,7 +19,7 @@
             code: z.string().min(1, "El código es obligatorio").max(10).trim(),
             category: z
                 .string()
-                .min(1, "La categoría es obligatoria")
+                .min(1, "La cuenta es obligatoria")
                 .max(50)
                 .trim(),
             prefix: z.string().max(10).optional(),
@@ -31,6 +31,7 @@
                 .min(1, "El número de autorización es obligatorio")
                 .max(50)
                 .trim(),
+            isSystem: z.boolean(),
             expirationDate: z
                 .string()
                 .min(1, "La fecha de expiración es obligatoria"),
@@ -55,6 +56,7 @@
                 rangeEnd: Number(range.rangeEnd),
                 current: Number(range.current),
                 authorizationNumber: range.authorizationNumber,
+                isSystem: range.isSystem,
                 expirationDate: range.expirationDate
                     ? new Date(range.expirationDate).toISOString().split("T")[0]
                     : "",
@@ -127,6 +129,7 @@
             rangeEnd: Number(range.rangeEnd),
             current: Number(range.current),
             authorizationNumber: range.authorizationNumber,
+            isSystem: range.isSystem,
             expirationDate: range.expirationDate
                 ? new Date(range.expirationDate).toISOString().split("T")[0]
                 : "",
@@ -191,7 +194,7 @@
                                 )}
                             onblur={() => form.onBlur("code")}
                             maxlength={10}
-                            disabled={range.isSystem}
+                            disabled={form.values.isSystem}
                         />
                         {#if form.errors.code}
                             <p class="mt-1 text-sm text-red-500">
@@ -350,9 +353,28 @@
 
                 <!-- Authorization number -->
                 <div>
-                    <label for="ir-create-auth" class="text-sm font-medium">
-                        Nro. de Autorización
-                    </label>
+                    <div class="flex items-center justify-between">
+                        <label for="ir-create-auth" class="text-sm font-medium">
+                            Nro. de Autorización
+                        </label>
+                        <!-- <label
+                            class="flex items-center gap-2 text-xs text-muted-foreground"
+                        >
+                            <input
+                                data-testid="ir-edit-is-system-toggle"
+                                type="checkbox"
+                                class="h-4 w-4 rounded border-input text-primary focus:ring-ring focus:ring-offset-background"
+                                checked={form.values.isSystem}
+                                onchange={(e) =>
+                                    form.setValue(
+                                        "isSystem",
+                                        (e.currentTarget as HTMLInputElement)
+                                            .checked,
+                                    )}
+                            />
+                            Sistema
+                        </label> -->
+                    </div>
                     <input
                         id="ir-create-auth"
                         data-testid="ir-create-auth-input"

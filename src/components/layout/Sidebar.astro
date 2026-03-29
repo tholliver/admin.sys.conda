@@ -45,8 +45,7 @@ const isActiveGroup = (group: NavGroup) => {
         {
             navGroups.map((group, i) => {
                 const groupActive = isActiveGroup(group);
-                // FIX: point to first real child link, not a ghost baseHref
-                const collapsedHref = group.links[0].href;
+                const collapsedHref = group.baseHref;
 
                 return (
                     <div class="nav-group">

@@ -15,7 +15,7 @@ import { transfer, payContractor, createContractor, updateContractorStatus } fro
 export const deposit = defineAction({
   accept: "form",
   input: z.object({
-    categoryId: z.uuid("ID de categoría inválido"),
+    categoryId: z.uuid("ID de cuenta inválido"),
     amount: z
       .string()
       .regex(/^\d+(\.\d{1,2})?$/, "Monto debe ser un número válido")
@@ -196,7 +196,7 @@ export const deposit = defineAction({
 export const withdraw = defineAction({
   accept: "form",
   input: z.object({
-    categoryId: z.uuid("ID de categoría inválido"),
+    categoryId: z.uuid("ID de cuenta inválido"),
     amount: z
       .string()
       .regex(/^\d+(\.\d{1,2})?$/, "Monto debe ser un número válido")

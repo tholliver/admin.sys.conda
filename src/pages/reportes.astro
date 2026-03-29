@@ -2,11 +2,7 @@
 // src/pages/reportes.astro
 import Layout from "@/layouts/FinanceLayout.astro";
 import { db } from "@/db";
-import {
-    transactions,
-    transactionCategories,
-    cashboxes,
-} from "@/db/schema";
+import { transactions, transactionCategories, cashboxes } from "@/db/schema";
 import { eq, and, desc, sql, gte, lte, isNull } from "drizzle-orm";
 import DialogTriggerSkeleton from "@/components/skeletons/DialogTriggerSkeleton.astro";
 import {
@@ -352,7 +348,7 @@ const ytdNetIncome =
                             Top Ingresos
                         </h2>
                         <p class="text-xs text-slate-500">
-                            Por categoría este mes
+                            Por cuenta este mes
                         </p>
                     </div>
                 </div>
@@ -414,7 +410,7 @@ const ytdNetIncome =
                             Top Egresos
                         </h2>
                         <p class="text-xs text-slate-500">
-                            Por categoría este mes
+                            Por cuenta este mes
                         </p>
                     </div>
                 </div>

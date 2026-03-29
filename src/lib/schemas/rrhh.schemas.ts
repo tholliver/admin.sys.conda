@@ -119,7 +119,10 @@ export type PayEmployeeFeeInput = z.infer<typeof payEmployeeFeeSchema>;
 
 export const employeeFiltersSchema = z.object({
   type: z.enum(["directorio", "planta", "all"]).default("all"),
-  sectorId: z.coerce.number().int().positive().optional(),
+  sectorId: z.preprocess(
+    (value) => (value === "" || value == null ? undefined : value),
+    z.coerce.number().int().positive().optional(),
+  ),
   status: z
     .enum(["activo", "suspendido", "baja", "licencia", "all"])
     .default("all"),
@@ -132,7 +135,10 @@ export type EmployeeFilters = z.infer<typeof employeeFiltersSchema>;
 
 export const feeFiltersSchema = z.object({
   period: periodSchema.optional(),
-  sectorId: z.coerce.number().int().positive().optional(),
+  sectorId: z.preprocess(
+    (value) => (value === "" || value == null ? undefined : value),
+    z.coerce.number().int().positive().optional(),
+  ),
   status: z
     .enum(["pendiente", "pagado", "parcial", "anulado", "all"])
     .default("all"),

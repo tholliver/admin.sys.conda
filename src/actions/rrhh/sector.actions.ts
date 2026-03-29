@@ -254,7 +254,7 @@ export const depositToCashboxAction = defineAction({
     if (category.type !== "income") {
       throw new ActionError({
         code: "BAD_REQUEST",
-        message: "Solo se pueden usar categorías de ingreso para depositar.",
+        message: "Solo se pueden usar cuentas de ingreso para depositar.",
       });
     }
 

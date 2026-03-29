@@ -131,7 +131,6 @@ export const accountRelations = relations(account, ({ one }) => ({
 export const transactionTypeEnum = pgEnum("transaction_type", [
   "deposit",
   "withdraw",
-  "transfer"
 ]);
 
 export const contractorStatusEnum = pgEnum("contractor_status", [

@@ -44,18 +44,18 @@ function getPct(r: typeof ranges[number]): number {
 ---
 
 <FinanceLayout title="Talonarios" user={user}>
-        <div class="flex items-start justify-between gap-4 mb-6">
+        <div class="flex items-start justify-between gap-4 mb-2">
             <div>
                 <h1 class="text-xl font-semibold text-slate-900">Rangos de talonarios</h1>
                 <p class="text-sm text-slate-500 mt-0.5">
-                    Gestiona los rangos de numeración por categoría de talonario.
+                    Gestiona los rangos de numeración por cuenta de talonario.
                 </p>
             </div>
             <InvoiceRangeCreateDialog client:only="svelte" />
         </div>
 
         <!-- Summary stats -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-2">
             <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
                 <p class="text-xs text-slate-500 mb-1">Total rangos</p>
                 <p class="text-2xl font-semibold text-slate-900">{total}</p>
