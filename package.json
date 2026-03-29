@@ -18,7 +18,8 @@
     "db:drop-all": "bun run src/db/re-init.ts drop-all",
     "db:report": "bun run src/db/re-init.ts report",
     "db:query": "bun run src/db/queries.ts",
-    "db:mock": "bun run src/db/mock.ts"
+    "db:mock": "bun run src/db/mock.ts",
+    "db:mock-dev": "bun run src/db/mock.ts && bun run src/db/mock.dev.ts"
   },
   "dependencies": {
     "@astrojs/node": "^10.0.4",

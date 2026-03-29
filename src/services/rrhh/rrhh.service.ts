@@ -40,8 +40,8 @@ import type {
 } from "@/lib/schemas/rrhh.schemas";
 
 // --- Constants ----------------------------------------------------------------
-export const MAX_DIRECTORIO = 20;
-export const MAX_PLANTA = 50;
+export const MAX_DIRECTORIO = 200;
+export const MAX_PLANTA = 500;
 
 // --- Helpers ------------------------------------------------------------------
 

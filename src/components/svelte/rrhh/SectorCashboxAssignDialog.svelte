@@ -157,6 +157,7 @@
             >
                 <div>
                     <label
+                        for="sector"
                         class="block text-xs font-medium text-slate-600 mb-1"
                     >
                         Sector <span class="text-red-500">*</span>
@@ -188,6 +189,7 @@
 
                 <div>
                     <label
+                        for="cashboxId"
                         class="block text-xs font-medium text-slate-600 mb-1"
                     >
                         Caja / Cuenta <span class="text-red-500">*</span>

@@ -132,10 +132,6 @@ export const frontendRoutes = {
     `/panel/afiliados/${id}/certificaciones/`,
 };
 
-export function getPaymentTypeLabel(type: PaymentTypeValue): string {
-  return PAYMENT_TYPES[type];
-}
-
 // For Discounts
 // export const formatDiscountValue = (type: string, value: number) => {
 //   if (type === DiscountType.Porcentaje) {

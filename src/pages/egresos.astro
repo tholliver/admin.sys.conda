@@ -14,6 +14,8 @@ import { formatter } from "@/utils/timex";
 import WithdrawForm from "@/components/svelte/finance/WithdrawForm.svelte";
 import { formatBOB } from "@/utils/formatters";
 import { CASHBOX_STATUS, TRANSACTION_TYPE } from "@/db/finance.types";
+import SectorServiceWithdrawDialog from "@/components/svelte/dialogs/SectorServiceWithdrawDialog.svelte";
+import { sectors } from "@/db/schema";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -92,6 +94,19 @@ const summary = todaysSummary[0] || {
     totalWithdrawals: "0.00",
     withdrawalCount: 0,
 };
+
+// add this query alongside the existing ones
+const activeSectors = await db
+    .select({
+        id: sectors.id,
+        name: sectors.name,
+        cashboxId: sectors.cashboxId,
+        cashboxName: cashboxes.name,
+    })
+    .from(sectors)
+    .innerJoin(cashboxes, eq(sectors.cashboxId, cashboxes.id))
+    .where(eq(sectors.isActive, true))
+    .orderBy(asc(sectors.name));
 ---
 
 <FinanceLayout title="Registro de Egresos" user={user}>
@@ -103,7 +118,7 @@ const summary = todaysSummary[0] || {
                 <div
                     class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
                 >
-                    <div class="mb-3">
+                    <div class="flex items-center justify-between mb-3">
                         <div class="flex items-center gap-3">
                             <div class="rounded-lg bg-red-100 p-3">
                                 <ArrowUp class="size-4 text-red-600" />
@@ -117,6 +132,11 @@ const summary = todaysSummary[0] || {
                                 </p>
                             </div>
                         </div>
+                        <SectorServiceWithdrawDialog
+                            sectors={activeSectors}
+                            outcomeCategories={activeWithdrawalTransactionCategories}
+                            client:load
+                        />
                     </div>
                     <WithdrawForm
                         concepts={activeWithdrawalTransactionCategories as any}

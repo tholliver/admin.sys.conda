@@ -1,6 +1,8 @@
 <script lang="ts">
     import { actions, isInputError, isActionError } from "astro:actions";
+    import { z } from "zod";
     import Dialog from "@/components/svelte/Dialog.svelte";
+    import { ZodForm } from "@/lib/form/create-zod-form.svelte";
     import {
         CircleDollarSign,
         HandCoins,
@@ -59,6 +61,30 @@
             SelectTransactionCategories & { invoiceRangeId?: string }
         >;
     }
+
+    const transactionCategorySchema = z.object({
+        name: z
+            .string()
+            .trim()
+            .min(1, "Nombre requerido")
+            .max(100, "Nombre demasiado largo"),
+        code: z
+            .string()
+            .trim()
+            .min(1, "Codigo requerido")
+            .max(50, "Codigo demasiado largo"),
+        type: z.enum(["income", "outcome"]).or(z.literal("")),
+        description: z.string().max(500, "Descripcion demasiado larga"),
+        icon: z.string().max(50, "Icono demasiado largo"),
+        invoiceRangeId: z
+            .string()
+            .uuid("ID de talonario invalido")
+            .or(z.literal("")),
+        parentId: z.string().uuid("Cuenta padre invalida").or(z.literal("")),
+        requiresAuthorization: z.boolean(),
+    });
+
+    type TransactionCategoryValues = z.infer<typeof transactionCategorySchema>;
 
     // ── Icon map ───────────────────────────────────────────────────────────────
     const ICON_MAP = {
@@ -136,35 +162,53 @@
         defaults = {},
     }: Props = $props();
 
-    let name = $state(defaults.name ?? "");
-    let code = $state(defaults.code ?? "");
-    let description = $state(defaults.description ?? "");
-    let type = $state<"income" | "outcome" | "">(defaults.type ?? "");
-    let selectedIcon = $state<IconKey | "">((defaults.icon as IconKey) ?? "");
-    let requiresAuth = $state(Boolean(defaults.requiresAuthorization));
-    let parentId = $state(defaults.parentId ?? "");
-    let invoiceRangeId = $state(defaults.invoiceRangeId ?? "");
-    let isSubmitting = $state(false);
+    function buildInitialValues(): TransactionCategoryValues {
+        return {
+            name: defaults.name ?? "",
+            code: defaults.code ?? "",
+            description: defaults.description ?? "",
+            type: (defaults.type as "income" | "outcome" | "") ?? "",
+            icon: (defaults.icon as IconKey | "") ?? "",
+            requiresAuthorization: Boolean(defaults.requiresAuthorization),
+            parentId: defaults.parentId ?? "",
+            invoiceRangeId: defaults.invoiceRangeId ?? "",
+        };
+    }
+
+    let form = $state(
+        new ZodForm({
+            schema: transactionCategorySchema,
+            initialValues: buildInitialValues(),
+            validateMode: "onBlur",
+        }),
+    );
+
     let iconDialogOpen = $state(false);
     let codeTouched = $state(mode === "edit");
     let serverError = $state<string | null>(errorMessage ?? null);
     let serverSuccess = $state<string | null>(successMessage ?? null);
-    let fieldErrors = $state<Record<string, string>>(
-        Object.fromEntries(
-            Object.entries(inputErrors).map(([k, v]) => [
-                k,
-                Array.isArray(v) ? v.join(", ") : v,
-            ]),
-        ),
+    let serverFieldErrors = $state<Record<string, string | string[]>>(
+        inputErrors ?? {},
     );
+
+    $effect(() => {
+        form.reset(buildInitialValues());
+        codeTouched = mode === "edit";
+    });
+
+    $effect(() => {
+        serverFieldErrors = inputErrors ?? {};
+        serverError = errorMessage ?? null;
+        serverSuccess = successMessage ?? null;
+    });
 
     // ── Derived ────────────────────────────────────────────────────────────────
     let CurrentIcon = $derived(
-        selectedIcon
-            ? ICON_MAP[selectedIcon]
-            : type === "income"
+        form.values.icon
+            ? ICON_MAP[form.values.icon as IconKey]
+            : form.values.type === "income"
               ? CircleDollarSign
-              : type === "outcome"
+              : form.values.type === "outcome"
                 ? HandCoins
                 : Sparkles,
     );
@@ -180,38 +224,53 @@
             .slice(0, 50);
 
     function onNameInput(e: Event) {
-        name = (e.currentTarget as HTMLInputElement).value;
-        if (!codeTouched) code = slugify(name);
+        const nextName = (e.currentTarget as HTMLInputElement).value;
+        form.setValue("name", nextName, { validate: false });
+        if (!codeTouched) {
+            form.setValue("code", slugify(nextName), { validate: false });
+        }
     }
 
     function onCodeInput(e: Event) {
-        code = (e.currentTarget as HTMLInputElement).value.toUpperCase();
-        codeTouched = code.trim().length > 0;
+        const nextCode = (
+            e.currentTarget as HTMLInputElement
+        ).value.toUpperCase();
+        form.setValue("code", nextCode, { validate: false });
+        codeTouched = nextCode.trim().length > 0;
     }
 
     function generateCode() {
-        code = slugify(name);
+        form.setValue("code", slugify(form.values.name), { validate: false });
         codeTouched = true;
     }
 
-    // ── Submit ─────────────────────────────────────────────────────────────────
-    async function handleSubmit(e: SubmitEvent) {
-        e.preventDefault();
-        fieldErrors = {};
+    function fieldError(key: keyof TransactionCategoryValues | string) {
+        const server = serverFieldErrors?.[key];
+        if (server) return Array.isArray(server) ? server[0] : server;
+        return form.errors[key] ?? "";
+    }
+
+    // Submit
+    const handleSubmit = form.handleSubmit(async (values) => {
+        serverFieldErrors = {};
         serverError = null;
         serverSuccess = null;
-        isSubmitting = true;
 
         const fd = new FormData();
         if (mode === "edit") fd.append("categoryId", defaults.id!);
-        fd.append("name", name);
-        fd.append("code", code);
-        fd.append("description", description);
-        fd.append("type", type);
-        fd.append("requiresAuthorization", requiresAuth ? "on" : "");
-        if (selectedIcon) fd.append("icon", selectedIcon);
-        if (parentId) fd.append("parentId", parentId);
-        if (invoiceRangeId) fd.append("invoiceRangeId", invoiceRangeId);
+        fd.append("name", values.name);
+        fd.append("code", values.code);
+        fd.append("description", values.description);
+        fd.append("type", values.type);
+        fd.append(
+            "requiresAuthorization",
+            values.requiresAuthorization ? "on" : "",
+        );
+        if (values.icon.trim()) fd.append("icon", values.icon.trim());
+        if (values.parentId.trim())
+            fd.append("parentId", values.parentId.trim());
+        if (values.invoiceRangeId.trim())
+            fd.append("invoiceRangeId", values.invoiceRangeId);
 
         try {
             const action =
@@ -222,13 +281,7 @@
             const result = await action(fd);
 
             if (isInputError(result?.error)) {
-                const errs = result.error.fields;
-                fieldErrors = Object.fromEntries(
-                    Object.entries(errs).map(([k, v]) => [
-                        k,
-                        Array.isArray(v) ? v.join(", ") : String(v),
-                    ]),
-                );
+                serverFieldErrors = result.error.fields ?? {};
                 return;
             }
 
@@ -240,14 +293,7 @@
             if (result?.data?.message) {
                 toast.success("Exito", { description: result.data.message });
                 if (mode === "create") {
-                    name = "";
-                    code = "";
-                    description = "";
-                    type = "";
-                    selectedIcon = "";
-                    requiresAuth = false;
-                    parentId = "";
-                    invoiceRangeId = "";
+                    form.reset(buildInitialValues());
                     codeTouched = false;
                 } else {
                     navigate("/cuentas");
@@ -255,10 +301,8 @@
             }
         } catch (err: any) {
             serverError = err?.message ?? "Error inesperado";
-        } finally {
-            isSubmitting = false;
         }
-    }
+    });
 </script>
 
 <section class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -299,14 +343,17 @@
                 type="text"
                 maxlength="100"
                 required
-                value={name}
+                value={form.values.name}
                 oninput={onNameInput}
-                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 {fieldErrors.name
+                onblur={() => form.onBlur("name")}
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 {fieldError(
+                    'name',
+                )
                     ? 'border-red-400'
                     : ''}"
             />
-            {#if fieldErrors.name}<p class="mt-1 text-xs text-red-600">
-                    {fieldErrors.name}
+            {#if fieldError("name")}<p class="mt-1 text-xs text-red-600">
+                    {fieldError("name")}
                 </p>{/if}
         </div>
 
@@ -321,9 +368,17 @@
                 id="cat-desc"
                 rows="1"
                 maxlength="500"
-                bind:value={description}
+                value={form.values.description}
+                oninput={(e) =>
+                    form.setValue("description", e.currentTarget.value, {
+                        validate: false,
+                    })}
+                onblur={() => form.onBlur("description")}
                 class="w-full resize-none rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
             ></textarea>
+            {#if fieldError("description")}<p class="mt-1 text-xs text-red-600">
+                    {fieldError("description")}
+                </p>{/if}
         </div>
 
         <!-- Type -->
@@ -334,14 +389,15 @@
             <div class="grid gap-3 sm:grid-cols-2">
                 <button
                     type="button"
-                    onclick={() => (type = "income")}
+                    onclick={() =>
+                        form.setValue("type", "income", { validate: true })}
                     class="flex items-start gap-3 rounded-lg border-2 px-4 py-3 text-sm font-medium transition
-            {type === 'income'
+            {form.values.type === 'income'
                         ? 'border-emerald-500 bg-emerald-50 text-emerald-900 ring-2 ring-emerald-200'
                         : 'border-slate-200 bg-white text-slate-800 hover:border-emerald-300 hover:bg-emerald-50'}"
                 >
                     <span
-                        class="rounded-md p-2 {type === 'income'
+                        class="rounded-md p-2 {form.values.type === 'income'
                             ? 'bg-emerald-100 text-emerald-700'
                             : 'bg-slate-100 text-slate-700'}"
                     >
@@ -350,27 +406,29 @@
                     <span class="block text-left">
                         <span class="block font-semibold">Ingreso</span>
                         <span
-                            class="mt-0.5 block text-xs {type === 'income'
+                            class="mt-0.5 block text-xs {form.values.type ===
+                            'income'
                                 ? 'text-emerald-800'
                                 : 'text-slate-600'}"
                             >Entradas de dinero a caja.</span
                         >
                     </span>
-                    {#if type === "income"}<Check
+                    {#if form.values.type === "income"}<Check
                             class="ml-auto h-4 w-4 text-emerald-600 shrink-0 self-center"
                         />{/if}
                 </button>
 
                 <button
                     type="button"
-                    onclick={() => (type = "outcome")}
+                    onclick={() =>
+                        form.setValue("type", "outcome", { validate: true })}
                     class="flex items-start gap-3 rounded-lg border-2 px-4 py-3 text-sm font-medium transition
-            {type === 'outcome'
+            {form.values.type === 'outcome'
                         ? 'border-red-500 bg-red-50 text-red-900 ring-2 ring-red-200'
                         : 'border-slate-200 bg-white text-slate-800 hover:border-red-300 hover:bg-red-50'}"
                 >
                     <span
-                        class="rounded-md p-2 {type === 'outcome'
+                        class="rounded-md p-2 {form.values.type === 'outcome'
                             ? 'bg-red-100 text-red-700'
                             : 'bg-slate-100 text-slate-700'}"
                     >
@@ -379,24 +437,25 @@
                     <span class="block text-left">
                         <span class="block font-semibold">Egreso</span>
                         <span
-                            class="mt-0.5 block text-xs {type === 'outcome'
+                            class="mt-0.5 block text-xs {form.values.type ===
+                            'outcome'
                                 ? 'text-red-800'
                                 : 'text-slate-600'}"
                             >Salidas de dinero de caja.</span
                         >
                     </span>
-                    {#if type === "outcome"}<Check
+                    {#if form.values.type === "outcome"}<Check
                             class="ml-auto h-4 w-4 text-red-500 shrink-0 self-center"
                         />{/if}
                 </button>
             </div>
-            {#if fieldErrors.type}<p class="mt-1 text-xs text-red-600">
-                    {fieldErrors.type}
+            {#if fieldError("type")}<p class="mt-1 text-xs text-red-600">
+                    {fieldError("type")}
                 </p>{/if}
         </div>
 
         <!-- Invoice range — only for income, shown before icon -->
-        {#if type === "income" && availableRanges.length > 0}
+        {#if form.values.type === "income" && availableRanges.length > 0}
             <div>
                 <label
                     for="cat-range"
@@ -410,7 +469,14 @@
                 <div class="relative">
                     <select
                         id="cat-range"
-                        bind:value={invoiceRangeId}
+                        value={form.values.invoiceRangeId}
+                        onchange={(e) =>
+                            form.setValue(
+                                "invoiceRangeId",
+                                e.currentTarget.value,
+                                { validate: false },
+                            )}
+                        onblur={() => form.onBlur("invoiceRangeId")}
                         class="w-full appearance-none rounded-md border border-slate-300 px-3 py-2 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                     >
                         <option value="">Sin talonario</option>
@@ -428,9 +494,9 @@
                         class="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
                     />
                 </div>
-                {#if invoiceRangeId}
+                {#if form.values.invoiceRangeId}
                     {@const range = availableRanges.find(
-                        (r) => r.id === invoiceRangeId,
+                        (r) => r.id === form.values.invoiceRangeId,
                     )}
                     {#if range}
                         <p class="mt-1 text-xs text-slate-500">
@@ -444,12 +510,17 @@
                         </p>
                     {/if}
                 {/if}
+                {#if fieldError("invoiceRangeId")}<p
+                        class="mt-1 text-xs text-red-600"
+                    >
+                        {fieldError("invoiceRangeId")}
+                    </p>{/if}
             </div>
         {/if}
 
         <!-- Icon picker — inline strip, type-aware color -->
-        {#if type}
-            {@const isIncome = type === "income"}
+        {#if form.values.type}
+            {@const isIncome = form.values.type === "income"}
             {@const swatchBg = isIncome
                 ? "bg-emerald-100 text-emerald-700"
                 : "bg-red-100 text-red-700"}
@@ -472,9 +543,10 @@
                         <CurrentIcon class="h-5 w-5" />
                     </span>
                     <span class="flex-1 text-sm text-slate-700">
-                        {#if selectedIcon}
-                            {ICON_OPTIONS.find((o) => o.value === selectedIcon)
-                                ?.label ?? selectedIcon}
+                        {#if form.values.icon}
+                            {ICON_OPTIONS.find(
+                                (o) => o.value === form.values.icon,
+                            )?.label ?? form.values.icon}
                         {:else}
                             Auto (segun el tipo)
                         {/if}
@@ -497,7 +569,13 @@
             <input
                 type="checkbox"
                 id="cat-auth"
-                bind:checked={requiresAuth}
+                checked={form.values.requiresAuthorization}
+                onchange={(e) =>
+                    form.setValue(
+                        "requiresAuthorization",
+                        e.currentTarget.checked,
+                        { validate: false },
+                    )}
                 class="h-5 w-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
             />
             <label
@@ -539,17 +617,22 @@
                         type="text"
                         maxlength="50"
                         required
-                        value={code}
+                        value={form.values.code}
                         oninput={onCodeInput}
-                        class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 {fieldErrors.code
+                        onblur={() => form.onBlur("code")}
+                        class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm uppercase focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 {fieldError(
+                            'code',
+                        )
                             ? 'border-red-400'
                             : ''}"
                     />
                     <p class="mt-1 text-xs text-slate-500">
                         Se autogenera desde el nombre y puedes editarlo.
                     </p>
-                    {#if fieldErrors.code}<p class="mt-1 text-xs text-red-600">
-                            {fieldErrors.code}
+                    {#if fieldError("code")}<p
+                            class="mt-1 text-xs text-red-600"
+                        >
+                            {fieldError("code")}
                         </p>{/if}
                 </div>
 
@@ -563,7 +646,14 @@
                     <div class="relative">
                         <select
                             id="cat-parent"
-                            bind:value={parentId}
+                            value={form.values.parentId}
+                            onchange={(e) =>
+                                form.setValue(
+                                    "parentId",
+                                    e.currentTarget.value,
+                                    { validate: false },
+                                )}
+                            onblur={() => form.onBlur("parentId")}
                             class="w-full appearance-none rounded-md border border-slate-300 px-3 py-2 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                         >
                             <option value="">Sin cuenta padre</option>
@@ -579,6 +669,11 @@
                             class="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
                         />
                     </div>
+                    {#if fieldError("parentId")}<p
+                            class="mt-1 text-xs text-red-600"
+                        >
+                            {fieldError("parentId")}
+                        </p>{/if}
                 </div>
             </div>
         </details>
@@ -587,10 +682,12 @@
         <div class="flex items-center gap-3">
             <button
                 type="submit"
-                disabled={isSubmitting || !type || !name.trim()}
+                disabled={form.isSubmitting ||
+                    !form.values.type ||
+                    !form.values.name.trim()}
                 class="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-                {isSubmitting
+                {form.isSubmitting
                     ? "Guardando..."
                     : mode === "edit"
                       ? "Guardar cambios"
@@ -610,7 +707,7 @@
 <!-- Icon picker dialog -->
 <Dialog bind:isOpen={iconDialogOpen} title="Elegir icono" size="lg">
     {#snippet children()}
-        {@const isIncome = type === "income"}
+        {@const isIncome = form.values.type === "income"}
         {@const activeBorder = isIncome
             ? "border-emerald-400 bg-emerald-50 text-emerald-900"
             : "border-red-400 bg-red-50 text-red-900"}
@@ -626,17 +723,17 @@
             <button
                 type="button"
                 onclick={() => {
-                    selectedIcon = "";
+                    form.setValue("icon", "", { validate: false });
                     iconDialogOpen = false;
                 }}
                 class="flex w-full items-center gap-3 rounded-lg border-2 px-3 py-2.5 text-sm transition
-          {selectedIcon === ''
+          {form.values.icon === ''
                     ? activeBorder
                     : 'border-slate-200 bg-white text-slate-700 ' + hoverCls}"
             >
                 <span
-                    class="flex h-8 w-8 items-center justify-center rounded-md {selectedIcon ===
-                    ''
+                    class="flex h-8 w-8 items-center justify-center rounded-md {form
+                        .values.icon === ''
                         ? activeThumb
                         : 'bg-slate-100 text-slate-600'}"
                 >
@@ -644,13 +741,13 @@
                 </span>
                 <span class="font-medium">Auto</span>
                 <span
-                    class="text-xs {selectedIcon === ''
+                    class="text-xs {form.values.icon === ''
                         ? isIncome
                             ? 'text-emerald-700'
                             : 'text-red-700'
                         : 'text-slate-500'}">Segun el tipo seleccionado</span
                 >
-                {#if selectedIcon === ""}<Check
+                {#if form.values.icon === ""}<Check
                         class="ml-auto h-4 w-4 {activeCheck}"
                     />{/if}
             </button>
@@ -659,11 +756,13 @@
             <div class="grid grid-cols-4 gap-2 sm:grid-cols-6">
                 {#each ICON_OPTIONS as opt}
                     {@const Icon = ICON_MAP[opt.value]}
-                    {@const active = selectedIcon === opt.value}
+                    {@const active = form.values.icon === opt.value}
                     <button
                         type="button"
                         onclick={() => {
-                            selectedIcon = opt.value;
+                            form.setValue("icon", opt.value, {
+                                validate: false,
+                            });
                             iconDialogOpen = false;
                         }}
                         title={opt.label}
