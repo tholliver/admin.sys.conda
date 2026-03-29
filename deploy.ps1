@@ -9,8 +9,8 @@ $APP_DIR      = Join-Path $PSScriptRoot "admin.sys.conda"
 # ───────────────────────────────────────────────────
 
 function log     { param($msg) Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $msg" }
-function success { param($msg) Write-Host "✅ $msg" -ForegroundColor Green }
-function fail    { param($msg) Write-Host "❌ $msg" -ForegroundColor Red; exit 1 }
+function success { param($msg) Write-Host "[OK] $msg" -ForegroundColor Green }
+function fail    { param($msg) Write-Host "[FAIL] $msg" -ForegroundColor Red; exit 1 }
 
 log "🚀 Deploy started"
 log "📁 Target: $APP_DIR"
@@ -19,7 +19,8 @@ log "📁 Target: $APP_DIR"
 foreach ($tool in @("git", "bun", "pm2")) {
     if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { fail "$tool not found in PATH" }
 }
-success "Tools verified (git, bun, pm2)"
+
+success "Tools verified: git bun pm2"
 
 # ── Clone or pull ───────────────────────────────────
 if (Test-Path "$APP_DIR\.git") {
