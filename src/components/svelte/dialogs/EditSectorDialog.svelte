@@ -21,7 +21,7 @@
         sectorId,
         initialName,
         initialDescription = null,
-        triggerLabel = "Configurar",
+        triggerLabel = "Editar",
         triggerClass = "rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors",
     }: Props = $props();
 
@@ -299,5 +299,3 @@
         {/if}
     {/snippet}
 </Dialog>
-
-

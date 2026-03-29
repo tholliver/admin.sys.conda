@@ -96,227 +96,213 @@ const summary = todaysSummary[0] || {
 
 <FinanceLayout title="Registro de Egresos" user={user}>
     <div class="min-h-screen bg-linear-to-br from-slate-50 to-slate-100">
-        <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-            <div class="grid gap-8 lg:grid-cols-3">
-                {/* Main Form Section */}
-                <div class="lg:col-span-2 space-y-6">
-                    {/* Form Card */}
-                    <div
-                        class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-                    >
-                        <div class="mb-3">
-                            <div class="flex items-center gap-3">
-                                <div class="rounded-lg bg-red-100 p-3">
-                                    <ArrowUp class="size-4 text-red-600" />
-                                </div>
-                                <div>
-                                    <h1
-                                        class="text-lg font-bold text-slate-900"
-                                    >
-                                        Egresos
-                                    </h1>
-                                    <p class="text-sm text-slate-600">
-                                        Registra retiros de las cajas
-                                    </p>
-                                </div>
+        <div class="grid gap-8 lg:grid-cols-3">
+            {/* Main Form Section */}
+            <div class="lg:col-span-2 space-y-6">
+                {/* Form Card */}
+                <div
+                    class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                    <div class="mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="rounded-lg bg-red-100 p-3">
+                                <ArrowUp class="size-4 text-red-600" />
+                            </div>
+                            <div>
+                                <h1 class="text-lg font-bold text-slate-900">
+                                    Egresos
+                                </h1>
+                                <p class="text-sm text-slate-600">
+                                    Registra retiros de las cajas
+                                </p>
                             </div>
                         </div>
-                        <WithdrawForm
-                            concepts={activeWithdrawalTransactionCategories as any}
-                            client:load
-                        />
                     </div>
+                    <WithdrawForm
+                        concepts={activeWithdrawalTransactionCategories as any}
+                        client:load
+                    />
+                </div>
 
-                    {/* Recent Withdrawals */}
-                    <div
-                        class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-                        data-testid="recent-withdrawals-list"
-                    >
-                        <div class="flex justify-between">
-                            <h3
-                                class="mb-4 text-lg font-semibold text-slate-900"
-                            >
-                                Egresos Recientes
-                            </h3>
-                            <span class="text-sm text-slate-500">
-                                Mostrando ultimos {recentWithdrawals.length} egresos
-                            </span>
-                        </div>
-                        {
-                            recentWithdrawals.length === 0 ? (
-                                <p class="text-slate-500 text-center py-8">
-                                    No hay egresos registrados
-                                </p>
-                            ) : (
-                                <div class="space-y-3">
-                                    {recentWithdrawals.map((tx) => (
-                                        <div
-                                            class="flex items-center gap-3 rounded-lg bg-slate-50 p-4 border border-slate-200 hover:border-slate-300 hover:bg-slate-100/50 transition"
-                                            data-testid="recent-withdrawal-item"
-                                        >
-                                            <div class="shrink-0">
-                                                <div class="rounded-lg bg-red-100 p-2.5">
-                                                    <TrendingDown class="h-5 w-5 text-red-600" />
-                                                </div>
-                                            </div>
-                                            <div class="flex-1 min-w-0">
-                                                <div class="flex items-baseline justify-between gap-2 mb-1">
-                                                    <p class="font-medium text-slate-900 truncate">
-                                                        {tx.concept}
-                                                    </p>
-                                                    <p class="font-semibold text-red-600 shrink-0">
-                                                        -{formatBOB(tx.amount)}
-                                                    </p>
-                                                </div>
-                                                <div class="flex items-center gap-2 text-xs text-slate-600 truncate">
-                                                    <span>
-                                                        {tx.cashboxName}
-                                                    </span>
-                                                    {tx.reference && (
-                                                        <>
-                                                            <span>•</span>
-                                                            <span class="truncate">
-                                                                {tx.reference}
-                                                            </span>
-                                                        </>
-                                                    )}
-                                                    <span class="ml-auto text-slate-500 shrink-0">
-                                                        {formatter.format(
-                                                            tx.createdAt,
-                                                        )}
-                                                    </span>
-                                                </div>
+                {/* Recent Withdrawals */}
+                <div
+                    class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+                    data-testid="recent-withdrawals-list"
+                >
+                    <div class="flex justify-between">
+                        <h3 class="mb-4 text-lg font-semibold text-slate-900">
+                            Egresos Recientes
+                        </h3>
+                        <span class="text-sm text-slate-500">
+                            Mostrando ultimos {recentWithdrawals.length} egresos
+                        </span>
+                    </div>
+                    {
+                        recentWithdrawals.length === 0 ? (
+                            <p class="text-slate-500 text-center py-8">
+                                No hay egresos registrados
+                            </p>
+                        ) : (
+                            <div class="space-y-3">
+                                {recentWithdrawals.map((tx) => (
+                                    <div
+                                        class="flex items-center gap-3 rounded-lg bg-slate-50 p-4 border border-slate-200 hover:border-slate-300 hover:bg-slate-100/50 transition"
+                                        data-testid="recent-withdrawal-item"
+                                    >
+                                        <div class="shrink-0">
+                                            <div class="rounded-lg bg-red-100 p-2.5">
+                                                <TrendingDown class="h-5 w-5 text-red-600" />
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            )
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-baseline justify-between gap-2 mb-1">
+                                                <p class="font-medium text-slate-900 truncate">
+                                                    {tx.concept}
+                                                </p>
+                                                <p class="font-semibold text-red-600 shrink-0">
+                                                    -{formatBOB(tx.amount)}
+                                                </p>
+                                            </div>
+                                            <div class="flex items-center gap-2 text-xs text-slate-600 truncate">
+                                                <span>{tx.cashboxName}</span>
+                                                {tx.reference && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span class="truncate">
+                                                            {tx.reference}
+                                                        </span>
+                                                    </>
+                                                )}
+                                                <span class="ml-auto text-slate-500 shrink-0">
+                                                    {formatter.format(
+                                                        tx.createdAt,
+                                                    )}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    }
+                </div>
+            </div>
+
+            {/* Sidebar */}
+            <div class="space-y-6">
+                {/* Today's Summary */}
+                <div
+                    class="rounded-lg border border-red-200 bg-linear-to-br from-red-50 to-red-100 p-6 shadow-sm"
+                >
+                    <h3 class="font-semibold text-red-900 mb-4">
+                        Resumen del Día
+                    </h3>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-sm text-red-700">Total Egresos</p>
+                            <p
+                                class="text-3xl font-bold text-red-600"
+                                data-testid="withdraw-total-withdrawals"
+                            >
+                                -{formatBOB(summary.totalWithdrawals)}
+                            </p>
+                        </div>
+                        <div class="border-t border-red-200 pt-4">
+                            <p class="text-sm text-red-700">Transacciones</p>
+                            <p
+                                class="text-2xl font-semibold text-red-900"
+                                data-testid="withdraw-count"
+                            >
+                                {summary.withdrawalCount}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Warning Box */}
+                <div
+                    class="rounded-lg border border-yellow-200 bg-yellow-50 p-6"
+                >
+                    <div class="flex gap-2 mb-3">
+                        <TriangleAlert
+                            class="h-5 w-5 text-yellow-600 shrink-0"
+                        />
+                        <h4 class="font-semibold text-yellow-900">
+                            Importante
+                        </h4>
+                    </div>
+                    <ul class="space-y-2 text-sm text-yellow-700">
+                        <li>• Verifica el saldo disponible antes de retirar</li>
+                        <li>• Todo egreso requiere autorización</li>
+                        <li>• Documenta la cuentas correctamente</li>
+                        <li>• Mantén referencias de comprobantes</li>
+                    </ul>
+                </div>
+
+                {/* Active Cashboxes */}
+                <div
+                    class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                    <h4 class="font-semibold text-slate-900 mb-3">
+                        Disponibilidad de Cajas
+                    </h4>
+                    <div class="space-y-3">
+                        {
+                            activeCashboxes.map((box) => {
+                                const balance = parseFloat(
+                                    box.balance?.toString() ?? "0",
+                                );
+                                const creditLimit = parseFloat(
+                                    box.creditLimit?.toString() ?? "0",
+                                );
+                                const available = balance + creditLimit;
+                                const isCritical = available < 100;
+                                return (
+                                    <div
+                                        class={`rounded-lg p-3 ${isCritical ? "bg-red-50 border border-red-200" : "bg-slate-50 border border-slate-200"}`}
+                                        data-testid="cashbox-availability-card"
+                                    >
+                                        <div class="flex items-center justify-between mb-2">
+                                            <p class="text-sm font-medium text-slate-900">
+                                                {box.name}
+                                            </p>
+                                            <p class="text-xs text-slate-600">
+                                                {box.code}
+                                            </p>
+                                        </div>
+                                        <div class="text-xs text-slate-600 space-y-1">
+                                            <div class="flex justify-between">
+                                                <span>Balance:</span>
+                                                <span class="font-medium text-slate-900">
+                                                    {formatBOB(balance)}
+                                                </span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span>Crédito:</span>
+                                                <span class="font-medium text-slate-900">
+                                                    {formatBOB(creditLimit)}
+                                                </span>
+                                            </div>
+                                            <div
+                                                class={`flex justify-between pt-2 border-t ${isCritical ? "border-red-200" : "border-slate-200"}`}
+                                            >
+                                                <span class="font-medium">
+                                                    Disponible:
+                                                </span>
+                                                <span
+                                                    class={`font-semibold ${isCritical ? "text-red-600" : "text-green-600"}`}
+                                                >
+                                                    {formatBOB(available)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
                         }
                     </div>
                 </div>
-
-                {/* Sidebar */}
-                <div class="space-y-6">
-                    {/* Today's Summary */}
-                    <div
-                        class="rounded-lg border border-red-200 bg-linear-to-br from-red-50 to-red-100 p-6 shadow-sm"
-                    >
-                        <h3 class="font-semibold text-red-900 mb-4">
-                            Resumen del Día
-                        </h3>
-                        <div class="space-y-4">
-                            <div>
-                                <p class="text-sm text-red-700">
-                                    Total Egresos
-                                </p>
-                                <p
-                                    class="text-3xl font-bold text-red-600"
-                                    data-testid="withdraw-total-withdrawals"
-                                >
-                                    -{formatBOB(summary.totalWithdrawals)}
-                                </p>
-                            </div>
-                            <div class="border-t border-red-200 pt-4">
-                                <p class="text-sm text-red-700">
-                                    Transacciones
-                                </p>
-                                <p
-                                    class="text-2xl font-semibold text-red-900"
-                                    data-testid="withdraw-count"
-                                >
-                                    {summary.withdrawalCount}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Warning Box */}
-                    <div
-                        class="rounded-lg border border-yellow-200 bg-yellow-50 p-6"
-                    >
-                        <div class="flex gap-2 mb-3">
-                            <TriangleAlert
-                                class="h-5 w-5 text-yellow-600 shrink-0"
-                            />
-                            <h4 class="font-semibold text-yellow-900">
-                                Importante
-                            </h4>
-                        </div>
-                        <ul class="space-y-2 text-sm text-yellow-700">
-                            <li>
-                                • Verifica el saldo disponible antes de retirar
-                            </li>
-                            <li>• Todo egreso requiere autorización</li>
-                            <li>• Documenta la cuentas correctamente</li>
-                            <li>• Mantén referencias de comprobantes</li>
-                        </ul>
-                    </div>
-
-                    {/* Active Cashboxes */}
-                    <div
-                        class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
-                    >
-                        <h4 class="font-semibold text-slate-900 mb-3">
-                            Disponibilidad de Cajas
-                        </h4>
-                        <div class="space-y-3">
-                            {
-                                activeCashboxes.map((box) => {
-                                    const balance = parseFloat(
-                                        box.balance?.toString() ?? "0",
-                                    );
-                                    const creditLimit = parseFloat(
-                                        box.creditLimit?.toString() ?? "0",
-                                    );
-                                    const available = balance + creditLimit;
-                                    const isCritical = available < 100;
-                                    return (
-                                        <div
-                                            class={`rounded-lg p-3 ${isCritical ? "bg-red-50 border border-red-200" : "bg-slate-50 border border-slate-200"}`}
-                                            data-testid="cashbox-availability-card"
-                                        >
-                                            <div class="flex items-center justify-between mb-2">
-                                                <p class="text-sm font-medium text-slate-900">
-                                                    {box.name}
-                                                </p>
-                                                <p class="text-xs text-slate-600">
-                                                    {box.code}
-                                                </p>
-                                            </div>
-                                            <div class="text-xs text-slate-600 space-y-1">
-                                                <div class="flex justify-between">
-                                                    <span>Balance:</span>
-                                                    <span class="font-medium text-slate-900">
-                                                        {formatBOB(balance)}
-                                                    </span>
-                                                </div>
-                                                <div class="flex justify-between">
-                                                    <span>Crédito:</span>
-                                                    <span class="font-medium text-slate-900">
-                                                        {formatBOB(creditLimit)}
-                                                    </span>
-                                                </div>
-                                                <div
-                                                    class={`flex justify-between pt-2 border-t ${isCritical ? "border-red-200" : "border-slate-200"}`}
-                                                >
-                                                    <span class="font-medium">
-                                                        Disponible:
-                                                    </span>
-                                                    <span
-                                                        class={`font-semibold ${isCritical ? "text-red-600" : "text-green-600"}`}
-                                                    >
-                                                        {formatBOB(available)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            }
-                        </div>
-                    </div>
-                </div>
             </div>
-        </main>
+        </div>
     </div>
 </FinanceLayout>
