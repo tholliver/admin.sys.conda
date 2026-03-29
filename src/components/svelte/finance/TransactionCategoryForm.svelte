@@ -263,14 +263,12 @@
 
 <section class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
     <h1 class="text-xl font-bold text-slate-900">
-        {mode === "create"
-            ? "Crear categoria de transacciones"
-            : "Editar categoria"}
+        {mode === "create" ? "Crear cuenta" : "Editar cuenta"}
     </h1>
     <p class="mt-1 text-sm text-slate-600">
         {mode === "create"
-            ? "Define categorias para ingresos y egresos."
-            : "Actualiza los datos de la categoria seleccionada."}
+            ? "Define cuentas para ingresos y egresos."
+            : "Actualiza los datos de la cuenta seleccionada."}
     </p>
 
     {#if serverSuccess}
@@ -508,7 +506,7 @@
             >
                 Requiere autorizacion
                 <span class="mt-0.5 block text-xs font-normal text-amber-700"
-                    >Las transacciones en esta categoria requeriran aprobacion
+                    >Las transacciones en esta cuenta requeriran aprobacion
                     manual.</span
                 >
             </label>
@@ -560,7 +558,7 @@
                     <label
                         for="cat-parent"
                         class="mb-1 block text-sm font-medium text-slate-700"
-                        >Categoria padre (opcional)</label
+                        >Cuenta padre (opcional)</label
                     >
                     <div class="relative">
                         <select
@@ -568,7 +566,7 @@
                             bind:value={parentId}
                             class="w-full appearance-none rounded-md border border-slate-300 px-3 py-2 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
                         >
-                            <option value="">Sin categoria padre</option>
+                            <option value="">Sin cuenta padre</option>
                             {#each activeParents as cat}
                                 <option value={cat.id}
                                     >{cat.name} ({cat.type === "income"
@@ -596,7 +594,7 @@
                     ? "Guardando..."
                     : mode === "edit"
                       ? "Guardar cambios"
-                      : "Crear categoria"}
+                      : "Crear cuenta"}
             </button>
             {#if mode === "edit"}
                 <a

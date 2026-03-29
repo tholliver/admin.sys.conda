@@ -53,9 +53,9 @@ const isActiveGroup = (group: NavGroup) => {
                         <button
                             data-accordion-btn={i}
                             data-href={collapsedHref}
-                            data-open={groupActive ? "true" : "false"}
+                            data-open="true"
+                            aria-expanded="true"
                             aria-controls={`accordion-panel-${i}`}
-                            aria-expanded={groupActive ? "true" : "false"}
                             data-tooltip={group.label}
                             class:list={[
                                 "nav-group-trigger",
@@ -76,13 +76,7 @@ const isActiveGroup = (group: NavGroup) => {
                             <ChevronDown class="sidebar-label sidebar-chevron nav-chevron" />
                         </button>
 
-                        <div
-                            id={`accordion-panel-${i}`}
-                            class:list={[
-                                "nav-subnav",
-                                !groupActive && "hidden",
-                            ]}
-                        >
+                        <div id={`accordion-panel-${i}`} class="nav-subnav">
                             {group.links.map((link) => {
                                 const active = isActiveLink(link.href);
                                 return (

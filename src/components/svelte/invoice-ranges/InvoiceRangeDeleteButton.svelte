@@ -84,7 +84,7 @@
                     class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm space-y-1.5"
                 >
                     <div class="flex justify-between">
-                        <span class="text-slate-500">Categoria</span>
+                        <span class="text-slate-500">Cuenta</span>
                         <span class="font-medium text-slate-900 capitalize"
                             >{range.category}</span
                         >

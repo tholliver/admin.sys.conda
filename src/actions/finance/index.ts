@@ -52,7 +52,7 @@ export const deposit = defineAction({
         );
 
       if (!category) {
-        throw new ActionError({ code: "NOT_FOUND", message: "La categoria seleccionada no existe o esta inactiva." });
+        throw new ActionError({ code: "NOT_FOUND", message: "La cuenta seleccionada no existe o esta inactiva." });
       }
 
       // Get cashbox
@@ -252,7 +252,7 @@ export const withdraw = defineAction({
       if (!category) {
         throw new ActionError({
           code: "NOT_FOUND",
-          message: "La categoria seleccionada no existe o esta inactiva.",
+          message: "La cuenta seleccionada no existe o esta inactiva.",
         });
       }
 
@@ -260,7 +260,7 @@ export const withdraw = defineAction({
       if (category.requiresAuthorization && !authorizedBy) {
         throw new ActionError({
           code: "BAD_REQUEST",
-          message: "Esta categoria requiere autorizacion.",
+          message: "Esta cuenta requiere autorizacion.",
         });
       }
 
@@ -768,7 +768,7 @@ export const createTransactionCategory = defineAction({
         const normalized = value.trim();
         return normalized.length > 0 ? normalized : undefined;
       },
-      z.uuid("Categoria padre invalida").optional(),
+      z.uuid("Cuenta padre invalida").optional(),
     ),
     requiresAuthorization: z.preprocess(
       (value) => value === "on" || value === true,
@@ -781,7 +781,7 @@ export const createTransactionCategory = defineAction({
       if (!user?.id) {
         throw new ActionError({
           code: "UNAUTHORIZED",
-          message: "Debe iniciar sesion para crear categorias",
+          message: "Debe iniciar sesion para crear cuentas",
         });
       }
 
@@ -799,7 +799,7 @@ export const createTransactionCategory = defineAction({
       if (existingCategory) {
         throw new ActionError({
           code: "CONFLICT",
-          message: "Ya existe una categoria con ese codigo",
+          message: "Ya existe una cuenta con ese codigo",
         });
       }
 
@@ -817,14 +817,14 @@ export const createTransactionCategory = defineAction({
         if (!parent || !parent.status) {
           throw new ActionError({
             code: "NOT_FOUND",
-            message: "La categoria padre no existe o esta inactiva",
+            message: "La cuenta padre no existe o esta inactiva",
           });
         }
 
         if (parent.type !== input.type) {
           throw new ActionError({
             code: "BAD_REQUEST",
-            message: "La categoria padre debe ser del mismo tipo",
+            message: "La cuenta padre debe ser del mismo tipo",
           });
         }
       }
@@ -853,7 +853,7 @@ export const createTransactionCategory = defineAction({
 
       return {
         success: true,
-        message: "Categoria creada correctamente",
+        message: "Cuenta creada correctamente",
         category,
       };
     } catch (error) {
@@ -864,7 +864,7 @@ export const createTransactionCategory = defineAction({
       console.error("Create transaction category error:", error);
       throw new ActionError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "No se pudo crear la categoria",
+        message: "No se pudo crear la cuenta",
       });
     }
   },
@@ -873,7 +873,7 @@ export const createTransactionCategory = defineAction({
 export const updateTransactionCategory = defineAction({
   accept: "form",
   input: z.object({
-    categoryId: z.uuid("ID de categoria invalido"),
+    categoryId: z.uuid("ID de cuenta invalido"),
     name: z
       .string()
       .trim()
@@ -904,7 +904,7 @@ export const updateTransactionCategory = defineAction({
         const normalized = value.trim();
         return normalized.length > 0 ? normalized : undefined;
       },
-      z.uuid("Categoria padre invalida").optional(),
+      z.uuid("Cuenta padre invalida").optional(),
     ),
     invoiceRangeId: z.preprocess(
       (v) => (typeof v === "string" && v.trim() ? v.trim() : undefined),
@@ -921,7 +921,7 @@ export const updateTransactionCategory = defineAction({
       if (!user?.id) {
         throw new ActionError({
           code: "UNAUTHORIZED",
-          message: "Debe iniciar sesion para actualizar categorias",
+          message: "Debe iniciar sesion para actualizar cuentas",
         });
       }
 
@@ -942,7 +942,7 @@ export const updateTransactionCategory = defineAction({
       if (!existingCategory) {
         throw new ActionError({
           code: "NOT_FOUND",
-          message: "Categoria no encontrada",
+          message: "Cuenta no encontrada",
         });
       }
 
@@ -956,7 +956,7 @@ export const updateTransactionCategory = defineAction({
         if (duplicate) {
           throw new ActionError({
             code: "CONFLICT",
-            message: "Ya existe una categoria con ese codigo",
+            message: "Ya existe una cuenta con ese codigo",
           });
         }
       }
@@ -965,7 +965,7 @@ export const updateTransactionCategory = defineAction({
         if (input.parentId === input.categoryId) {
           throw new ActionError({
             code: "BAD_REQUEST",
-            message: "La categoria padre no puede ser la misma",
+            message: "La cuenta padre no puede ser la misma",
           });
         }
 
@@ -982,14 +982,14 @@ export const updateTransactionCategory = defineAction({
         if (!parent || !parent.status) {
           throw new ActionError({
             code: "NOT_FOUND",
-            message: "La categoria padre no existe o esta inactiva",
+            message: "La cuenta padre no existe o esta inactiva",
           });
         }
 
         if (parent.type !== input.type) {
           throw new ActionError({
             code: "BAD_REQUEST",
-            message: "La categoria padre debe ser del mismo tipo",
+            message: "La cuenta padre debe ser del mismo tipo",
           });
         }
       }
@@ -1011,7 +1011,7 @@ export const updateTransactionCategory = defineAction({
 
       return {
         success: true,
-        message: "Categoria actualizada correctamente",
+        message: "Cuenta actualizada correctamente",
         categoryId: input.categoryId,
       };
     } catch (error) {
@@ -1022,7 +1022,7 @@ export const updateTransactionCategory = defineAction({
       console.error("Update transaction category error:", error);
       throw new ActionError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "No se pudo actualizar la categoria",
+        message: "No se pudo actualizar la cuenta",
       });
     }
   },
@@ -1031,7 +1031,7 @@ export const updateTransactionCategory = defineAction({
 export const disableTransactionCategory = defineAction({
   accept: "form",
   input: z.object({
-    categoryId: z.uuid("ID de categoria invalido"),
+    categoryId: z.uuid("ID de cuenta invalido"),
   }),
   async handler(input, { locals }) {
     try {
@@ -1039,7 +1039,7 @@ export const disableTransactionCategory = defineAction({
       if (!user?.id) {
         throw new ActionError({
           code: "UNAUTHORIZED",
-          message: "Debe iniciar sesion para desactivar categorias",
+          message: "Debe iniciar sesion para desactivar cuentas",
         });
       }
 
@@ -1057,14 +1057,14 @@ export const disableTransactionCategory = defineAction({
       if (!category) {
         throw new ActionError({
           code: "NOT_FOUND",
-          message: "Categoria no encontrada",
+          message: "Cuenta no encontrada",
         });
       }
 
       if (!category.status) {
         return {
           success: true,
-          message: "La categoria ya estaba desactivada",
+          message: "La cuenta ya estaba desactivada",
           categoryId: category.id,
         };
       }
@@ -1072,7 +1072,7 @@ export const disableTransactionCategory = defineAction({
       if (category.isSystem) {
         throw new ActionError({
           code: "BAD_REQUEST",
-          message: "Las categorias del sistema no se pueden desactivar",
+          message: "Las cuentas del sistema no se pueden desactivar",
         });
       }
 
@@ -1087,7 +1087,7 @@ export const disableTransactionCategory = defineAction({
 
       return {
         success: true,
-        message: `Categoria "${category.name}" desactivada`,
+        message: `Cuenta "${category.name}" desactivada`,
         categoryId: category.id,
       };
     } catch (error) {
@@ -1098,7 +1098,7 @@ export const disableTransactionCategory = defineAction({
       console.error("Disable transaction category error:", error);
       throw new ActionError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "No se pudo desactivar la categoria",
+        message: "No se pudo desactivar la cuenta",
       });
     }
   },
@@ -1107,7 +1107,7 @@ export const disableTransactionCategory = defineAction({
 export const activateTransactionCategory = defineAction({
   accept: "form",
   input: z.object({
-    categoryId: z.uuid("ID de categoria invalido"),
+    categoryId: z.uuid("ID de cuenta invalido"),
   }),
   async handler(input, { locals }) {
     try {
@@ -1115,7 +1115,7 @@ export const activateTransactionCategory = defineAction({
       if (!user?.id) {
         throw new ActionError({
           code: "UNAUTHORIZED",
-          message: "Debe iniciar sesion para activar categorias",
+          message: "Debe iniciar sesion para activar cuentas",
         });
       }
 
@@ -1132,14 +1132,14 @@ export const activateTransactionCategory = defineAction({
       if (!category) {
         throw new ActionError({
           code: "NOT_FOUND",
-          message: "Categoria no encontrada",
+          message: "Cuenta no encontrada",
         });
       }
 
       if (category.status) {
         return {
           success: true,
-          message: "La categoria ya estaba activa",
+          message: "La cuenta ya estaba activa",
           categoryId: category.id,
         };
       }
@@ -1155,7 +1155,7 @@ export const activateTransactionCategory = defineAction({
 
       return {
         success: true,
-        message: `Categoria "${category.name}" activada`,
+        message: `Cuenta "${category.name}" activada`,
         categoryId: category.id,
       };
     } catch (error) {
@@ -1166,7 +1166,7 @@ export const activateTransactionCategory = defineAction({
       console.error("Activate transaction category error:", error);
       throw new ActionError({
         code: "INTERNAL_SERVER_ERROR",
-        message: "No se pudo activar la categoria",
+        message: "No se pudo activar la cuenta",
       });
     }
   },
@@ -1175,7 +1175,7 @@ export const activateTransactionCategory = defineAction({
 export const setCategorySortOrder = defineAction({
   accept: "form",
   input: z.object({
-    categoryId: z.uuid("ID de categoria invalido"),
+    categoryId: z.uuid("ID de cuenta invalido"),
     sortOrder:  z.coerce.number().int().min(1).max(999),
   }),
   async handler(input, { locals }) {
@@ -1192,7 +1192,7 @@ export const setCategorySortOrder = defineAction({
         .limit(1);
 
       if (!category) {
-        throw new ActionError({ code: "NOT_FOUND", message: "Categoria no encontrada" });
+        throw new ActionError({ code: "NOT_FOUND", message: "Cuenta no encontrada" });
       }
 
       await db

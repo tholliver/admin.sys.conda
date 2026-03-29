@@ -26,13 +26,13 @@ const SYSTEM_CATEGORIES = {
   TRANSFER: {
     name: "Transferencias internas",
     type: "outcome" as const,
-    description: "Categoria de sistema para transferencias entre cajas.",
+    description: "Cuenta de sistema para transferencias entre cajas.",
     icon: "arrow-right-left",
   },
   CONTRATISTA: {
     name: "Pago a contratistas",
     type: "outcome" as const,
-    description: "Categoria de sistema para pagos a contratistas.",
+    description: "Cuenta de sistema para pagos a contratistas.",
     icon: "handshake",
   },
 } as const;
