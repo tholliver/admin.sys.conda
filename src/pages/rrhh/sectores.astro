@@ -151,7 +151,7 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
                       <Building2 class="h-4 w-4 text-slate-400 shrink-0" />
-                      <h3 class="font-semibold text-slate-900 leading-tight break-words">{l.sectorName}</h3>
+                      <h3 class="font-semibold text-slate-900 leading-tight wrap-break-word">{l.sectorName}</h3>
                       {l.cashboxStatus !== "active" && (
                         <span class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600 shrink-0">Inactiva</span>
                       )}
@@ -297,4 +297,3 @@ const sectorConfigMap = new Map(allSectors.map((s) => [s.id, s]));
     </div>
   </main>
 </FinanceLayout>
-

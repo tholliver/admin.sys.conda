@@ -1,0 +1,154 @@
+<!-- SidebarScript.astro — all sidebar JS in one place, zero inline script in Layout -->
+<script is:inline>
+    (function () {
+        const STORAGE_KEY = "financeSidebarCollapsed";
+        const MOBILE_QUERY = "(max-width: 1024px)";
+
+        function applyCollapsed(value) {
+            const sidebar = document.getElementById("app-sidebar");
+            const body = document.body;
+            if (!sidebar) return;
+            sidebar.setAttribute("data-collapsed", value);
+            body.setAttribute("data-sidebar-collapsed", value);
+        }
+
+        function initSidebar() {
+            const sidebar = document.getElementById("app-sidebar");
+            const toggleBtn = document.getElementById("sidebar-mobile-btn");
+            const mobileOverlay = document.getElementById("sidebar-overlay");
+            const tooltip = document.getElementById("sidebar-tooltip");
+            const media = window.matchMedia(MOBILE_QUERY);
+
+            if (!sidebar) return;
+
+            // --- Restore persisted state ---
+            const stored = localStorage.getItem(STORAGE_KEY);
+            const restoreDesktopState = () => {
+                if (stored === "true" || stored === "false") {
+                    applyCollapsed(stored);
+                    const expanded = stored === "false";
+                    toggleBtn?.setAttribute("aria-expanded", String(expanded));
+                }
+            };
+
+            const applyMobileDefaults = () => {
+                applyCollapsed("false");
+                toggleBtn?.setAttribute("aria-expanded", "false");
+            };
+
+            const syncViewport = () => {
+                if (media.matches) {
+                    applyMobileDefaults();
+                } else {
+                    restoreDesktopState();
+                }
+            };
+
+            syncViewport();
+
+            const toggleMobile = () => {
+                sidebar.classList.toggle("sidebar-mobile-open");
+                mobileOverlay?.classList.toggle("hidden");
+                document.body.classList.toggle("overflow-hidden");
+                document.body.classList.toggle("sidebar-mobile-open");
+                const isOpen = sidebar.classList.contains(
+                    "sidebar-mobile-open",
+                );
+                toggleBtn?.setAttribute("aria-expanded", String(isOpen));
+            };
+
+            const toggleDesktop = () => {
+                const isCollapsed =
+                    sidebar.getAttribute("data-collapsed") === "true";
+                const next = String(!isCollapsed);
+                applyCollapsed(next);
+                localStorage.setItem(STORAGE_KEY, next);
+                toggleBtn?.setAttribute(
+                    "aria-expanded",
+                    String(next === "false"),
+                );
+            };
+
+            toggleBtn?.addEventListener("click", () => {
+                if (media.matches) {
+                    toggleMobile();
+                } else {
+                    toggleDesktop();
+                }
+            });
+            mobileOverlay?.addEventListener("click", () => {
+                if (media.matches) toggleMobile();
+            });
+
+            media.addEventListener("change", () => {
+                // Reset mobile sheet state when crossing breakpoints
+                sidebar.classList.remove("sidebar-mobile-open");
+                mobileOverlay?.classList.add("hidden");
+                document.body.classList.remove(
+                    "overflow-hidden",
+                    "sidebar-mobile-open",
+                );
+                syncViewport();
+            });
+
+            // --- Independent accordion (each group toggles on its own) ---
+            document.querySelectorAll("[data-accordion-btn]").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    // When collapsed: navigate to the group's first real link
+                    if (sidebar.getAttribute("data-collapsed") === "true") {
+                        const href = btn.getAttribute("data-href");
+                        if (href) window.location.href = href;
+                        return;
+                    }
+
+                    const id = btn.getAttribute("data-accordion-btn");
+                    const panel = document.getElementById(
+                        `accordion-panel-${id}`,
+                    );
+                    if (!panel) return;
+
+                    const isOpen = !panel.classList.contains("hidden");
+
+                    if (isOpen) {
+                        // Close this group
+                        panel.classList.add("hidden");
+                        btn.setAttribute("data-open", "false");
+                        btn.setAttribute("aria-expanded", "false");
+                    } else {
+                        // Open this group — others stay as-is (independent)
+                        panel.classList.remove("hidden");
+                        btn.setAttribute("data-open", "true");
+                        btn.setAttribute("aria-expanded", "true");
+                    }
+                });
+            });
+
+            // --- Tooltips (collapsed mode only) ---
+            const showTooltip = (target) => {
+                if (!tooltip || !target) return;
+                if (sidebar.getAttribute("data-collapsed") !== "true") {
+                    tooltip.classList.add("hidden");
+                    return;
+                }
+                const label = target.getAttribute("data-tooltip");
+                if (!label) return;
+                tooltip.textContent = label;
+                const rect = target.getBoundingClientRect();
+                tooltip.style.top = `${rect.top + rect.height / 2}px`;
+                tooltip.style.left = `${rect.right + 10}px`;
+                tooltip.classList.remove("hidden");
+            };
+
+            const hideTooltip = () => tooltip?.classList.add("hidden");
+
+            document.querySelectorAll("[data-tooltip]").forEach((item) => {
+                item.addEventListener("mouseenter", () => showTooltip(item));
+                item.addEventListener("focus", () => showTooltip(item));
+                item.addEventListener("mouseleave", hideTooltip);
+                item.addEventListener("blur", hideTooltip);
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", initSidebar);
+    })();
+</script>
