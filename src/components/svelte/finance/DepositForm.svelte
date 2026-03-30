@@ -42,7 +42,7 @@
     import { noWheel } from "@/lib/form/utils";
     import type { SelectTransactionCategories } from "@/db/schema";
     import QuickAmountActions from "./QuickAmountActions.svelte";
-    import { formatBOB } from "@/services/finances/helpers";
+    import { formatBOB } from "@/utils/formatters";
     import TransactionSuccess from "./TransactionSuccess.svelte";
 
     interface Props {

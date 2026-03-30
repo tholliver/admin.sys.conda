@@ -9,7 +9,7 @@ import { db } from "@/db";
 import { cashboxes, transactions, transactionCategories, contractors, contractorPayments } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
-import { formatBOB } from "@/services/finances/helpers";
+import { formatBOB } from "@/utils/formatters";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -283,7 +283,6 @@ export const payContractor = defineAction({
           transactionId: financeTx.id,
           cashboxId: cashbox.id,
           amount: parseFloat(amount),
-          currency: "BOB",
           concept,
           receiptNumber: input.receiptNumber?.trim() || null,
           notes: input.notes?.trim() || null,

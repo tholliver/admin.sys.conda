@@ -4,7 +4,7 @@ import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { getDetailedExpenseReport } from "@/services/finances/report-queries";
 import { getPercentage } from "@/services/finances/finance-ui-helpers";
 import { DollarSign, TrendingDown, ChartPie, FileText } from "@lucide/astro";
-import { formatBOB } from "@/services/finances/helpers";
+import { formatBOB } from "@/utils/formatters";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");

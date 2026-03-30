@@ -1,4 +1,4 @@
-import { formatBOB, formatNumber as formatPlainNumber } from "./helpers";
+import { formatBOB, formatNumber as formatPlainNumber } from "@/utils/formatters";
 
 export const formatNumber = (num: number) => {
   return formatPlainNumber(num);

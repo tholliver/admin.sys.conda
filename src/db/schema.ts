@@ -334,7 +334,7 @@ export const employees = pgTable(
     address: varchar("address", { length: 200 }),
     employeeType: employeeTypeEnum("employee_type").notNull(),
     chargeTitle: varchar("charge_title", { length: 120 }).notNull(),
-    sectorId: integer("sector_id").notNull(),
+    sectorId: integer("sector_id").references(() => sectors.id, { onDelete: "set null" }),
     hireDate: date("hire_date", { mode: "date" }).notNull(),
     terminationDate: date("termination_date", { mode: "date" }),
     baseSalary: numeric("base_salary", {
@@ -377,7 +377,6 @@ export const employeeFees = pgTable(
       precision: 12,
       scale: 2,
     }).notNull(),
-    currency: varchar("currency", { length: 3 }).notNull().default("BOB"),
     cashboxId: uuid("cashbox_id").notNull(),
     status: feePaymentStatusEnum("status").notNull().default("pendiente"),
     dueDate: date("due_date", { mode: "date" }),
@@ -417,7 +416,6 @@ export const employeePayments = pgTable(
       precision: 12,
       scale: 2,
     }).notNull(),
-    currency: varchar("currency", { length: 3 }).notNull().default("BOB"),
     paymentMethod: salaryPaymentMethodEnum("payment_method")
       .notNull()
       .default("efectivo"),
@@ -611,7 +609,6 @@ export const contractorPayments = pgTable(
     transactionId: uuid("transaction_id"),
     cashboxId: uuid("cashbox_id").notNull(),
     amount: numeric("amount", { mode: "number", precision: 12, scale: 2 }).notNull(),
-    currency: varchar("currency", { length: 3 }).notNull().default("BOB"),
     concept: varchar("concept", { length: 255 }).notNull(),
     receiptNumber: varchar("receipt_number", { length: 30 }),
     paidAt: timestamp("paid_at", { withTimezone: true }).defaultNow(),
@@ -646,7 +643,6 @@ export const tenants = pgTable(
       precision: 12,
       scale: 2,
     }).notNull(),
-    currency: varchar("currency", { length: 3 }).notNull().default("BOB"),
     startDate: date("start_date", { mode: "date" }).notNull(),
     endDate: date("end_date", { mode: "date" }),
     status: tenantStatusEnum("status").notNull().default("activo"),
@@ -679,7 +675,6 @@ export const tenantPayments = pgTable(
       precision: 12,
       scale: 2,
     }).notNull(),
-    currency: varchar("currency", { length: 3 }).notNull().default("BOB"),
     status: rentPaymentStatusEnum("status").notNull().default("pendiente"),
     dueDate: date("due_date", { mode: "date" }),
     paidAt: timestamp("paid_at", { withTimezone: true }),

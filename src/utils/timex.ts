@@ -94,6 +94,8 @@ export const getBanType = (
   return "temporary";
 };
 
+const timeZone = "America/La_Paz" as const;
+
 export const formatter = new Intl.DateTimeFormat("es-BO", {
   year: "numeric",
   month: "2-digit",
@@ -102,7 +104,7 @@ export const formatter = new Intl.DateTimeFormat("es-BO", {
   minute: "2-digit",
   second: "2-digit",
   hour12: false,
-  timeZone: "America/La_Paz",
+  timeZone,
 });
 
 type DateFormatType = "short" | "medium" | "long" | "full";
@@ -111,19 +113,19 @@ const dateFormatters = {
   short: new Intl.DateTimeFormat("es-BO", {
     day: "2-digit", month: "2-digit", year: "numeric",
     hour: "2-digit", minute: "2-digit",
-    timeZone: "America/La_Paz",
+    timeZone,
   }),
   medium: new Intl.DateTimeFormat("es-BO", {
     day: "numeric",
     month: "short",
     year: "numeric",
-    timeZone: "America/La_Paz",
+    timeZone,
   }),
   long: new Intl.DateTimeFormat("es-BO", {
     day: "numeric",
     month: "long",
     year: "numeric",
-    timeZone: "America/La_Paz",
+    timeZone,
   }),
   full: new Intl.DateTimeFormat("es-BO", {
     day: "numeric",
@@ -131,7 +133,7 @@ const dateFormatters = {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "America/La_Paz",
+    timeZone,
   }),
 };
 
@@ -148,9 +150,3 @@ export const addDays = (date: Date | string, days: number): Date => {
   dateObj.setDate(dateObj.getDate() + days);
   return dateObj;
 };
-
-// Usage examples:
-// formatDate(new Date('2026-01-04'), 'short')           // "04/01/2026"
-// formatDate('2026-01-04', 'medium')                    // "4 ene 2026"
-// formatDate(new Date(), 'long')                        // "4 enero 2026"
-// formatDate(new Date('2026-01-04T14:30:00'), 'full')  // "4 enero 2026, 14:30"

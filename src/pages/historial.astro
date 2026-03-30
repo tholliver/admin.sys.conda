@@ -8,7 +8,7 @@ import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import PaginationControls from "@/components/affiliates/history/PaginationControls.astro";
 import TxStatusBadge from "@/components/financial/TxStatusBadge.astro";
 import { formatter } from "@/utils/timex";
-import { formatBOB } from "@/services/finances/helpers";
+import { formatBOB } from "@/utils/formatters";
 import VoidTransactionDialog from "@/components/svelte/finance/VoidTransactionDialog.svelte";
 import { actions, isActionError } from "astro:actions";
 import { decodeSimpleCursor, encodeSimpleCursor } from "@/utils/cursor-pagination";

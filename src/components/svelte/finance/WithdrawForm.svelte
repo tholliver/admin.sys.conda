@@ -8,7 +8,7 @@
         X,
     } from "@lucide/svelte";
     import { noWheel } from "@/lib/form/utils";
-    import { formatBOB } from "@/services/finances/helpers";
+    import { formatBOB } from "@/utils/formatters";
     import type { SelectTransactionCategories } from "@/db/schema";
     import {
         createWithdrawStore,

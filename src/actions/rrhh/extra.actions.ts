@@ -1,15 +1,7 @@
-/**
- * Astro Actions — RRHH extra + Inquilinos + Finance extras
- * Register in src/actions/index.ts:
- *
- *   export const server = { rrhh, inquilinos, rrhhExtra, finance: { ...finance, createCashbox } }
- */
-
 import { defineAction, ActionError } from "astro:actions";
 import { z } from "zod";
 import { db } from "@/db";
-import { employees, cashboxes } from "@/db/schema";
-import { tenants, tenantPayments } from "@/db/schema";
+import { tenants, tenantPayments, transactions, transactionCategories, cashboxes, employees } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 const ADMIN_ROLES = ["ADMIN", "ADMON"] as const;
@@ -60,7 +52,7 @@ const createTenantSchema = z.object({
   fullName: z.string().min(2, "Nombre requerido"),
   ci: z.string().optional(),
   phone: z.string().optional(),
-  email: z.string().email("Correo inválido").optional().or(z.literal("")),
+  email: z.email("Correo inválido").optional().or(z.literal("")),
   roomNumber: z.string().min(1, "N° de ambiente requerido"),
   floor: z.string().optional(),
   description: z.string().optional(),
@@ -102,7 +94,6 @@ export const createTenant = defineAction({
         floor: input.floor || null,
         description: input.description || null,
         monthlyRent: input.monthlyRent,
-        currency: "BOB",
         startDate: input.startDate,
         endDate: input.endDate ?? null,
         notes: input.notes || null,
@@ -143,7 +134,6 @@ export const deleteTenant = defineAction({
 });
 
 // ─── Inquilinos: Register Rent Payment ───────────────────────────────────────
-// notes stores the tenant name for FK traceability
 
 export const registerRentPayment = defineAction({
   accept: "form",
@@ -158,28 +148,80 @@ export const registerRentPayment = defineAction({
     if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
     requireAdmin(user.role);
 
-    await db
-      .insert(tenantPayments)
-      .values({
-        tenantId: input.tenantId,
-        period: input.period,
-        amount: input.amount,
-        currency: "BOB",
-        status: "pagado",
-        paidAt: new Date(),
-        notes: `Pago registrado — ${input.tenantName}`,
-        processedByUserId: user.id,
-      })
-      .onConflictDoUpdate({
-        target: [tenantPayments.tenantId, tenantPayments.period],
-        set: {
+    const [rentCategory] = await db
+      .select({ id: transactionCategories.id })
+      .from(transactionCategories)
+      .where(eq(transactionCategories.code, "INC-005"));
+
+    if (!rentCategory) {
+      throw new ActionError({
+        code: "NOT_FOUND",
+        message: "Categoría INC-005 no encontrada.",
+      });
+    }
+
+    const [genCashbox] = await db
+      .select({ id: cashboxes.id, balance: cashboxes.balance })
+      .from(cashboxes)
+      .where(eq(cashboxes.code, "GEN"));
+
+    if (!genCashbox) {
+      throw new ActionError({
+        code: "NOT_FOUND",
+        message: "Caja GEN no encontrada.",
+      });
+    }
+
+    const amountStr = input.amount.toFixed(2);
+    const newBalance = (Number(genCashbox.balance) + input.amount).toFixed(2);
+
+    await db.transaction(async (tx) => {
+      const [financeTx] = await tx
+        .insert(transactions)
+        .values({
+          cashboxId: genCashbox.id,
+          categoryId: rentCategory.id,
+          type: "deposit",
+          amount: amountStr,
+          concept: `Alquiler ${input.period} — ${input.tenantName}`,
+          description: `Pago de alquiler período ${input.period}`,
+          createdByUserId: user.id,
+          status: "completed",
+          balanceAfter: newBalance,
+          linkedEntityType: "tenant_payment",
+          linkedEntityId: input.tenantId,
+        })
+        .returning({ id: transactions.id });
+
+      await tx
+        .update(cashboxes)
+        .set({ balance: newBalance, updatedAt: new Date() })
+        .where(eq(cashboxes.id, genCashbox.id));
+
+      await tx
+        .insert(tenantPayments)
+        .values({
+          tenantId: input.tenantId,
+          period: input.period,
+          amount: input.amount,
           status: "pagado",
           paidAt: new Date(),
           notes: `Pago registrado — ${input.tenantName}`,
           processedByUserId: user.id,
-          updatedAt: new Date(),
-        },
-      });
+          transactionId: financeTx.id,
+        })
+        .onConflictDoUpdate({
+          target: [tenantPayments.tenantId, tenantPayments.period],
+          set: {
+            status: "pagado",
+            paidAt: new Date(),
+            notes: `Pago registrado — ${input.tenantName}`,
+            processedByUserId: user.id,
+            transactionId: financeTx.id,
+            updatedAt: new Date(),
+          },
+        });
+    });
 
     return { success: true, message: `Pago de ${input.tenantName} registrado.` };
   },

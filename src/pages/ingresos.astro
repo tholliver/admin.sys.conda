@@ -9,7 +9,7 @@ import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { cashboxes, transactions, transactionCategories, invoiceRanges } from "@/db/schema";
 import { eq, sql, asc, desc, and } from "drizzle-orm";
 import { formatter } from "@/utils/timex";
-import { formatBOB } from "@/services/finances/helpers";
+import { formatBOB } from "@/utils/formatters";
 import DepositForm from '@/components/svelte/finance/DepositForm.svelte';
 
 const { user } = Astro.locals;

@@ -1,4 +1,4 @@
-import { formatBOB } from "./helpers";
+import { formatBOB } from "@/utils/formatters";
 
 /**
  * Safe decimal arithmetic service for financial calculations in BOB (Bolivianos)

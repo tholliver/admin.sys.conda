@@ -81,7 +81,6 @@ export const createEmployeeFeeSchema = z.object({
     .positive("Miembro del personal requerido"),
   period: periodSchema,
   amount: z.coerce.number().pipe(salarySchema),
-  currency: z.enum(["BOB", "USD"]).default("BOB"),
   cashboxId: z.string().uuid("Caja inválida"),
   dueDate: z.coerce.date().optional(),
   notes: z.string().max(500).optional(),
@@ -103,7 +102,6 @@ export type BulkGenerateFeesInput = z.infer<typeof bulkGenerateFeesSchema>;
 export const payEmployeeFeeSchema = z.object({
   feeId: z.coerce.number().int().positive("Fee requerido"),
   amountPaid: z.coerce.number().pipe(salarySchema),
-  currency: z.enum(["BOB", "USD"]).default("BOB"),
   paymentMethod: z
     .enum(["efectivo", "transferencia", "cheque"])
     .default("efectivo"),

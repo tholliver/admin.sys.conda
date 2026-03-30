@@ -2,7 +2,7 @@
 // src/pages/reportes/semanal.astro
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { getWeeklyReport } from "@/services/finances/report-queries";
-import { formatBOB } from "@/services/finances/helpers";
+import { formatBOB } from "@/utils/formatters";
 import { Calendar, TrendingUp, TrendingDown, ChartColumn } from "@lucide/astro";
 
 const user = Astro.locals.user;

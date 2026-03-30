@@ -8,15 +8,7 @@ import { actions } from "astro:actions";
 import { db } from "@/db";
 import { tenants, tenantPayments } from "@/db/schema";
 import { desc, eq, and, sql } from "drizzle-orm";
-import {
-    Building,
-    UserPlus,
-    CheckCircle,
-    AlertCircle,
-    Clock,
-    Info,
-    TriangleAlert,
-} from "@lucide/astro";
+import { Building, CheckCircle, AlertCircle, Clock } from "@lucide/astro";
 import CreateTenantDialog from "@/components/svelte/dialogs/CreateTenantDialog.svelte";
 import DeleteConfirmDialog from "@/components/svelte/dialogs/DeleteConfirmDialog.svelte";
 
@@ -39,7 +31,6 @@ const allTenants = await db
         floor: tenants.floor,
         phone: tenants.phone,
         monthlyRent: tenants.monthlyRent,
-        currency: tenants.currency,
         status: tenants.status,
         startDate: tenants.startDate,
     })

@@ -1,5 +1,4 @@
 // import { PAYMENT_TYPES, type PaymentTypeValue } from "@/types/invoice";
-import { formatBOB } from "@/services/finances/helpers";
 
 export const IMAGE_ASSESTS = {
   home: {

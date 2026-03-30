@@ -7,7 +7,7 @@ import { eq, and, gte, lt, desc, sql } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
 import { formatter } from "@/utils/timex";
 import { ENV } from "@/config/env";
-import { formatBOB } from "@/services/finances/helpers";
+import { formatBOB } from "@/utils/formatters";
 import { voidTransaction } from "./void-transaction.action";
 import { transfer, payContractor, createContractor, updateContractorStatus } from "./transfer.action";
 import { toggleQuickCashbox } from "./toggle-quick-cashbox.action";

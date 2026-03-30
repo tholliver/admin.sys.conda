@@ -11,7 +11,7 @@
     import { fade } from "svelte/transition";
     import { actions, isInputError } from "astro:actions";
     import { noWheel } from "@/lib/form/utils";
-    import { formatBOB } from "@/services/finances/helpers";
+    import { formatBOB } from "@/utils/formatters";
     import TransactionSuccess from "./TransactionSuccess.svelte";
     import QuickAmountActions from "./QuickAmountActions.svelte";
 

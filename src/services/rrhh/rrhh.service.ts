@@ -1,10 +1,3 @@
-/**
- * RRHH Service
- * -------------------------------------------------------------
- * All DB queries and business logic for the employees module.
- * Keeps pages/actions thin � they only call these functions.
- */
-
 import { db } from "@/db";
 import {
   sectors,
@@ -13,9 +6,7 @@ import {
   employeeFees,
   employeePayments,
   type SelectEmployee,
-  type SelectEmployeeFee,
   type SectorSalarySummary,
-  type EmployeeWithFullName,
 } from "@/db/schema";
 import {
   eq,
@@ -140,7 +131,7 @@ export async function getEmployeeById(id: number) {
   };
 }
 
-/** Count active employees by type � used to enforce capacity limits */
+/** Count active employees by type – used to enforce capacity limits */
 export async function getEmployeeCountByType() {
   const rows = await db
     .select({
@@ -162,11 +153,11 @@ export async function createEmployee(data: CreateEmployeeInput, createdByUserId:
   // Enforce capacity
   const counts = await getEmployeeCountByType();
   if (data.employeeType === "directorio" && counts.directorio >= MAX_DIRECTORIO) {
-    throw new Error(`El directorio ya alcanz� el m�ximo de ${MAX_DIRECTORIO} miembros activos.`);
+    throw new Error(`El directorio ya alcanzó el máximo de ${MAX_DIRECTORIO} miembros activos.`);
   }
   if (data.employeeType === "planta" && counts.planta >= MAX_PLANTA) {
     throw new Error(
-      `La planta ya alcanz� el m�ximo de ${MAX_PLANTA} miembros del personal activos.`
+      `La planta ya alcanzó el máximo de ${MAX_PLANTA} miembros del personal activos.`
     );
   }
 
@@ -255,7 +246,7 @@ export async function createEmployeeFee(data: CreateEmployeeFeeInput) {
 
   if (existing[0]) {
     throw new Error(
-      `Ya existe una cuota para este miembro del personal en el per�odo ${data.period}.`
+      `Ya existe una cuota para este miembro del personal en el período ${data.period}.`
     );
   }
 
@@ -324,7 +315,6 @@ export async function createEmployeeFee(data: CreateEmployeeFeeInput) {
        employeeId: employee.id,
        period,
        amount: employee.baseSalary,
-       currency: "BOB" as const,
        cashboxId: cashboxId!,
        status: "pendiente" as const,
      }));
@@ -362,7 +352,7 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
 
   const amountToPay = Number(data.amountPaid);
   if (!Number.isFinite(amountToPay) || amountToPay <= 0) {
-    throw new Error("El monto de pago es inv�lido.");
+    throw new Error("El monto de pago es inválido.");
   }
 
   // Resolve cashbox by sector (direct FK on sectors)
@@ -377,38 +367,35 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
     })
     .from(sectors)
     .innerJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
-    .where(eq(sectors.id, employeeSectorId))
+    .where(eq(sectors.id, Number(employeeSectorId)))
     .limit(1);
 
   if (!linked[0]) {
-    if (employeeSectorId === 0) {
+    if (employeeSectorId == null) {
       const general = await db
-        .select({
-          id: cashboxes.id,
-          name: cashboxes.name,
-          balance: cashboxes.balance,
-          status: cashboxes.status,
-        })
+        .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
         .from(cashboxes)
         .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "active")))
         .limit(1);
 
-      if (!general[0]) {
-        throw new Error(
-          'No existe una caja general activa con c??digo "GEN" para el sector SIN SECTOR.'
-        );
-      }
-
+      if (!general[0]) throw new Error('No existe una caja general activa con código "GEN".');
       resolvedCashbox = general[0];
     } else {
-      throw new Error(
-        `El sector del empleado "${employeeName}" no tiene una caja vinculada.`
-      );
+      const linked = await db
+        .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
+        .from(sectors)
+        .innerJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
+        .where(eq(sectors.id, employeeSectorId))
+        .limit(1);
+
+      if (!linked[0]) throw new Error(`El sector del empleado "${employeeName}" no tiene una caja vinculada.`);
+      if (linked[0].status !== "active") throw new Error(`La caja vinculada al sector del empleado "${employeeName}" está inactiva.`);
+      resolvedCashbox = linked[0];
     }
   } else {
     if (linked[0].status !== "active") {
       throw new Error(
-        `La caja vinculada al sector del empleado "${employeeName}" est?? inactiva.`
+        `La caja vinculada al sector del empleado "${employeeName}" está inactiva.`
       );
     }
 
@@ -429,7 +416,6 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
         employeeId: fee.employeeId,
         feeId: data.feeId,
         amountPaid: data.amountPaid,
-        currency: data.currency,
         paymentMethod: data.paymentMethod,
         cashboxId: resolvedCashbox.id,
         receiptNumber: data.receiptNumber,

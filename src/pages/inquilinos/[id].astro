@@ -17,7 +17,6 @@ import {
     ReceiptText,
     User,
 } from "@lucide/astro";
-import { formatBOB } from "@/services/finances/helpers";
 import { formatCurrencyNoDecimals } from "@/utils/formatters";
 import { formatDate } from "@/utils/timex";
 
@@ -41,7 +40,6 @@ const payments = await db
         id: tenantPayments.id,
         period: tenantPayments.period,
         amount: tenantPayments.amount,
-        currency: tenantPayments.currency,
         status: tenantPayments.status,
         dueDate: tenantPayments.dueDate,
         paidAt: tenantPayments.paidAt,
@@ -125,7 +123,7 @@ const PAYMENT_LABELS: Record<string, string> = {
         <div class="text-right">
             <p class="text-xs text-slate-500">Alquiler mensual</p>
             <p class="text-xl font-bold text-slate-900 font-mono">
-                {formatCurrencyNoDecimals(tenant.monthlyRent, tenant.currency)}
+                {formatCurrencyNoDecimals(tenant.monthlyRent)}
             </p>
         </div>
     </div>
@@ -137,7 +135,7 @@ const PAYMENT_LABELS: Record<string, string> = {
                 Total Pagado
             </p>
             <p class="text-2xl font-bold text-slate-900 tabular-nums">
-                {formatCurrencyNoDecimals(totalPaidAmount, tenant.currency)}
+                {formatCurrencyNoDecimals(totalPaidAmount)}
             </p>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -153,7 +151,7 @@ const PAYMENT_LABELS: Record<string, string> = {
                 Último Pago
             </p>
             <p class="text-lg font-semibold text-slate-900">
-                {formatDate(lastPaidAt)}
+                {lastPaidAt ? formatDate(lastPaidAt) : "Sin pagos"}
             </p>
         </div>
     </div>
@@ -203,7 +201,7 @@ const PAYMENT_LABELS: Record<string, string> = {
                     <div>
                         <p class="text-xs text-slate-500">Fin</p>
                         <p class="font-medium text-slate-900">
-                            {formatDate(tenant.endDate)}
+                            {tenant.endDate ? formatDate(tenant.endDate) : "-"}
                         </p>
                     </div>
                 </div>
@@ -304,10 +302,7 @@ const PAYMENT_LABELS: Record<string, string> = {
                                         {p.period}
                                     </td>
                                     <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
-                                        {formatCurrencyNoDecimals(
-                                            p.amount,
-                                            p.currency,
-                                        )}
+                                        {formatCurrencyNoDecimals(p.amount)}
                                     </td>
                                     <td class="py-3.5 px-4 text-center">
                                         <span
@@ -322,10 +317,14 @@ const PAYMENT_LABELS: Record<string, string> = {
                                         </span>
                                     </td>
                                     <td class="py-3.5 px-4 text-center text-slate-500">
-                                        {formatDate(p.dueDate)}
+                                        {p.dueDate
+                                            ? formatDate(p.dueDate)
+                                            : "-"}
                                     </td>
                                     <td class="py-3.5 px-4 text-center text-slate-500">
-                                        {formatDate(p.paidAt)}
+                                        {p.paidAt
+                                            ? formatDate(p.paidAt)
+                                            : "Pendiente"}
                                     </td>
                                     <td class="py-3.5 px-4 text-right text-slate-500">
                                         {p.receiptNumber ?? "-"}

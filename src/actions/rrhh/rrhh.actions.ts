@@ -1,12 +1,3 @@
-/**
- * Astro Actions — RRHH module
- * ──────────────────────────────────────────────────────────────────────────────
- * Register these inside your main src/actions/index.ts:
- *
- *   import { rrhh } from './rrhh'
- *   export const server = { ..., rrhh }
- */
-
 import { defineAction, ActionError } from "astro:actions";
 import { z } from "zod";
 import {

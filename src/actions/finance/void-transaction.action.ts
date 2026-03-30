@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { transactions, cashboxes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
-import { formatBOB } from "@/services/finances/helpers";
+import { formatBOB } from "@/utils/formatters";
 
 export const voidTransaction = defineAction({
   accept: "form",
