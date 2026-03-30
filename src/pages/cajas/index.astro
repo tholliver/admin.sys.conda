@@ -88,81 +88,77 @@ const employeeMap = new Map(
       const canCover = emp ? balance >= emp.salary : true;
 
       return (
-        <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-5 hover:border-slate-300 hover:shadow-md transition-all">
-            <div class="flex items-center justify-between gap-3 mb-4">
-                <form method="POST" action={actions.finance.toggleQuickCashbox}>
-                    <input type="hidden" name="cashboxId" value={box.id} />
-                    <input type="hidden" name="isQuick" value={String(!box.isQuick)} />
-                    <button
-                        type="submit"
-                        title={box.isQuick ? "Quitar acceso rápido" : "Marcar como acceso rápido"}
-                        class:list={[
-                            "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
-                            box.isQuick
-                                ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                                : "border-slate-200 bg-white text-slate-400 hover:text-slate-600 hover:bg-slate-50",
-                        ]}
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill={box.isQuick ? "currentColor" : "none"} stroke="currentColor" stroke-width="2">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                        </svg>
-                        {box.isQuick ? "Rápido" : ""}
-                    </button>
-                </form>
-              <a href={`/cajas/${box.id}`} class="flex items-center gap-2 group min-w-0">
-                <Wallet class="h-4 w-4 text-slate-400 shrink-0" />
-                <div class="min-w-0">
-                  <p class="font-semibold text-slate-900 group-hover:text-emerald-700 transition-colors truncate">
-                    {box.name}
-                  </p>
-                  <p class="text-xs text-slate-400 font-mono">{box.code}</p>
-                </div>
-              </a>
+      <div class="rounded-xl border border-slate-200 bg-white overflow-hidden hover:border-slate-300 transition-colors">
 
-              <div class="flex items-center gap-3 shrink-0">
-                <div class="text-right">
-                  <p class="text-xs text-slate-500">Saldo</p>
-                  <p class:list={[
-                    "text-xl font-bold tabular-nums leading-tight",
-                    canCover ? "text-emerald-600" : "text-red-600",
-                  ]}>
-                    Bs {balance.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-
-                <div class="w-px h-8 bg-slate-200" />
-
-                <CashboxDepositDialog
-                  cashboxId={box.id}
-                  cashboxName={box.name}
-                  currentBalance={balance}
-                  monthlySalary={emp?.salary ?? 0}
-                  categories={incomeCategories as any}
-                  triggerLabel="Depositar"
-                  triggerClass="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
-                  client:load
-                />
+        <!-- Row 1: identity + deposit -->
+        <div class="flex items-center justify-between gap-2 px-4 py-3">
+          <div class="flex items-center gap-2 min-w-0">
+            <form method="POST" action={actions.finance.toggleQuickCashbox}>
+              <input type="hidden" name="cashboxId" value={box.id} />
+              <input type="hidden" name="isQuick" value={String(!box.isQuick)} />
+              <button type="submit" class:list={[
+                "inline-flex items-center gap-1 rounded-md border px-1.5 py-1 text-[11px] font-medium transition-colors",
+                box.isQuick
+                  ? "border-amber-200 bg-amber-50 text-amber-700"
+                  : "border-transparent text-slate-300 hover:text-slate-400",
+              ]}>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24"
+                  fill={box.isQuick ? "currentColor" : "none"} stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                {box.isQuick && "Rápido"}
+              </button>
+            </form>
+            <a href={`/cajas/${box.id}`} class="flex items-center gap-2 group min-w-0">
+              <div class="flex items-center justify-center w-7 h-7 rounded-md bg-slate-100 shrink-0">
+                <Wallet class="h-3.5 w-3.5 text-slate-400" />
               </div>
-            </div>
-
-          <!-- Stats -->
-          <a href={`/cajas/${box.id}`} class="grid grid-cols-3 gap-2 text-center text-xs">
-            <div class="rounded-lg bg-slate-50 p-2">
-              <p class="text-slate-500">Sectores</p>
-              <p class="font-bold text-slate-800 text-base">{sectorCount}</p>
-            </div>
-            <div class="rounded-lg bg-slate-50 p-2">
-              <p class="text-slate-500">Personal</p>
-              <p class="font-bold text-slate-800 text-base">{emp?.count ?? 0}</p>
-            </div>
-            <div class:list={["rounded-lg p-2", canCover ? "bg-slate-50" : "bg-red-50"]}>
-              <p class="text-slate-500">Masa Salarial</p>
-              <p class:list={["font-bold tabular-nums", canCover ? "text-slate-800" : "text-red-600"]}>
-                Bs {(emp?.salary ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 0 })}
-              </p>
-            </div>
-          </a>
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-slate-800 group-hover:text-emerald-700 transition-colors truncate">{box.name}</p>
+                <p class="text-[11px] text-slate-400 font-mono">{box.code}</p>
+              </div>
+            </a>
+          </div>
+          <CashboxDepositDialog
+            cashboxId={box.id} cashboxName={box.name}
+            currentBalance={balance} monthlySalary={emp?.salary ?? 0}
+            categories={incomeCategories as any}
+            triggerLabel="Depositar"
+            triggerClass="inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
+            client:load
+          />
         </div>
+
+        <!-- Row 2: balance full width -->
+        <div class="px-4 pb-3 border-t border-slate-100">
+          <p class="text-[11px] text-slate-400 mt-2.5 mb-0.5">Saldo</p>
+          <p class:list={[
+            "text-[22px] font-semibold tabular-nums leading-none",
+            canCover ? "text-emerald-600" : "text-red-500",
+          ]}>
+            Bs {balance.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+
+        <!-- Row 3: stats strip -->
+        <a href={`/cajas/${box.id}`} class="grid grid-cols-3 border-t border-slate-100">
+          <div class="py-2.5 text-center">
+            <p class="text-[11px] text-slate-400">Sectores</p>
+            <p class="text-sm font-medium text-slate-700">{sectorCount}</p>
+          </div>
+          <div class="py-2.5 text-center border-x border-slate-100">
+            <p class="text-[11px] text-slate-400">Personal</p>
+            <p class="text-sm font-medium text-slate-700">{emp?.count ?? 0}</p>
+          </div>
+          <div class:list={["py-2.5 text-center", canCover ? "" : "bg-red-50"]}>
+            <p class="text-[11px] text-slate-400">Masa salarial</p>
+            <p class:list={["text-sm font-medium tabular-nums", canCover ? "text-slate-700" : "text-red-500"]}>
+              Bs {(emp?.salary ?? 0).toLocaleString("es-BO", { minimumFractionDigits: 0 })}
+            </p>
+          </div>
+        </a>
+
+      </div>
       );
     })}
   </div>
