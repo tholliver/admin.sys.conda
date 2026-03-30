@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "sys.conda",
+      name: "admin.sys.conda",
       script: "./dist/server/entry.mjs",
       interpreter: "bun",
       cwd: "./",

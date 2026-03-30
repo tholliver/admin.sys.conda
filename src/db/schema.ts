@@ -171,7 +171,7 @@ export const cashboxes = financeSchema.table(
       precision: 15,
       scale: 2,
     }).default("0"),
-    managerId: varchar("manager_id", { length: 255 }),
+    isQuick: boolean("is_quick").default(false).notNull(),
     status: cashBoxStatusEnum("status").default("active"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -527,6 +527,8 @@ export const transactions = financeSchema.table(
     categoryId: uuid("category_id")
       .notNull()
       .references(() => transactionCategories.id, { onDelete: "restrict" }),
+    sectorId: integer("sector_id")
+      .references(() => sectors.id, { onDelete: "set null" }),
     type: transactionTypeEnum("type").notNull(),
     amount: numeric("amount", {
       mode: "string",
@@ -545,12 +547,8 @@ export const transactions = financeSchema.table(
       scale: 2,
     }),
     metadata: text("metadata"),
-    ipAddress: varchar("ip_address", { length: 45 }),
-    userAgent: varchar("user_agent", { length: 500 }),
-    // --- transfer link ---
     transferToCashboxId: uuid("transfer_to_cashbox_id"),
     transferPairId: uuid("transfer_pair_id"),
-    // --- polymorphic payment link ---
     linkedEntityType: linkedEntityTypeEnum("linked_entity_type"),
     linkedEntityId: integer("linked_entity_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -564,6 +562,7 @@ export const transactions = financeSchema.table(
   (table) => [
     index("idx_tx_cashbox").on(table.cashboxId),
     index("idx_tx_category").on(table.categoryId),
+    index("idx_tx_sector").on(table.sectorId),
     index("idx_tx_type").on(table.type),
     index("idx_tx_status").on(table.status),
     index("idx_tx_created_at").on(table.createdAt),

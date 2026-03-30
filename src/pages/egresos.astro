@@ -59,6 +59,17 @@ const activeCashboxes = await db
     .from(cashboxes)
     .where(eq(cashboxes.status, CASHBOX_STATUS.ACTIVE));
 
+const quickCashboxes = await db
+    .select({ id: cashboxes.id, name: cashboxes.name, code: cashboxes.code })
+    .from(cashboxes)
+    .where(
+        and(
+            eq(cashboxes.status, CASHBOX_STATUS.ACTIVE),
+            eq(cashboxes.isQuick, true),
+        ),
+    )
+    .orderBy(asc(cashboxes.name));
+
 const recentWithdrawals = await db
     .select({
         id: transactions.id,
@@ -140,6 +151,7 @@ const activeSectors = await db
                     </div>
                     <WithdrawForm
                         concepts={activeWithdrawalTransactionCategories as any}
+                        cashboxes={quickCashboxes}
                         client:load
                     />
                 </div>

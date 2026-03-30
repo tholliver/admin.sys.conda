@@ -10,7 +10,7 @@ import { ENV } from "@/config/env";
 import { formatBOB } from "@/services/finances/helpers";
 import { voidTransaction } from "./void-transaction.action";
 import { transfer, payContractor, createContractor, updateContractorStatus } from "./transfer.action";
-
+import { toggleQuickCashbox } from "./toggle-quick-cashbox.action";
 
 export const deposit = defineAction({
   accept: "form",
@@ -107,8 +107,6 @@ export const deposit = defineAction({
             createdByUserId: user.id || "system",
             status: "completed",
             balanceAfter: nb,
-            ipAddress: locals.ipAddress || null,
-            userAgent: locals.userAgent || null,
           })
           .returning();
 
@@ -196,6 +194,7 @@ export const deposit = defineAction({
 export const withdraw = defineAction({
   accept: "form",
   input: z.object({
+    cashboxId: z.uuid("ID de caja inválido"),
     categoryId: z.uuid("ID de cuenta inválido"),
     amount: z
       .string()
@@ -264,23 +263,19 @@ export const withdraw = defineAction({
         });
       }
 
-      // Get cashbox
-      const [cashbox] = await db
-        .select()
-        .from(cashboxes)
-        .where(eq(cashboxes.code, "GEN"));
+      const [cashbox] = await db.select().from(cashboxes).where(eq(cashboxes.id, input.cashboxId));
 
       if (!cashbox) {
         throw new ActionError({
           code: "NOT_FOUND",
-          message: "No se encontro la caja principal de operaciones. Contacta al administrador.",
+          message: "No se encontro la caja seleccionada. Contacta al administrador.",
         });
       }
 
       if (cashbox.status !== "active") {
         throw new ActionError({
           code: "BAD_REQUEST",
-          message: "La caja principal esta inactiva. Contacta al administrador.",
+          message: `La caja ${cashbox.name} esta inactiva. Contacta al administrador.`,
         });
       }
 
@@ -289,7 +284,7 @@ export const withdraw = defineAction({
       if (!DecimalService.isGreaterOrEqual(currentBalance, normalizedAmount)) {
         throw new ActionError({
           code: "BAD_REQUEST",
-          message: `Saldo insuficiente en caja principal. Disponible: Bs ${currentBalance}.`,
+          message: `Saldo insuficiente en ${cashbox.name}. Disponible: ${formatBOB(currentBalance)}.`,
         });
       }
 
@@ -330,8 +325,6 @@ export const withdraw = defineAction({
             createdByUserId: user.id,
             status: "completed",
             balanceAfter: newBalance,
-            ipAddress: locals.ipAddress || null,
-            userAgent: locals.userAgent || null,
           })
           .returning();
 
@@ -645,7 +638,6 @@ export const createAffiliation = defineAction({
           description: description || null,
           balance: "0.00",
           status: "active",
-          managerId: locals.user.id,
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -717,7 +709,6 @@ export const createCashbox = defineAction({
         code: input.code.toUpperCase(),
         description: input.description ?? null,
         balance: String(input.balance),
-        managerId: user.id,
         status: "active",
       })
       .returning();
@@ -1228,4 +1219,5 @@ export const finance = {
   payContractor,
   createContractor,
   updateContractorStatus,
+  toggleQuickCashbox
 };

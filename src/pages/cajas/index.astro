@@ -3,6 +3,7 @@ import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { db } from "@/db";
 import { cashboxes, sectors, employees, transactionCategories } from "@/db/schema";
 import { eq, asc, count, sum, and } from "drizzle-orm";
+import { actions } from "astro:actions";
 import { Wallet, Building2, Users } from "@lucide/astro";
 import CreateCashboxDialog from "@/components/svelte/dialogs/CreateCashboxDialog.svelte";
 import CashboxDepositDialog from "@/components/svelte/dialogs/CashboxDepositDialog.svelte";
@@ -12,15 +13,15 @@ if (!user) return Astro.redirect("/login");
 if (!["ADMIN", "ADMON"].includes(user.role ?? "")) return Astro.redirect("/");
 
 const [allCashboxes, sectorStats, employeeStats, incomeCategories] = await Promise.all([
-  db
-    .select({
+  db.select({
       id: cashboxes.id,
       name: cashboxes.name,
       code: cashboxes.code,
       balance: cashboxes.balance,
       status: cashboxes.status,
       description: cashboxes.description,
-    })
+      isQuick: cashboxes.isQuick,   // ← add
+  })
     .from(cashboxes)
     .where(eq(cashboxes.status, "active"))
     .orderBy(asc(cashboxes.name)),
@@ -89,6 +90,25 @@ const employeeMap = new Map(
       return (
         <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-5 hover:border-slate-300 hover:shadow-md transition-all">
             <div class="flex items-center justify-between gap-3 mb-4">
+                <form method="POST" action={actions.finance.toggleQuickCashbox}>
+                    <input type="hidden" name="cashboxId" value={box.id} />
+                    <input type="hidden" name="isQuick" value={String(!box.isQuick)} />
+                    <button
+                        type="submit"
+                        title={box.isQuick ? "Quitar acceso rápido" : "Marcar como acceso rápido"}
+                        class:list={[
+                            "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                            box.isQuick
+                                ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                                : "border-slate-200 bg-white text-slate-400 hover:text-slate-600 hover:bg-slate-50",
+                        ]}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill={box.isQuick ? "currentColor" : "none"} stroke="currentColor" stroke-width="2">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                        {box.isQuick ? "Rápido" : ""}
+                    </button>
+                </form>
               <a href={`/cajas/${box.id}`} class="flex items-center gap-2 group min-w-0">
                 <Wallet class="h-4 w-4 text-slate-400 shrink-0" />
                 <div class="min-w-0">
