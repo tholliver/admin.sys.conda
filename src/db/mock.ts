@@ -288,6 +288,7 @@ export const SYS_USERS = [
 ];
 
 export const CASHBOXES_DATA = [
+  // ── CORE ─────────────────────────────────────
   {
     name: "Caja General",
     code: "GEN",
@@ -296,14 +297,8 @@ export const CASHBOXES_DATA = [
     creditLimit: "0",
     status: "active" as const,
   },
-  {
-    name: "Caja Directorio",
-    code: "DIR",
-    description: "Caja para gastos y operaciones del directorio",
-    balance: "0",
-    creditLimit: "0",
-    status: "active" as const,
-  },
+
+  // ── TRANSPORTE BASE ───────────────────────────
   {
     name: "Caja Taxis",
     code: "TAX",
@@ -344,10 +339,51 @@ export const CASHBOXES_DATA = [
     creditLimit: "0",
     status: "active" as const,
   },
+  // ── AGRUPACIONES GEOGRÁFICAS ──────────────────
   {
-    name: "Caja Regional",
-    code: "REG",
-    description: "Caja para sectores regionales y especiales",
+    name: "Caja Valle Sacta",
+    code: "VSA",
+    description: "Operaciones de transporte en Valle Sacta (taxis y motos)",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Ayopaya",
+    code: "AYO",
+    description: "Operaciones de transporte en zona Ayopaya",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Valle Tunari",
+    code: "VTU",
+    description: "Operaciones de transporte en Valle Tunari",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Senda",
+    code: "SEN",
+    description: "Operaciones de transporte en Senda V y VI",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Mariposas",
+    code: "MAR",
+    description: "Operaciones de transporte en sector Mariposas",
+    balance: "0",
+    creditLimit: "0",
+    status: "active" as const,
+  },
+  {
+    name: "Caja Puerto Villarroel",
+    code: "PVL",
+    description: "Operaciones regionales en Puerto Villarroel",
     balance: "0",
     creditLimit: "0",
     status: "active" as const,
@@ -355,7 +391,6 @@ export const CASHBOXES_DATA = [
 ];
 
 export const SECTORS_DATA = [
-  { id: 0, name: "SIN SECTOR", description: "......", isActive: false },
   { id: 1, name: "1ER GRUPO", description: "......", isActive: true },
   { id: 2, name: "2DO GRUPO", description: "......", isActive: true },
   { id: 3, name: "3ER GRUPO", description: "......", isActive: true },
