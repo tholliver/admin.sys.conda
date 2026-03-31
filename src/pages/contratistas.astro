@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { Handshake, TrendingDown, BadgeCheck, BadgeX } from "@lucide/astro";
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
-import { cashboxes, contractors, contractorPayments } from "@/db/schema";
+import { cashboxes, contractors, contractorPayments, transactions } from "@/db/schema";
 import { eq, desc, and, sql, asc } from "drizzle-orm";
 import { formatter } from "@/utils/timex";
 import ContractorPayForm from "@/components/svelte/finance/ContractorPayForm.svelte";
@@ -31,36 +31,35 @@ const allContractors = await db
 
 const activeContractors = allContractors.filter((c) => c.status === "activo");
 
-// Recent payments with contractor info
 const recentPayments = await db
     .select({
         id: contractorPayments.id,
         uuid: contractorPayments.uuid,
         concept: contractorPayments.concept,
-        amount: contractorPayments.amount,
         receiptNumber: contractorPayments.receiptNumber,
-        paidAt: contractorPayments.paidAt,
         contractorName: contractors.fullName,
         contractorSpecialty: contractors.specialty,
         cashboxName: cashboxes.name,
+        amount: transactions.amount,          // ← from transaction
+        paidAt: transactions.createdAt,       // ← from transaction
     })
     .from(contractorPayments)
     .innerJoin(contractors, eq(contractorPayments.contractorId, contractors.id))
-    .innerJoin(cashboxes, eq(contractorPayments.cashboxId, cashboxes.id))
-    .orderBy(desc(contractorPayments.paidAt))
+    .innerJoin(transactions, eq(contractorPayments.transactionId, transactions.id))
+    .innerJoin(cashboxes, eq(transactions.cashboxId, cashboxes.id))
+    .orderBy(desc(contractorPayments.createdAt))
     .limit(15);
 
-const [todaysSummary] = await db
+const todaysSummary = await db
     .select({
-        totalPaid: sql<string>`
-            COALESCE(ROUND(SUM(${contractorPayments.amount}), 2)::numeric, 0)::text
-        `,
-        paymentCount: sql<number>`COUNT(*)`,
+        totalPaid: sql<string>`coalesce(sum(${transactions.amount}), 0)::text`,
+        paymentCount: sql<number>`count(*)::int`,
     })
     .from(contractorPayments)
-    .where(sql`DATE(${contractorPayments.paidAt}) = CURRENT_DATE`);
+    .innerJoin(transactions, eq(contractorPayments.transactionId, transactions.id))
+    .where(sql`${transactions.createdAt}::date = current_date`);
 
-const summary = todaysSummary || { totalPaid: "0.00", paymentCount: 0 };
+const summary = todaysSummary[0] ?? { totalPaid: "0.00", paymentCount: 0 };
 ---
 
 <FinanceLayout title="Contratistas" user={user}>

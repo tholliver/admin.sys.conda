@@ -65,7 +65,7 @@ export const deposit = defineAction({
         throw new ActionError({ code: "NOT_FOUND", message: "No se encontro la caja principal de operaciones. Contacta al administrador." });
       }
 
-      if (cashAccount.status !== "active") {
+      if (cashAccount.status !== "activo") {
         throw new ActionError({ code: "BAD_REQUEST", message: "La caja principal esta inactiva. Contacta al administrador." });
       }
 
@@ -105,7 +105,7 @@ export const deposit = defineAction({
             reference: resolvedReference,
             description: notes?.trim() || null,
             createdByUserId: user.id || "system",
-            status: "completed",
+            status: "completado",
             balanceAfter: nb,
           })
           .returning();
@@ -272,7 +272,7 @@ export const withdraw = defineAction({
         });
       }
 
-      if (cashbox.status !== "active") {
+      if (cashbox.status !== "activo") {
         throw new ActionError({
           code: "BAD_REQUEST",
           message: `La caja ${cashbox.name} esta inactiva. Contacta al administrador.`,
@@ -323,7 +323,7 @@ export const withdraw = defineAction({
             cashboxId: cashbox.id,
             description: notes?.trim() || null,
             createdByUserId: user.id,
-            status: "completed",
+            status: "completado",
             balanceAfter: newBalance,
           })
           .returning();
@@ -637,7 +637,7 @@ export const createAffiliation = defineAction({
           code,
           description: description || null,
           balance: "0.00",
-          status: "active",
+          status: "activo",
           createdAt: new Date(),
           updatedAt: new Date(),
         })
@@ -709,7 +709,7 @@ export const createCashbox = defineAction({
         code: input.code.toUpperCase(),
         description: input.description ?? null,
         balance: String(input.balance),
-        status: "active",
+        status: "activo",
       })
       .returning();
 

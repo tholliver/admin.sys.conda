@@ -6,17 +6,17 @@ export const TRANSACTION_TYPE = {
 } as const satisfies Record<string, typeof transactionTypeEnum.enumValues[number]>
 
 export const TRANSACTION_STATUS = {
-  PENDING: "pending",
-  COMPLETED: "completed",
-  FAILED: "failed",
-  CANCELLED: "cancelled",
+  PENDING: "pendiente",
+  COMPLETED: "completado",
+  FAILED: "fallido",
+  CANCELLED: "cancelado",
 } as const satisfies Record<string, typeof transactionStatusEnum.enumValues[number]>
 
 export const CASHBOX_STATUS = {
-  ACTIVE: "active",
-  INACTIVE: "inactive",
-  SUSPENDED: "suspended",
-  ARCHIVED: "archived",
+  ACTIVE: "activo",
+  INACTIVE: "inactivo",
+  SUSPENDED: "suspendido",
+  ARCHIVED: "archivado",
 } as const satisfies Record<string, typeof cashBoxStatusEnum.enumValues[number]>
 
 export const CATEGORY_TYPE = {

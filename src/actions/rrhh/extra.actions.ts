@@ -186,7 +186,7 @@ export const registerRentPayment = defineAction({
           concept: `Alquiler ${input.period} — ${input.tenantName}`,
           description: `Pago de alquiler período ${input.period}`,
           createdByUserId: user.id,
-          status: "completed",
+          status: "completado",
           balanceAfter: newBalance,
           linkedEntityType: "tenant_payment",
           linkedEntityId: input.tenantId,
@@ -205,18 +205,14 @@ export const registerRentPayment = defineAction({
           period: input.period,
           amount: input.amount,
           status: "pagado",
-          paidAt: new Date(),
           notes: `Pago registrado — ${input.tenantName}`,
-          processedByUserId: user.id,
           transactionId: financeTx.id,
         })
         .onConflictDoUpdate({
           target: [tenantPayments.tenantId, tenantPayments.period],
           set: {
             status: "pagado",
-            paidAt: new Date(),
             notes: `Pago registrado — ${input.tenantName}`,
-            processedByUserId: user.id,
             transactionId: financeTx.id,
             updatedAt: new Date(),
           },

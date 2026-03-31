@@ -50,7 +50,7 @@ const startOfYear = new Date(now.getFullYear(), 0, 1);
 const [balanceSummary] = await db
     .select({
         totalBalance: sql<string>`COALESCE(SUM(CAST(${cashboxes.balance} AS NUMERIC)), 0)`,
-        activeBoxes: sql<number>`COUNT(CASE WHEN ${cashboxes.status} = 'active' THEN 1 END)`,
+        activeBoxes: sql<number>`COUNT(CASE WHEN ${cashboxes.status} = 'activo' THEN 1 END)`,
         totalBoxes: sql<number>`COUNT(*)`,
     })
     .from(cashboxes)
@@ -70,7 +70,7 @@ const [monthlySummary] = await db
         and(
             gte(transactions.createdAt, startOfMonth),
             lte(transactions.createdAt, endOfMonth),
-            eq(transactions.status, "completed"),
+            eq(transactions.status, "completado"),
         ),
     );
 
@@ -92,7 +92,7 @@ const topIncomeCategories = await db
     .where(
         and(
             eq(transactions.type, "deposit"),
-            eq(transactions.status, "completed"),
+            eq(transactions.status, "completado"),
             gte(transactions.createdAt, startOfMonth),
             lte(transactions.createdAt, endOfMonth),
         ),
@@ -123,7 +123,7 @@ const topOutcomeCategories = await db
     .where(
         and(
             eq(transactions.type, "withdraw"),
-            eq(transactions.status, "completed"),
+            eq(transactions.status, "completado"),
             gte(transactions.createdAt, startOfMonth),
             lte(transactions.createdAt, endOfMonth),
         ),
@@ -152,7 +152,7 @@ const monthlyTrend = await db
     .where(
         and(
             gte(transactions.createdAt, sixMonthsAgo),
-            eq(transactions.status, "completed"),
+            eq(transactions.status, "completado"),
         ),
     )
     .groupBy(
@@ -171,7 +171,7 @@ const [ytdSummary] = await db
     .where(
         and(
             gte(transactions.createdAt, startOfYear),
-            eq(transactions.status, "completed"),
+            eq(transactions.status, "completado"),
         ),
     );
 

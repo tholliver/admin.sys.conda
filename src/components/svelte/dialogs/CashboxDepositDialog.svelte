@@ -119,7 +119,7 @@
     bind:isOpen
     size="md"
     title={`Depositar a ${cashboxName}`}
-    description="Acredite fondos en esta caja."
+    description="Acreditar fondos en esta caja."
     preventCloseOnEscapeKeyDown={true}
     preventCloseOnInteractOutside={true}
     onClose={reset}
@@ -145,14 +145,12 @@
                 <p class="text-sm font-semibold text-slate-900">{successMsg}</p>
             </div>
         {:else}
-            <!-- Context summary -->
             <div
                 class="mb-4 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 space-y-2"
             >
                 <div class="flex justify-between text-xs">
                     <span class="text-slate-500">Caja</span>
-                    <span class="font-medium text-slate-800">{cashboxName}</span
-                    >
+                    <span class="font-medium text-slate-800">{cashboxName}</span>
                 </div>
                 <div class="flex justify-between text-xs">
                     <span class="text-slate-500">Saldo actual</span>
@@ -211,11 +209,10 @@
                 class="space-y-4 px-1 pb-1"
                 onsubmit={handleSubmit}
             >
-                <!-- Monto -->
                 <div>
                     <div class="flex items-center justify-between mb-1">
-                        <label class="text-xs font-medium text-slate-600">
-                            Monto (Bs) <span class="text-red-500">*</span>
+                        <label for="amount-{cashboxId}" class="text-xs font-medium text-slate-600">
+                            Ingresar monto (Bs) <span class="text-red-500">*</span>
                         </label>
                         {#if gap > 0}
                             <button
@@ -237,6 +234,7 @@
                             >Bs</span
                         >
                         <input
+                            id="amount-{cashboxId}"
                             type="number"
                             bind:value={amount}
                             min="0.01"
@@ -254,14 +252,15 @@
                     {/if}
                 </div>
 
-                <!-- Categoría -->
                 <div>
                     <label
+                        for="category-{cashboxId}"
                         class="block text-xs font-medium text-slate-600 mb-1"
                     >
-                        Categoría <span class="text-red-500">*</span>
+                        Seleccionar categoría <span class="text-red-500">*</span>
                     </label>
                     <select
+                        id="category-{cashboxId}"
                         bind:value={categoryId}
                         required
                         class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500
@@ -281,14 +280,15 @@
                     {/if}
                 </div>
 
-                <!-- Concepto -->
                 <div>
                     <label
+                        for="concept-{cashboxId}"
                         class="block text-xs font-medium text-slate-600 mb-1"
                     >
-                        Concepto <span class="text-red-500">*</span>
+                        Ingresar concepto <span class="text-red-500">*</span>
                     </label>
                     <input
+                        id="concept-{cashboxId}"
                         type="text"
                         bind:value={concept}
                         required
@@ -303,16 +303,17 @@
                     {/if}
                 </div>
 
-                <!-- Referencia -->
                 <div>
                     <label
+                        for="reference-{cashboxId}"
                         class="block text-xs font-medium text-slate-600 mb-1"
                     >
-                        Referencia <span class="text-slate-400 font-normal"
+                        Ingresar referencia <span class="text-slate-400 font-normal"
                             >(opcional)</span
                         >
                     </label>
                     <input
+                        id="reference-{cashboxId}"
                         type="text"
                         bind:value={reference}
                         maxlength="100"
@@ -321,16 +322,17 @@
                     />
                 </div>
 
-                <!-- Notas -->
                 <div>
                     <label
+                        for="notes-{cashboxId}"
                         class="block text-xs font-medium text-slate-600 mb-1"
                     >
-                        Notas <span class="text-slate-400 font-normal"
+                        Ingresar notas <span class="text-slate-400 font-normal"
                             >(opcional)</span
                         >
                     </label>
                     <textarea
+                        id="notes-{cashboxId}"
                         bind:value={notes}
                         maxlength="500"
                         rows="2"

@@ -4,7 +4,7 @@ import { actions, isActionError } from "astro:actions";
 import { db } from "@/db";
 import { cashboxes, sectors, employees } from "@/db/schema";
 import { eq, asc, and } from "drizzle-orm";
-import { Wallet, Building2, AlertTriangle, ChevronLeft } from "@lucide/astro";
+import { Wallet, Building2, ChevronLeft } from "@lucide/astro";
 import CreateSectorDialog from "@/components/svelte/dialogs/CreateSectorDialog.svelte";
 import EditSectorDialog from "@/components/svelte/dialogs/EditSectorDialog.svelte";
 import SectorCashboxAssignDialog from "@/components/svelte/rrhh/SectorCashboxAssignDialog.svelte";
@@ -72,13 +72,13 @@ const allCashboxes = await db
     status: cashboxes.status,
   })
   .from(cashboxes)
-  .where(eq(cashboxes.status, "active"))
+  .where(eq(cashboxes.status, "activo"))
   .orderBy(asc(cashboxes.name));
 
 const [defaultCashbox] = await db
   .select({ id: cashboxes.id })
   .from(cashboxes)
-  .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "active")))
+  .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "activo")))
   .limit(1);
 
 const balance = Number(cashbox.balance ?? 0);

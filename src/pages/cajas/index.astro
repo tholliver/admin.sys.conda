@@ -23,7 +23,7 @@ const [allCashboxes, sectorStats, employeeStats, incomeCategories] = await Promi
       isQuick: cashboxes.isQuick,   // ← add
   })
     .from(cashboxes)
-    .where(eq(cashboxes.status, "active"))
+    .where(eq(cashboxes.status, "activo"))
     .orderBy(asc(cashboxes.name)),
 
   db

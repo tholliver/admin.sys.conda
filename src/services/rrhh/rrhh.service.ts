@@ -4,21 +4,20 @@ import {
   cashboxes,
   employees,
   employeeFees,
-  employeePayments,
+  transactionCategories,
   type SelectEmployee,
   type SectorSalarySummary,
+  transactions,
 } from "@/db/schema";
 import {
   eq,
   and,
   sql,
-  desc,
   asc,
   ilike,
   inArray,
   count,
   sum,
-  ne,
 } from "drizzle-orm";
 import type {
   CreateEmployeeInput,
@@ -350,9 +349,33 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
   const { fee, employeeSectorId, employeeName } = feeRow[0];
   if (fee.status === "pagado") throw new Error("Esta cuota ya fue pagada.");
 
+  if (data.createTransaction === false) {
+    throw new Error("Para trazabilidad, el pago requiere crear una transaccion.");
+  }
+
   const amountToPay = Number(data.amountPaid);
+  const feeAmount = Number(fee.amount);
   if (!Number.isFinite(amountToPay) || amountToPay <= 0) {
-    throw new Error("El monto de pago es inválido.");
+    throw new Error("El monto de pago es invalido.");
+  }
+  if (Math.round(amountToPay * 100) !== Math.round(feeAmount * 100)) {
+    throw new Error(`El pago debe ser exacto: Bs ${feeAmount.toFixed(2)}.`);
+  }
+
+  const [salaryCategory] = await db
+    .select({ id: transactionCategories.id })
+    .from(transactionCategories)
+    .where(
+      and(
+        eq(transactionCategories.code, "OUT-014"),
+        eq(transactionCategories.type, "outcome"),
+        eq(transactionCategories.status, true),
+      ),
+    )
+    .limit(1);
+
+  if (!salaryCategory) {
+    throw new Error('No existe la categoria activa "OUT-014" para registrar pago salarial.');
   }
 
   // Resolve cashbox by sector (direct FK on sectors)
@@ -375,10 +398,10 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
       const general = await db
         .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
         .from(cashboxes)
-        .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "active")))
+        .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "activo")))
         .limit(1);
 
-      if (!general[0]) throw new Error('No existe una caja general activa con código "GEN".');
+      if (!general[0]) throw new Error('No existe una caja general activa con codigo "GEN".');
       resolvedCashbox = general[0];
     } else {
       const linked = await db
@@ -389,13 +412,13 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
         .limit(1);
 
       if (!linked[0]) throw new Error(`El sector del empleado "${employeeName}" no tiene una caja vinculada.`);
-      if (linked[0].status !== "active") throw new Error(`La caja vinculada al sector del empleado "${employeeName}" está inactiva.`);
+      if (linked[0].status !== "activo") throw new Error(`La caja vinculada al sector del empleado "${employeeName}" esta inactiva.`);
       resolvedCashbox = linked[0];
     }
   } else {
-    if (linked[0].status !== "active") {
+    if (linked[0].status !== "activo") {
       throw new Error(
-        `La caja vinculada al sector del empleado "${employeeName}" está inactiva.`
+        `La caja vinculada al sector del empleado "${employeeName}" esta inactiva.`
       );
     }
 
@@ -408,37 +431,42 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
       `Saldo insuficiente en "${resolvedCashbox.name}". Disponible: Bs ${availableBalance.toFixed(2)}.`
     );
   }
+  const newBalance = (availableBalance - amountToPay).toFixed(2);
 
   const [payment] = await db.transaction(async (tx) => {
     const [createdPayment] = await tx
-      .insert(employeePayments)
+      .insert(transactions)
       .values({
-        employeeId: fee.employeeId,
-        feeId: data.feeId,
-        amountPaid: data.amountPaid,
-        paymentMethod: data.paymentMethod,
         cashboxId: resolvedCashbox.id,
-        receiptNumber: data.receiptNumber,
-        notes: data.notes,
-        processedByUserId,
+        categoryId: salaryCategory.id,
+        sectorId: employeeSectorId ?? null,
+        type: "withdraw",
+        amount: amountToPay.toFixed(2),
+        concept: `Pago de salario ${fee.period} - ${employeeName}`,
+        description: data.notes?.trim() || null,
+        reference: data.receiptNumber?.trim() || null,
+        createdByUserId: processedByUserId,
+        status: "completado",
+        balanceAfter: newBalance,
+        linkedEntityType: "employee_fee",
+        linkedEntityId: fee.id,
       })
       .returning();
 
-    const paidFully = amountToPay >= Number(fee.amount);
     await tx
       .update(employeeFees)
       .set({
-        status: paidFully ? "pagado" : "parcial",
-        paidAt: paidFully ? new Date() : null,
+        status: "pagado",
+        paymentMethod: data.paymentMethod,
+        transactionId: createdPayment.id,
         updatedAt: new Date(),
-        cashboxId: resolvedCashbox.id,
       })
       .where(eq(employeeFees.id, data.feeId));
 
     await tx
       .update(cashboxes)
       .set({
-        balance: sql`${cashboxes.balance} - ${String(amountToPay)}`,
+        balance: newBalance,
         updatedAt: new Date(),
       })
       .where(eq(cashboxes.id, resolvedCashbox.id));
@@ -448,7 +476,6 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
 
   return payment;
 }
-
 // --- Sector Cashbox -----------------------------------------------------------
 
 export async function getSectorCashboxLinks() {
@@ -547,3 +574,4 @@ export async function getOverdueFeesSummary(currentPer: string) {
     totalAmount: Number(rows[0]?.totalAmount ?? 0),
   };
 }
+

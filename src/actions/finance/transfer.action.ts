@@ -7,7 +7,7 @@ import { ActionError, defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { db } from "@/db";
 import { cashboxes, transactions, transactionCategories, contractors, contractorPayments } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
 import { formatBOB } from "@/utils/formatters";
 
@@ -17,7 +17,7 @@ async function getActiveCashbox(id: string) {
   const [box] = await db
     .select()
     .from(cashboxes)
-    .where(and(eq(cashboxes.id, id), eq(cashboxes.status, "active")));
+    .where(and(eq(cashboxes.id, id), eq(cashboxes.status, "activo")));
   return box ?? null;
 }
 
@@ -136,6 +136,10 @@ export const transfer = defineAction({
     const outDesc    = [concept, notes].filter(Boolean).join(" · ");
 
     const { outTx } = await db.transaction(async (tx) => {
+      // Generate a shared pair ID so both legs are traceable together
+      const result = await tx.execute<{ pairId: string }>(sql`select uuidv7() as "pairId"`);
+      const pairId = (result.rows[0] as { pairId: string }).pairId;
+
       const [outTx] = await tx
         .insert(transactions)
         .values({
@@ -146,10 +150,10 @@ export const transfer = defineAction({
           description: outDesc || null,
           cashboxId: from.id,
           createdByUserId: user.id,
-          status: "completed",
+          status: "completado",
           balanceAfter: newFromBalance,
-          ipAddress: locals.ipAddress || null,
-          userAgent: locals.userAgent || null,
+          transferToCashboxId: to.id,   // ← where the money went
+          transferPairId: pairId,        // ← links both legs
         })
         .returning();
 
@@ -161,22 +165,14 @@ export const transfer = defineAction({
         description: outDesc || null,
         cashboxId: to.id,
         createdByUserId: user.id,
-        status: "completed",
+        status: "completado",
         balanceAfter: newToBalance,
-        ipAddress: locals.ipAddress || null,
-        userAgent: locals.userAgent || null,
+        transferToCashboxId: from.id,  // ← origin (for traceability)
+        transferPairId: pairId,         // ← same pair
       });
 
-      // Update both cashbox balances
-      await tx
-        .update(cashboxes)
-        .set({ balance: newFromBalance, updatedAt: new Date() })
-        .where(eq(cashboxes.id, from.id));
-
-      await tx
-        .update(cashboxes)
-        .set({ balance: newToBalance, updatedAt: new Date() })
-        .where(eq(cashboxes.id, to.id));
+      await tx.update(cashboxes).set({ balance: newFromBalance, updatedAt: new Date() }).where(eq(cashboxes.id, from.id));
+      await tx.update(cashboxes).set({ balance: newToBalance,   updatedAt: new Date() }).where(eq(cashboxes.id, to.id));
 
       return { outTx };
     });
@@ -262,10 +258,8 @@ export const payContractor = defineAction({
           cashboxId: cashbox.id,
           description: input.notes?.trim() || null,
           createdByUserId: user.id,
-          status: "completed",
+          status: "completado",
           balanceAfter: newBalance,
-          ipAddress: locals.ipAddress || null,
-          userAgent: locals.userAgent || null,
         })
         .returning();
 
@@ -281,12 +275,9 @@ export const payContractor = defineAction({
         .values({
           contractorId: input.contractorId,
           transactionId: financeTx.id,
-          cashboxId: cashbox.id,
-          amount: parseFloat(amount),
           concept,
           receiptNumber: input.receiptNumber?.trim() || null,
           notes: input.notes?.trim() || null,
-          paidAt: new Date(),
           processedByUserId: user.id,
         })
         .returning();
@@ -320,7 +311,7 @@ export const createContractor = defineAction({
     ci: z.string().max(20).optional(),
     ruc: z.string().max(20).optional(),
     phone: z.string().max(20).optional(),
-    email: z.string().email("Email inválido").max(150).optional(),
+    email: z.email("Email inválido").max(150).optional(),
     address: z.string().max(255).optional(),
     specialty: z.string().max(120).optional(),
     notes: z.string().max(1000).optional(),

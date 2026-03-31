@@ -97,20 +97,20 @@ export const transactionStatusLabels: Record<
   (typeof transactionStatusEnum.enumValues)[number],
   string
 > = {
-  pending: "Pendiente",
-  completed: "Completado",
-  failed: "Fallido",
-  cancelled: "Cancelado",
+  pendiente: "Pendiente",
+  completado: "Completado",
+  fallido: "Fallido",
+  cancelado: "Cancelado",
 };
 
 export const cashBoxStatusLabels: Record<
   (typeof cashBoxStatusEnum.enumValues)[number],
   string
 > = {
-  active: "Activo",
-  inactive: "Inactivo",
-  suspended: "Suspendido",
-  archived: "Archivado",
+  activo: "Activo",
+  inactivo: "Inactivo",
+  suspendido: "Suspendido",
+  archivado: "Archivado",
 };
 
 export const categoryTypeLabels: Record<
@@ -122,10 +122,10 @@ export const categoryTypeLabels: Record<
 };
 
 const TX_STATUS_MAP = Object.freeze({
-  pending: { label: "Pendiente", color: "bg-yellow-50 text-yellow-700" },
-  completed: { label: "Completado", color: "bg-blue-50 text-blue-700" },
-  failed: { label: "Fallido", color: "bg-red-50 text-red-700" },
-  cancelled: { label: "Cancelado", color: "bg-slate-100 text-slate-700" },
+  pendiente: { label: "Pendiente", color: "bg-yellow-50 text-yellow-700" },
+  completado: { label: "Completado", color: "bg-blue-50 text-blue-700" },
+  fallido: { label: "Fallido", color: "bg-red-50 text-red-700" },
+  cancelado: { label: "Cancelado", color: "bg-slate-100 text-slate-700" },
 } as const);
 
 const TX_TYPE_MAP = Object.freeze({
@@ -134,10 +134,10 @@ const TX_TYPE_MAP = Object.freeze({
 } as const);
 
 const CASHBOX_STATUS_MAP = Object.freeze({
-  active: { label: "Activo", color: "text-green-600" },
-  inactive: { label: "Inactivo", color: "text-gray-500" },
-  suspended: { label: "Suspendido", color: "text-orange-600" },
-  archived: { label: "Archivado", color: "text-slate-400" },
+  activo: { label: "Activo", color: "text-green-600" },
+  inactivo: { label: "Inactivo", color: "text-gray-500" },
+  suspendido: { label: "Suspendido", color: "text-orange-600" },
+  archivado: { label: "Archivado", color: "text-slate-400" },
 } as const);
 
 const CATEGORY_TYPE_MAP = Object.freeze({

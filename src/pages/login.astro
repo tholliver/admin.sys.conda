@@ -247,9 +247,6 @@ if (user) return Astro.redirect("/");
             form.parentElement!.appendChild(blocked);
         };
 
-        const redirectTo =
-            new URLSearchParams(window.location.search).get("redirect") ?? "/";
-
         // --- Submit ---
         form.addEventListener("submit", async (e: SubmitEvent) => {
             e.preventDefault();

@@ -161,7 +161,7 @@ export const voidEmployeeFeeAction = defineAction({
 
     await db
       .update(employeeFees)
-      .set({ status: "anulado", notes: reason, updatedAt: new Date() })
+      .set({ status: "anulado", updatedAt: new Date() })
       .where(eq(employeeFees.id, feeId));
 
     return { success: true, message: "Cuota anulada." };

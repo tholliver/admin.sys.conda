@@ -295,7 +295,7 @@ export const CASHBOXES_DATA = [
     description: "Caja principal de operacion general",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
 
   // ── TRANSPORTE BASE ───────────────────────────
@@ -305,7 +305,7 @@ export const CASHBOXES_DATA = [
     description: "Caja para sectores de taxis",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
   {
     name: "Caja Motos",
@@ -313,7 +313,7 @@ export const CASHBOXES_DATA = [
     description: "Caja para sectores de motos",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
   {
     name: "Caja Minibuses",
@@ -321,7 +321,7 @@ export const CASHBOXES_DATA = [
     description: "Caja para operaciones de minibuses",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
   {
     name: "Caja Buses",
@@ -329,7 +329,7 @@ export const CASHBOXES_DATA = [
     description: "Caja para operaciones de buses y micros",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
   {
     name: "Caja Camiones",
@@ -337,7 +337,7 @@ export const CASHBOXES_DATA = [
     description: "Caja para operaciones de camiones y volquetas",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
   // ── AGRUPACIONES GEOGRÁFICAS ──────────────────
   {
@@ -346,7 +346,7 @@ export const CASHBOXES_DATA = [
     description: "Operaciones de transporte en Valle Sacta (taxis y motos)",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
   {
     name: "Caja Ayopaya",
@@ -354,7 +354,7 @@ export const CASHBOXES_DATA = [
     description: "Operaciones de transporte en zona Ayopaya",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
   {
     name: "Caja Valle Tunari",
@@ -362,7 +362,7 @@ export const CASHBOXES_DATA = [
     description: "Operaciones de transporte en Valle Tunari",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
   {
     name: "Caja Senda",
@@ -370,7 +370,7 @@ export const CASHBOXES_DATA = [
     description: "Operaciones de transporte en Senda V y VI",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
   {
     name: "Caja Mariposas",
@@ -378,7 +378,7 @@ export const CASHBOXES_DATA = [
     description: "Operaciones de transporte en sector Mariposas",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
   {
     name: "Caja Puerto Villarroel",
@@ -386,7 +386,7 @@ export const CASHBOXES_DATA = [
     description: "Operaciones regionales en Puerto Villarroel",
     balance: "0",
     creditLimit: "0",
-    status: "active" as const,
+    status: "activo" as const,
   },
 ];
 

@@ -47,14 +47,14 @@ export const voidTransaction = defineAction({
       });
     }
 
-    if (tx.status === "cancelled") {
+    if (tx.status === "cancelado") {
       throw new ActionError({
         code: "BAD_REQUEST",
         message: "Esta transacción ya fue anulada.",
       });
     }
 
-    if (tx.status !== "completed") {
+    if (tx.status !== "completado") {
       throw new ActionError({
         code: "BAD_REQUEST",
         message: "Solo se pueden anular transacciones completadas.",
@@ -104,7 +104,7 @@ export const voidTransaction = defineAction({
     await db
       .update(transactions)
       .set({
-        status: "cancelled",
+        status: "cancelado",
         metadata: voidMeta,
         updatedAt: new Date(),
       })

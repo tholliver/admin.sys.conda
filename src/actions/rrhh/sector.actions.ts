@@ -54,7 +54,7 @@ export const createSectorAction = defineAction({
         .limit(1);
 
       if (!cashbox) throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
-      if (cashbox.status !== "active") {
+      if (cashbox.status !== "activo") {
         throw new ActionError({ code: "PRECONDITION_FAILED", message: "La caja seleccionada está inactiva." });
       }
       targetCashboxId = cashbox.id;
@@ -62,7 +62,7 @@ export const createSectorAction = defineAction({
       const [defaultCashbox] = await db
         .select({ id: cashboxes.id })
         .from(cashboxes)
-        .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "active")))
+        .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "activo")))
         .limit(1);
 
       if (!defaultCashbox) {
@@ -117,7 +117,7 @@ export const updateSectorAction = defineAction({
         .limit(1);
 
       if (!cashbox) throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
-      if (cashbox.status !== "active") {
+      if (cashbox.status !== "activo") {
         throw new ActionError({ code: "PRECONDITION_FAILED", message: "La caja seleccionada está inactiva." });
       }
     }
@@ -167,7 +167,7 @@ export const linkSectorCashboxAction = defineAction({
       .limit(1);
 
     if (!cashbox) throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
-    if (cashbox.status !== "active") {
+    if (cashbox.status !== "activo") {
       throw new ActionError({ code: "PRECONDITION_FAILED", message: "La caja seleccionada está inactiva." });
     }
 
@@ -273,7 +273,7 @@ export const depositToCashboxAction = defineAction({
     if (!cashbox) {
       throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
     }
-    if (cashbox.status !== "active") {
+    if (cashbox.status !== "activo") {
       throw new ActionError({
         code: "PRECONDITION_FAILED",
         message: `La caja "${cashbox.name}" está inactiva.`,
@@ -302,7 +302,7 @@ export const depositToCashboxAction = defineAction({
         description: input.notes?.trim() || null,
         reference: input.reference?.trim() || null,
         createdByUserId: user.id,
-        status: "completed",
+        status: "completado",
         balanceAfter: newBalance,
       });
     });

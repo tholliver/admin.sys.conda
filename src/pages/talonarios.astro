@@ -25,7 +25,7 @@ const warning   = ranges.filter((r) => {
     return pct >= 80 && Number(r.current) < Number(r.rangeEnd);
 }).length;
 
-type RangeStatus = "active" | "warning" | "exhausted";
+type RangeStatus = "activo" | "warning" | "exhausted";
 
 function getRangeStatus(r: typeof ranges[number]): RangeStatus {
     const used = Number(r.current)  - Number(r.rangeStart);
@@ -33,7 +33,7 @@ function getRangeStatus(r: typeof ranges[number]): RangeStatus {
     const pct  = span > 0 ? (used / span) * 100 : 0;
     if (Number(r.current) >= Number(r.rangeEnd)) return "exhausted";
     if (pct >= 80) return "warning";
-    return "active";
+    return "activo";
 }
 
 function getPct(r: typeof ranges[number]): number {

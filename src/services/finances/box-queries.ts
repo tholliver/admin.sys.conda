@@ -29,7 +29,7 @@ export async function getBalanceSummary(): Promise<BalanceSummary> {
   const [balanceSummary] = await db
     .select({
       totalBalance: sql<string>`COALESCE(SUM(CAST(${cashboxes.balance} AS NUMERIC)), 0)`,
-      activeBoxes: sql<number>`COUNT(CASE WHEN ${cashboxes.status} = 'active' THEN 1 END)`,
+      activeBoxes: sql<number>`COUNT(CASE WHEN ${cashboxes.status} = 'activo' THEN 1 END)`,
       totalBoxes: sql<number>`COUNT(*)`,
     })
     .from(cashboxes)
@@ -66,7 +66,7 @@ export async function getDailySummary(): Promise<DailySummary> {
       and(
         gte(transactions.createdAt, startOfDay),
         lte(transactions.createdAt, endOfDay),
-        eq(transactions.status, "completed"),
+        eq(transactions.status, "completado"),
       ),
     );
 
@@ -90,7 +90,7 @@ export async function getMonthlySummary(): Promise<MonthlySummary> {
       and(
         gte(transactions.createdAt, startOfMonth),
         lte(transactions.createdAt, endOfMonth),
-        eq(transactions.status, "completed"),
+        eq(transactions.status, "completado"),
       ),
     );
 

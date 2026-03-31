@@ -59,8 +59,8 @@ const sectorEmployees = await db
 
 const empBySector = new Map<number, typeof sectorEmployees>();
 for (const emp of sectorEmployees) {
-  if (!empBySector.has(emp.sectorId)) empBySector.set(emp.sectorId, []);
-  empBySector.get(emp.sectorId)!.push(emp);
+  if (!empBySector.has(Number(emp.sectorId))) empBySector.set(Number(emp.sectorId), []);
+  empBySector.get(Number(emp.sectorId))!.push(emp);
 }
 
 const allCashboxes = await db
@@ -72,13 +72,13 @@ const allCashboxes = await db
     status: cashboxes.status,
   })
   .from(cashboxes)
-  .where(eq(cashboxes.status, "active"))
+  .where(eq(cashboxes.status, "activo"))
   .orderBy(asc(cashboxes.name));
 
 const [defaultCashbox] = await db
   .select({ id: cashboxes.id })
   .from(cashboxes)
-  .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "active")))
+  .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "activo")))
   .limit(1);
 
 const balance = Number(cashbox.balance ?? 0);

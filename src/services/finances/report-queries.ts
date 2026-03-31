@@ -1,7 +1,7 @@
 // src/services/finances/report-queries.ts
 import { db } from "@/db";
 import { cashboxes, transactions, transactionCategories, invoiceRanges } from "@/db/schema";
-import { sql, isNull, and, lte, gte, eq, desc, count } from "drizzle-orm";
+import { sql, isNull, and, lte, gte, eq, desc } from "drizzle-orm";
 
 // ============================================================================
 // TYPES
@@ -139,11 +139,6 @@ export async function getDailyReport(
 ): Promise<DailyReportSummary> {
     const { startOfDay, endOfDay, dateString } = getBoliviaDateRange(date);
 
-    // Get previous day's closing balance
-    const previousDay = new Date(date);
-    previousDay.setDate(previousDay.getDate() - 1);
-    const { endOfDay: previousEndOfDay } = getBoliviaDateRange(previousDay);
-
     const [previousBalance] = await db
         .select({
             balance: sql<string>`COALESCE(SUM(CAST(${cashboxes.balance} AS NUMERIC)), 0)`,
@@ -165,7 +160,7 @@ export async function getDailyReport(
             and(
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         );
 
@@ -203,7 +198,7 @@ export async function getDailyTransactionsByCategory(date: Date = new Date()) {
             and(
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         )
         .groupBy(
@@ -239,7 +234,7 @@ export async function getDailyTransactionsList(date: Date = new Date()) {
             and(
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         )
         .orderBy(desc(transactions.createdAt));
@@ -281,7 +276,7 @@ export async function getWeeklyReport(
             and(
                 gte(transactions.createdAt, weekStartUTC),
                 lte(transactions.createdAt, weekEndUTC),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         );
 
@@ -299,7 +294,7 @@ export async function getWeeklyReport(
             and(
                 gte(transactions.createdAt, weekStartUTC),
                 lte(transactions.createdAt, weekEndUTC),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         )
         .groupBy(
@@ -355,7 +350,7 @@ export async function getDetailedExpenseReport(
                 eq(transactions.type, "withdraw"),
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         );
 
@@ -379,7 +374,7 @@ export async function getDetailedExpenseReport(
                 eq(transactions.type, "withdraw"),
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         )
         .groupBy(
@@ -410,7 +405,7 @@ export async function getDetailedExpenseReport(
                 eq(transactions.type, "withdraw"),
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         )
         .orderBy(desc(transactions.amount))
@@ -429,7 +424,7 @@ export async function getDetailedExpenseReport(
                 eq(transactions.type, "withdraw"),
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         )
         .groupBy(sql`TO_CHAR(${transactions.createdAt} AT TIME ZONE 'America/La_Paz', 'YYYY-MM-DD')`)
@@ -474,7 +469,7 @@ export async function getIncomeAnalysisReport(
                 eq(transactions.type, "deposit"),
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         );
 
@@ -498,7 +493,7 @@ export async function getIncomeAnalysisReport(
                 eq(transactions.type, "deposit"),
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         )
         .groupBy(
@@ -528,7 +523,7 @@ export async function getIncomeAnalysisReport(
                 eq(transactions.type, "deposit"),
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         )
         .orderBy(desc(transactions.amount))
@@ -547,7 +542,7 @@ export async function getIncomeAnalysisReport(
                 eq(transactions.type, "deposit"),
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         )
         .groupBy(sql`TO_CHAR(${transactions.createdAt} AT TIME ZONE 'America/La_Paz', 'YYYY-WW')`)
@@ -566,7 +561,7 @@ export async function getIncomeAnalysisReport(
                 eq(transactions.type, "deposit"),
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completed")
+                eq(transactions.status, "completado")
             )
         )
         .groupBy(sql`EXTRACT(HOUR FROM ${transactions.createdAt} AT TIME ZONE 'America/La_Paz')`)

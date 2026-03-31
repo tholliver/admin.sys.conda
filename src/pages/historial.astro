@@ -56,9 +56,9 @@ const conditions: any[] = [];
 if (typeFilter === "deposit") conditions.push(eq(transactions.type, "deposit"));
 else if (typeFilter === "withdraw") conditions.push(eq(transactions.type, "withdraw"));
 
-if (statusFilter === "completed") conditions.push(eq(transactions.status, "completed"));
-else if (statusFilter === "cancelled") conditions.push(eq(transactions.status, "cancelled"));
-else if (statusFilter === "pending") conditions.push(eq(transactions.status, "pending"));
+if (statusFilter === "completado") conditions.push(eq(transactions.status, "completado"));
+else if (statusFilter === "cancelled") conditions.push(eq(transactions.status, "cancelado"));
+else if (statusFilter === "pending") conditions.push(eq(transactions.status, "pendiente"));
 
 if (dateFrom) conditions.push(gte(transactions.createdAt, new Date(`${dateFrom}T00:00:00-04:00`)));
 if (dateTo) conditions.push(lte(transactions.createdAt, new Date(`${dateTo}T23:59:59-04:00`)));
@@ -189,7 +189,7 @@ const canVoid = ["ADMIN", "ADMON"].includes(user.role);
                   </select>
                   <select name="status" class="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
                       <option value="all" selected={statusFilter === "all"}>Todos los estados</option>
-                      <option value="completed" selected={statusFilter === "completed"}>Completadas</option>
+                      <option value="completado" selected={statusFilter === "completado"}>Completadas</option>
                       <option value="cancelled" selected={statusFilter === "cancelled"}>Anuladas</option>
                       <option value="pending" selected={statusFilter === "pending"}>Pendientes</option>
                   </select>
@@ -236,7 +236,7 @@ const canVoid = ["ADMIN", "ADMON"].includes(user.role);
                 </tr>
               ) : (
                 visibleTransactions.map((tx) => {
-                  const isCancelled = tx.status === "cancelled";
+                  const isCancelled = tx.status === "cancelado";
                   let voidMeta: { reason?: string } = {};
                   try { voidMeta = JSON.parse(tx.metadata ?? "{}"); } catch {}
 
