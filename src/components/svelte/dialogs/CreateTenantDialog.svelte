@@ -19,6 +19,7 @@
         { value: "TJ", label: "Tarija" },
         { value: "BE", label: "Beni" },
         { value: "PA", label: "Pando" },
+        { value: "QR", label: "QR" },
     ];
 
     let isOpen = $state(false);
@@ -134,7 +135,7 @@
 
     {#snippet children()}
         {#if successMsg}
-            <div class="flex flex-col items-center gap-3 py-8 text-center">
+            <div class="flex flex-col items-center gap-3 py-4 text-center">
                 <CircleCheck class="h-12 w-12 text-emerald-500" />
                 <p class="font-semibold text-slate-900">{successMsg}</p>
                 <p class="text-sm text-slate-500">Cerrando...</p>

@@ -7,14 +7,13 @@ import {
     MAX_PLANTA,
 } from "@/services/rrhh/rrhh.service";
 import { employeeFiltersSchema } from "@/lib/schemas/rrhh.schemas";
-import { Users, UserCheck, Search } from "@lucide/astro";
+import { Users, UserCheck, Search, Funnel, X } from "@lucide/astro";
 import { db } from "@/db";
 import { sectors } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import CreateEmployeeDialog from "@/components/svelte/dialogs/CreateEmployeeDialog.svelte";
 import EditEmployeeDialog from "@/components/svelte/dialogs/EditEmployeeDialog.svelte";
 import DeleteConfirmDialog from "@/components/svelte/dialogs/DeleteConfirmDialog.svelte";
-import CreateCashboxDialog from "@/components/svelte/dialogs/CreateCashboxDialog.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -63,11 +62,6 @@ const STATUS_COLORS: Record<string, string> = {
 <FinanceLayout title="Nómina — Personal" user={user}>
     <div class="flex items-center justify-between">
         <div>
-            <div class="flex items-center gap-2 text-sm text-slate-500 mb-1">
-                <a href="/rrhh" class="hover:text-slate-700">RRHH</a>
-                <span>/</span>
-                <span class="text-slate-900 font-medium">Personal</span>
-            </div>
             <h1 class="text-xl font-bold text-slate-900">
                 Nómina ({result.total})
             </h1>
@@ -75,7 +69,7 @@ const STATUS_COLORS: Record<string, string> = {
         {
             canEdit && (
                 <div class="flex items-center gap-2">
-                    <CreateCashboxDialog client:load />
+                    <!-- <CreateCashboxDialog client:load /> -->
                     <CreateEmployeeDialog
                         sectors={allSectors}
                         directorioCount={counts.directorio}
@@ -220,9 +214,18 @@ const STATUS_COLORS: Record<string, string> = {
             type="submit"
             class="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 transition-colors"
         >
-            <Filter class="h-3.5 w-3.5" />
+            <Funnel class="h-3.5 w-3.5" />
             Filtrar
         </button>
+       { rawFilters && (
+       <a
+          title="Limpiar filtros"
+          href="/rrhh/personal"
+          class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+        >
+          <X class="h-3.5 w-3.5" />
+        </a>
+       )}
     </form>
 
     <!-- Table -->

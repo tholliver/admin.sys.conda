@@ -15,8 +15,6 @@ import DeleteConfirmDialog from "@/components/svelte/dialogs/DeleteConfirmDialog
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
 
-const canEdit = (["ADMIN", "ADMON"] as const).includes(user.role as any);
-
 // Current period
 const now = new Date();
 const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -43,7 +41,6 @@ const currentPayments = await db
         tenantId: tenantPayments.tenantId,
         status: tenantPayments.status,
         amount: tenantPayments.amount,
-        paidAt: tenantPayments.paidAt,
     })
     .from(tenantPayments)
     .where(eq(tenantPayments.period, currentPeriod));
@@ -119,7 +116,7 @@ const monthName = now.toLocaleDateString("es-BO", {
                 Control de alquiler — {monthName}
             </p>
         </div>
-        {canEdit && <CreateTenantDialog client:load />}
+        <CreateTenantDialog client:load />
     </div>
 
     <!-- OVERDUE BANNER — pending payments from past periods -->
@@ -263,7 +260,7 @@ const monthName = now.toLocaleDateString("es-BO", {
                         <th class="py-3 px-4 text-center font-medium">Estado</th
                         >
                         {
-                            canEdit && (
+(
                                 <th class="py-3 px-4 text-right font-medium">
                                     Acciones
                                 </th>
@@ -359,7 +356,6 @@ const monthName = now.toLocaleDateString("es-BO", {
                                                     tenant.status}
                                             </span>
                                         </td>
-                                        {canEdit && (
                                             <td class="py-3.5 px-4 text-right">
                                                 <div class="flex items-center justify-end gap-2">
                                                     {!isPaid &&
@@ -431,7 +427,6 @@ const monthName = now.toLocaleDateString("es-BO", {
                                                     )}
                                                 </div>
                                             </td>
-                                        )}
                                     </tr>
                                 );
                             })

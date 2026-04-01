@@ -1,8 +1,4 @@
 ---
-/**
- * /inquilinos/[id]
- * Detalle de inquilino
- */
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { db } from "@/db";
 import { tenants, tenantPayments } from "@/db/schema";
@@ -42,7 +38,6 @@ const payments = await db
         amount: tenantPayments.amount,
         status: tenantPayments.status,
         dueDate: tenantPayments.dueDate,
-        paidAt: tenantPayments.paidAt,
         receiptNumber: tenantPayments.receiptNumber,
         notes: tenantPayments.notes,
     })
@@ -60,12 +55,12 @@ const pendingCount = payments.filter(
 ).length;
 const lastPaidAt =
     paidPayments
-        .filter((p) => p.paidAt)
+        .filter((p) => p.createdAt)
         .sort(
             (a, b) =>
-                Number(new Date(b.paidAt ?? 0)) -
-                Number(new Date(a.paidAt ?? 0)),
-        )[0]?.paidAt ?? null;
+                Number(new Date(b.createdAt ?? 0)) -
+                Number(new Date(a.createdAt ?? 0)),
+        )[0]?.createdAt ?? null;
 
 const STATUS_LABELS: Record<string, string> = {
     activo: "Activo",
@@ -322,8 +317,8 @@ const PAYMENT_LABELS: Record<string, string> = {
                                             : "-"}
                                     </td>
                                     <td class="py-3.5 px-4 text-center text-slate-500">
-                                        {p.paidAt
-                                            ? formatDate(p.paidAt)
+                                        {p.createdAt
+                                            ? formatDate(p.createdAt)
                                             : "Pendiente"}
                                     </td>
                                     <td class="py-3.5 px-4 text-right text-slate-500">

@@ -25,20 +25,21 @@
         printBack,
     }: Props = $props();
 
-    // Color tokens derived from prop
-    const hdr = color === "blue" ? "bg-blue-700" : "bg-red-700";
-    const sub = color === "blue" ? "text-blue-200" : "text-red-200";
-    const badge =
+    let hdr = $derived(color === "blue" ? "bg-blue-700" : "bg-red-700");
+    let sub = $derived(color === "blue" ? "text-blue-200" : "text-red-200");
+    let badge = $derived(
         color === "blue"
             ? "bg-blue-900/40 text-blue-200"
-            : "bg-red-900/40 text-red-200";
-    const val = color === "blue" ? "text-blue-700" : "text-red-700";
-    const pBtn =
+            : "bg-red-900/40 text-red-200"
+    );
+    let val = $derived(color === "blue" ? "text-blue-700" : "text-red-700");
+    let pBtn = $derived(
         color === "blue"
             ? "border-blue-200 text-blue-700 hover:bg-blue-50"
-            : "border-red-200 text-red-700 hover:bg-red-50";
+            : "border-red-200 text-red-700 hover:bg-red-50"
+    );
 
-    const label = color === "blue" ? "Ingreso registrado" : "Egreso registrado";
+    let label = $derived(color === "blue" ? "Ingreso registrado" : "Egreso registrado");
 
     function openPrint() {
         window.open(

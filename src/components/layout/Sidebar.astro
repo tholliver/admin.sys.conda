@@ -1,6 +1,7 @@
 ---
 import { Landmark, ChevronDown } from "@lucide/astro";
 import { navGroups, type NavGroup } from "@/config/nav";
+import UserNav from "@/components/UserNav.astro";
 
 const { currentPath } = Astro.props;
 
@@ -24,7 +25,7 @@ const isActiveGroup = (group: NavGroup) => {
 <aside
     id="app-sidebar"
     data-collapsed="false"
-    class="sidebar-shell"
+    class="sidebar sidebar-shell"
     aria-label="Barra de navegación"
 >
     <!-- Header -->
@@ -114,6 +115,10 @@ const isActiveGroup = (group: NavGroup) => {
             })
         }
     </nav>
+
+    <footer class="sidebar-footer">
+        <UserNav />
+    </footer>
 </aside>
 
 <style>
@@ -214,6 +219,12 @@ const isActiveGroup = (group: NavGroup) => {
         overflow-x: hidden;
         scrollbar-width: thin;
         scrollbar-color: var(--border) transparent;
+    }
+
+    .sidebar-footer {
+        margin-top: auto;
+        padding: 0.5rem;
+        border-top: 1px solid var(--border);
     }
 
     .nav-group {

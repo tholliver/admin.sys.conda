@@ -64,7 +64,7 @@
         "bg-background data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 " +
         "data-closed:zoom-out-95 data-open:zoom-in-95 ring-foreground/10 flex flex-col max-w-[calc(100%-2rem)] " +
         "gap-4 rounded-xl p-4 text-sm ring-1 duration-100 fixed top-1/2 left-1/2 z-[95] w-full " +
-        "-translate-x-1/2 -translate-y-1/2 outline-none max-h-[calc(100vh-3rem)] overflow-hidden";
+        "-translate-x-1/2 -translate-y-1/2 outline-none max-h-[calc(100vh-3rem)]";
     // Bleeds to panel edges (panel is p-4), bg + border-t like shadcn
     const FOOTER_CLS =
         "bg-muted/50 -mx-4 -mb-4 mt-2 rounded-b-xl border-t p-4 " +
@@ -229,7 +229,7 @@
             {/if}
 
             <!-- Body -->
-            <div data-slot="dialog-body" class="min-h-0 flex-1 overflow-y-auto">
+            <div data-slot="dialog-body" class="min-h-0 flex-1 overflow-y-auto -mx-1 px-1">
                 <div class="">
                     {#if children}
                         {@render children()}

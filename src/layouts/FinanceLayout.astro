@@ -25,7 +25,7 @@ const currentPath = Astro.url.pathname;
         <div class="layout-shell">
             <Sidebar currentPath={currentPath} />
             <div class="main-shell">
-                <Topbar title={title} user={user} />
+                <Topbar title={title} />
                 <BackupFreshnessNotice userRole={user.role} />
                 <main class="main-content">
                     <slot />

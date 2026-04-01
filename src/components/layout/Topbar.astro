@@ -1,8 +1,7 @@
 ---
 import { PanelLeft } from "@lucide/astro";
-import UserNav from "@/components/UserNav.astro";
 
-const { title, user } = Astro.props;
+const { title } = Astro.props;
 ---
 
 <header class="topbar">
@@ -22,11 +21,6 @@ const { title, user } = Astro.props;
             <span class="topbar-breadcrumb-root">Panel</span>
             <span class="topbar-breadcrumb-sep" aria-hidden="true">/</span>
             <span class="topbar-breadcrumb-current">{title}</span>
-        </div>
-
-        <!-- User nav -->
-        <div class="topbar-actions">
-            <UserNav user={user} />
         </div>
     </div>
 </header>
@@ -101,10 +95,7 @@ const { title, user } = Astro.props;
         color: var(--foreground);
     }
 
-    .topbar-actions {
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+    .topbar-breadcrumb {
+        margin-right: auto;
     }
 </style>

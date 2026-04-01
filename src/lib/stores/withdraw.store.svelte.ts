@@ -1,11 +1,5 @@
 import { actions, isInputError } from "astro:actions";
-import type { SelectTransactionCategories } from "@/db/schema";
-
-export interface Cashbox {
-    id: string;
-    name: string;
-    code: string;
-}
+import type { SelectCashbox, SelectTransactionCategories } from "@/db/schema";
 
 export interface WithdrawResponse {
     success: boolean;
@@ -22,7 +16,7 @@ export interface WithdrawResponse {
 }
 
 export function createWithdrawStore(
-    cashboxes: Cashbox[],
+    cashboxes: SelectCashbox[],
     concepts: SelectTransactionCategories[],
 ) {
     // ── State ────────────────────────────────────────────────────────────────
