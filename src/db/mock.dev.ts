@@ -1,11 +1,37 @@
 /**
- * mock.dev.ts — DEV-ONLY extended seed
+ * mock.audit-scenarios.ts
+ *
+ * Seeds concrete, named scenarios so the audit page (/auditoria)
+ * and topbar alert show realistic, readable data during development.
+ *
+ * Run AFTER base mock (which seeds cashboxes, sectors, categories):
+ *   bun run db:mock           ← base seed
+ *   bun run db:mock:audit     ← this file
+ *
+ * Add to package.json scripts:
+ *   "db:mock:audit": "bun src/db/mock.audit-scenarios.ts"
+ *
+ * Scenarios seeded:
+ *
+ * EMPLOYEES
+ *   A. Fully paid employee          — 6 months, all pagado        → no gap
+ *   B. Missing last 2 months        — rows never created           → 2 "Sin registro" (red)
+ *   C. Generated but unpaid         — rows exist, status pendiente → 1 "Pendiente" (amber)
+ *   D. Mixed: old gap + recent paid — 1 missing old, rest paid     → 1 "Sin registro"
+ *   E. New hire (2 months ago)      — only 1 paid, current missing → 1 gap
+ *
+ * TENANTS
+ *   F. Perfect tenant               — 6 months all paid            → no gap
+ *   G. Deadbeat (moroso)            — 3 months missing entirely    → 3 "Sin registro" (red)
+ *   H. Registered but uncollected   — row exists pending           → 1 "Pendiente" (amber)
+ *   I. Inactive tenant              — excluded from audit          → no gap
  */
 
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { sql, eq } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
+// ─── Colours ──────────────────────────────────────────────────────────────────
 const c = {
   reset: "\x1b[0m", cyan: "\x1b[36m", blue: "\x1b[34m",
   green: "\x1b[32m", red: "\x1b[31m", yellow: "\x1b[33m", bold: "\x1b[1m",
@@ -14,539 +40,447 @@ const log = {
   info:    (m: string) => console.log(`${c.blue}  ${m}${c.reset}`),
   ok:      (m: string) => console.log(`${c.green}✔ ${m}${c.reset}`),
   warn:    (m: string) => console.warn(`${c.yellow}⚠ ${m}${c.reset}`),
-  error:   (m: string) => console.error(`${c.red}✖ ${m}${c.reset}`),
   section: (m: string) => console.log(`\n${c.cyan}${c.bold}━━ ${m} ━━${c.reset}`),
 };
 
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]!;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function periodOf(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, "0")}`;
 }
-function daysAgo(days: number): Date {
-  const d = new Date(); d.setDate(d.getDate() - days); return d;
-}
-function toPeriod(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+
+/** Returns last N months as "YYYY-MM", oldest first, NOT including current month */
 function lastNMonths(n: number): string[] {
-  const months: string[] = [];
-  const d = new Date();
-  for (let i = n - 1; i >= 0; i--) {
-    months.push(toPeriod(new Date(d.getFullYear(), d.getMonth() - i, 1)));
+  const now = new Date();
+  const periods: string[] = [];
+  for (let i = n; i >= 1; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    periods.push(periodOf(d.getFullYear(), d.getMonth() + 1));
   }
-  return months;
+  return periods;
 }
-function periodToDate(period: string): Date {
+
+function currentPeriod(): string {
+  const now = new Date();
+  return periodOf(now.getFullYear(), now.getMonth() + 1);
+}
+
+function dueDate(period: string, day = 5): Date {
   const [y, m] = period.split("-").map(Number);
-  return new Date(y!, m! - 1, 1);
+  return new Date(y!, m! - 1, day);
 }
-function randomPhone() {
-  const prefixes = ["70","71","72","73","74","75","76","77","78"];
-  return `${pick(prefixes)}${Math.floor(1000000 + Math.random() * 9000000)}`;
-}
-function randomCI() {
-  return `${Math.floor(1000000 + Math.random() * 8000000)}`;
-}
-function randomAmount(min: number, max: number, step = 50): number {
-  return min + Math.floor(Math.random() * Math.floor((max - min) / step)) * step;
-}
+
 function toDecimal(n: number): string {
   return n.toFixed(2);
 }
 
-const BOLIVIAN_NAMES = [
-  "Carlos Mamani","Rosa Quispe","Juan Flores","María Condori","Pedro Vargas",
-  "Ana Gutierrez","Luis Apaza","Elena Choque","Roberto Limachi","Carla Ticona",
-  "Fidel Machaca","Sandra Huanca","Gonzalo Marca","Patricia Mamani","Víctor Colque",
-  "Nora Quispe","Ernesto Tarqui","Silvia Poma","Marcelo Calle","Lucía Zenteno",
-  "Fernando Rojas","Beatriz Salinas","Oscar Pedraza","Claudia Vega","Ramiro Morales",
-  "Estela Paredes","Hugo Balboa","Miriam Escobar","Eduardo Roca","Graciela Soliz",
-  "Alvaro Montes","Daniela Quiroga","Renato Serrano","Verónica Bravo","Sergio Antelo",
-  "Lorena Valdivia","Ignacio Rivero","Carmen Durán","Rodrigo Paz","Natalia Villca",
-];
-const SPECIALTIES = [
-  "Electricista","Plomero","Albanil","Carpintero","Pintor","Soldador",
-  "Mecánico","Gasfitero","Técnico en HVAC","Cerrajero","Jardinero","Limpieza industrial",
-];
-const ROOM_FLOORS: Array<{ room: string; floor: string }> = [
-  { room: "101", floor: "1" },{ room: "102", floor: "1" },
-  { room: "103", floor: "1" },{ room: "104", floor: "1" },
-  { room: "201", floor: "2" },{ room: "202", floor: "2" },
-  { room: "203", floor: "2" },{ room: "204", floor: "2" },
-  { room: "301", floor: "3" },{ room: "302", floor: "3" },
-  { room: "303", floor: "3" },{ room: "304", floor: "3" },
-  { room: "LOC-A", floor: "PB" },{ room: "LOC-B", floor: "PB" },
-  { room: "LOC-C", floor: "PB" },{ room: "DEP-1", floor: "SS" },
-];
-const CHARGE_TITLES = [
-  "Secretario General","Secretario de Hacienda","Secretario de Actas","Vocal","Fiscal",
-  "Asesor Legal","Contador","Aux. Contabilidad","Encargado de Caja","Portero",
-  "Limpieza","Chofer","Vigilante",
-];
-const CITIES = ["SC","CB","LP","OR","PT","TJ","BE","PD","CH"];
+// ─── Get required foreign keys ────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SYSTEM CATEGORY — get or create
-// ─────────────────────────────────────────────────────────────────────────────
+async function getFirstCashboxId(): Promise<string> {
+  const [row] = await db
+    .select({ id: schema.cashboxes.id })
+    .from(schema.cashboxes)
+    .where(eq(schema.cashboxes.status, "activo"))
+    .limit(1);
+  if (!row) throw new Error("No active cashbox found. Run base mock first.");
+  return row.id;
+}
 
-async function getOrCreateSystemCategory(
-  code: string,
-  name: string,
-  type: "income" | "outcome",
-): Promise<string> {
-  const [existing] = await db
+async function getFirstSectorId(): Promise<number> {
+  const [row] = await db
+    .select({ id: schema.sectors.id })
+    .from(schema.sectors)
+    .where(eq(schema.sectors.isActive, true))
+    .limit(1);
+  if (!row) throw new Error("No active sector found. Run base mock first.");
+  return row.id;
+}
+
+async function getSalaryCategoryId(): Promise<string> {
+  const [row] = await db
     .select({ id: schema.transactionCategories.id })
     .from(schema.transactionCategories)
-    .where(eq(schema.transactionCategories.code, code))
-    .limit(1);
-  if (existing) return existing.id;
-
+    .where(eq(schema.transactionCategories.code, "SALARIO"));
+  if (row) return row.id;
+  // Create if base mock didn't include it
   const [created] = await db
     .insert(schema.transactionCategories)
-    .values({ code, name, type, sortOrder: 0, isSystem: true, status: true, createdByUserId: "system" })
+    .values({ code: "SALARIO", name: "Pago de salarios", type: "outcome", sortOrder: 0, isSystem: true, status: true, createdByUserId: "system" })
     .returning({ id: schema.transactionCategories.id });
   return created!.id;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONTRACTORS
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function seedDevContractors(): Promise<number[]> {
-  log.section("DEV — CONTRACTORS");
-  try {
-    const existing = await db.select({ id: schema.contractors.id }).from(schema.contractors);
-    if (existing.length > 0) {
-      log.warn(`Contractors already exist (${existing.length}), skipping`);
-      return existing.map((r) => r.id);
-    }
-    const pool: schema.InsertContractor[] = BOLIVIAN_NAMES.slice(0, 20).map((fullName, i) => ({
-      fullName,
-      ci: randomCI(),
-      ruc: i % 3 === 0 ? `${randomCI()}-1` : undefined,
-      phone: randomPhone(),
-      email: i % 2 === 0 ? `${fullName.split(" ")[0]!.toLowerCase()}.${i}@gmail.com` : undefined,
-      address: `Barrio ${pick(["La Paz","Centro","Norte","Sur","El Prado"])}, Calle ${Math.floor(Math.random() * 30) + 1}`,
-      specialty: pick(SPECIALTIES),
-      status: i < 16 ? "activo" : "inactivo",
-      notes: i % 4 === 0 ? "Proveedor frecuente, buen historial." : undefined,
-      createdByUserId: "system",
-    }));
-    const inserted = await db.insert(schema.contractors).values(pool).returning({ id: schema.contractors.id });
-    log.ok(`${inserted.length} contractors inserted`);
-    return inserted.map((r) => r.id);
-  } catch (err) {
-    log.error(`Contractors seed failed: ${err}`);
-    return [];
-  }
+async function getRentCategoryId(): Promise<string> {
+  const [row] = await db
+    .select({ id: schema.transactionCategories.id })
+    .from(schema.transactionCategories)
+    .where(eq(schema.transactionCategories.code, "INC-005"));
+  if (row) return row.id;
+  const [created] = await db
+    .insert(schema.transactionCategories)
+    .values({ code: "INC-005", name: "Ingreso por Alquileres", type: "income", sortOrder: 6, isSystem: true, status: true, createdByUserId: "system" })
+    .returning({ id: schema.transactionCategories.id });
+  return created!.id;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONTRACTOR PAYMENTS
-// Each payment requires a finance.transaction row first — then contractorPayments links to it.
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Create a paid fee (with transaction) ────────────────────────────────────
 
-export async function seedDevContractorPayments(
-  contractorIds: number[],
-  cashboxIds: string[],
-): Promise<void> {
-  log.section("DEV — CONTRACTOR PAYMENTS");
-  if (contractorIds.length === 0 || cashboxIds.length === 0) {
-    log.warn("No contractors or cashboxes — skipping");
-    return;
-  }
-  const existing = await db.select({ id: schema.contractorPayments.id }).from(schema.contractorPayments);
-  if (existing.length > 0) {
-    log.warn(`Contractor payments already exist (${existing.length}), skipping`);
-    return;
-  }
-
-  const categoryId = await getOrCreateSystemCategory("CONTRATISTA", "Pago a contratistas", "outcome");
-
-  const concepts = [
-    "Reparación eléctrica sala de reuniones","Mantenimiento de plomería baños",
-    "Pintura fachada principal","Instalación de cerraduras","Limpieza industrial mensual",
-    "Reparación de estructura metálica","Mantenimiento de jardines",
-    "Servicio de soldadura puerta principal","Revisión sistema HVAC","Arreglo de piso cerámica",
-  ];
-
-  // Fetch cashbox balances so we can compute balanceAfter
-  const cashboxRows = await db
-    .select({ id: schema.cashboxes.id, balance: schema.cashboxes.balance })
-    .from(schema.cashboxes);
-  const balanceMap = new Map(cashboxRows.map((r) => [r.id, parseFloat(r.balance ?? "0")]));
-
-  for (const contractorId of contractorIds) {
-    const nPayments = Math.floor(Math.random() * 4) + 1;
-    for (let i = 0; i < nPayments; i++) {
-      const amount = randomAmount(500, 8000, 100);
-      const cashboxId = pick(cashboxIds);
-      const concept = pick(concepts);
-      const createdAt = daysAgo(Math.floor(Math.random() * 365));
-
-      const currentBalance = balanceMap.get(cashboxId) ?? 0;
-      const newBalance = Math.max(0, currentBalance - amount);
-      balanceMap.set(cashboxId, newBalance);
-
-      await db.transaction(async (tx) => {
-        const [financeTx] = await tx
-          .insert(schema.transactions)
-          .values({
-            type: "withdraw",
-            amount: toDecimal(amount),
-            categoryId,
-            concept: `Pago contratista — ${concept}`,
-            cashboxId,
-            createdByUserId: "system",
-            status: "completado",
-            balanceAfter: toDecimal(newBalance),
-            linkedEntityType: "contractor_payment",
-            createdAt,
-          })
-          .returning({ id: schema.transactions.id });
-
-        await tx.insert(schema.contractorPayments).values({
-          contractorId,
-          transactionId: financeTx!.id,
-          concept,
-          receiptNumber: `REC-${String(Math.floor(Math.random() * 9000) + 1000)}`,
-          notes: Math.random() > 0.6 ? "Pago aprobado por directorio." : undefined,
-          processedByUserId: "system",
-        });
-      });
-    }
-  }
-  log.ok(`Contractor payments inserted`);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TENANTS
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function seedDevTenants(): Promise<number[]> {
-  log.section("DEV — TENANTS");
-  try {
-    const existing = await db.select({ id: schema.tenants.id }).from(schema.tenants);
-    if (existing.length > 0) {
-      log.warn(`Tenants already exist (${existing.length}), skipping`);
-      return existing.map((r) => r.id);
-    }
-    const pool: schema.InsertTenant[] = ROOM_FLOORS.map((rf, i) => {
-      const name = BOLIVIAN_NAMES[20 + i] ?? BOLIVIAN_NAMES[i]!;
-      const status: schema.TenantStatus = i < 2 ? "moroso" : i < 4 ? "inactivo" : "activo";
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - (Math.floor(Math.random() * 24) + 6));
-      return {
-        fullName: name,
-        ci: randomCI(),
-        phone: randomPhone(),
-        email: i % 3 === 0 ? `inquilino${i}@correo.bo` : undefined,
-        roomNumber: rf.room,
-        floor: rf.floor,
-        description: `Ambiente ${rf.room} piso ${rf.floor}`,
-        monthlyRent: randomAmount(800, 3500, 100),
-        startDate,
-        endDate: status === "inactivo" ? daysAgo(30) : undefined,
-        status,
-        notes: status === "moroso" ? "Presenta deuda acumulada. Notificado." : undefined,
+async function createPaidFee(
+  employeeId: number,
+  period: string,
+  amount: number,
+  cashboxId: string,
+  salaryCatId: string,
+) {
+  await db.transaction(async (tx) => {
+    const [financeTx] = await tx
+      .insert(schema.transactions)
+      .values({
+        type: "withdraw",
+        amount: toDecimal(amount),
+        categoryId: salaryCatId,
+        concept: `Salario ${period} — escenario auditoría`,
+        cashboxId,
         createdByUserId: "system",
-      };
+        status: "completado",
+        linkedEntityType: "employee_fee",
+      })
+      .returning({ id: schema.transactions.id });
+
+    await tx.insert(schema.employeeFees).values({
+      employeeId,
+      period,
+      amount,
+      status: "pagado",
+      dueDate: dueDate(period, 28),
+      paymentMethod: "efectivo",
+      transactionId: financeTx!.id,
     });
-    const inserted = await db.insert(schema.tenants).values(pool).returning({ id: schema.tenants.id });
-    log.ok(`${inserted.length} tenants inserted`);
-    return inserted.map((r) => r.id);
-  } catch (err) {
-    log.error(`Tenants seed failed: ${err}`);
-    return [];
-  }
+  });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TENANT PAYMENTS
-// Paid rows get a transaction first; pending/anulado rows have no transaction.
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Create a paid rent (with transaction) ───────────────────────────────────
 
-export async function seedDevTenantPayments(
-  tenantIds: number[],
-  cashboxIds: string[],
-): Promise<void> {
-  log.section("DEV — TENANT PAYMENTS");
-  if (tenantIds.length === 0 || cashboxIds.length === 0) {
-    log.warn("No tenants or cashboxes — skipping");
-    return;
-  }
-  const existing = await db.select({ id: schema.tenantPayments.id }).from(schema.tenantPayments);
-  if (existing.length > 0) {
-    log.warn(`Tenant payments already exist (${existing.length}), skipping`);
-    return;
-  }
-
-  const categoryId = await getOrCreateSystemCategory("ALQUILER", "Cobro de alquiler", "income");
-
-  const tenantRows = await db
-    .select({ id: schema.tenants.id, monthlyRent: schema.tenants.monthlyRent, status: schema.tenants.status })
-    .from(schema.tenants);
-
-  const periods = lastNMonths(14);
-
-  // Pending/anulado rows — batch insert (no transaction needed)
-  const pendingRows: schema.InsertTenantPayment[] = [];
-
-  for (const tenant of tenantRows) {
-    for (let pi = 0; pi < periods.length; pi++) {
-      const period = periods[pi]!;
-      const dueDate = periodToDate(period);
-      dueDate.setDate(5);
-      const amount = Number(tenant.monthlyRent);
-
-      let status: schema.RentPaymentStatus;
-      if (tenant.status === "inactivo") {
-        status = "anulado";
-      } else if (tenant.status === "moroso" && pi >= periods.length - 2) {
-        status = "pendiente";
-      } else if (tenant.status === "activo" && pi === periods.length - 1) {
-        status = Math.random() > 0.5 ? "pendiente" : "pagado";
-      } else {
-        status = Math.random() > 0.05 ? "pagado" : "parcial";
-      }
-
-      if (status === "pendiente" || status === "anulado") {
-        pendingRows.push({
-          tenantId: tenant.id,
-          period,
-          amount,
-          status,
-          dueDate,
-        });
-      } else {
-        // Paid/parcial — need a transaction row
-        const cashboxId = pick(cashboxIds);
-        const createdAt = new Date(dueDate.getTime() + Math.random() * 10 * 86400000);
-
-        await db.transaction(async (tx) => {
-          const [financeTx] = await tx
-            .insert(schema.transactions)
-            .values({
-              type: "deposit",
-              amount: toDecimal(amount),
-              categoryId,
-              concept: `Alquiler ${period} — Amb. ${tenant.id}`,
-              cashboxId,
-              createdByUserId: "system",
-              status: "completado",
-              linkedEntityType: "tenant_payment",
-              createdAt,
-            })
-            .returning({ id: schema.transactions.id });
-
-          await tx.insert(schema.tenantPayments).values({
-            tenantId: tenant.id,
-            period,
-            amount,
-            status,
-            dueDate,
-            receiptNumber: status === "pagado"
-              ? `ALQ-${String(Math.floor(Math.random() * 9000) + 1000)}`
-              : undefined,
-            notes: status === "parcial" ? "Pago parcial acordado con directorio." : undefined,
-            transactionId: financeTx!.id,
-          });
-        });
-      }
-    }
-  }
-
-  // Batch insert pending/anulado rows
-  if (pendingRows.length > 0) {
-    const CHUNK = 200;
-    for (let i = 0; i < pendingRows.length; i += CHUNK) {
-      await db.insert(schema.tenantPayments).values(pendingRows.slice(i, i + CHUNK));
-    }
-  }
-
-  log.ok(`Tenant payment records inserted`);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// EMPLOYEES
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function seedDevEmployees(): Promise<number[]> {
-  log.section("DEV — EMPLOYEES");
-  try {
-    const existing = await db.select({ id: schema.employees.id }).from(schema.employees);
-    if (existing.length > 0) {
-      log.warn(`Employees already exist (${existing.length}), skipping`);
-      return existing.map((r) => r.id);
-    }
-    const allSectors = await db
-      .select({ id: schema.sectors.id })
-      .from(schema.sectors)
-      .where(eq(schema.sectors.isActive, true));
-    if (allSectors.length === 0) {
-      log.warn("No active sectors — skipping employees");
-      return [];
-    }
-    const pool: schema.InsertEmployee[] = BOLIVIAN_NAMES.slice(0, 25).map((fullName, i) => {
-      const hiresAgo = Math.floor(Math.random() * 1800) + 90;
-      let status: schema.EmployeeStatus = "activo";
-      if (i === 22) status = "suspendido";
-      if (i === 23) status = "licencia";
-      if (i === 24) status = "baja";
-      const type: schema.EmployeeType = i < 5 ? "directorio" : "planta";
-      return {
-        ci: randomCI(),
-        ciCity: pick(CITIES),
-        fullName,
-        phone: randomPhone(),
-        address: `Av. ${pick(["Blanco Galindo","Uyuni","Aniceto Arce","6 de Agosto"])} Km ${Math.floor(Math.random() * 15) + 1}`,
-        employeeType: type,
-        chargeTitle: pick(CHARGE_TITLES),
-        sectorId: pick(allSectors).id,
-        hireDate: daysAgo(hiresAgo),
-        terminationDate: status === "baja" ? daysAgo(15) : undefined,
-        baseSalary: type === "directorio" ? randomAmount(3000, 8000, 500) : randomAmount(1500, 4000, 250),
-        status,
-        notes: status === "suspendido" ? "Suspendido por resolución interna #2025-14." : undefined,
+async function createPaidRent(
+  tenantId: number,
+  period: string,
+  amount: number,
+  cashboxId: string,
+  rentCatId: string,
+) {
+  await db.transaction(async (tx) => {
+    const [financeTx] = await tx
+      .insert(schema.transactions)
+      .values({
+        type: "deposit",
+        amount: toDecimal(amount),
+        categoryId: rentCatId,
+        concept: `Alquiler ${period} — escenario auditoría`,
+        cashboxId,
         createdByUserId: "system",
-      };
+        status: "completado",
+        linkedEntityType: "tenant_payment",
+      })
+      .returning({ id: schema.transactions.id });
+
+    await tx.insert(schema.tenantPayments).values({
+      tenantId,
+      period,
+      amount,
+      status: "pagado",
+      dueDate: dueDate(period),
+      receiptNumber: `ALQ-DEMO-${period.replace("-", "")}`,
+      transactionId: financeTx!.id,
     });
-    const inserted = await db.insert(schema.employees).values(pool).returning({ id: schema.employees.id });
-    await db.execute(sql`SELECT setval('employees_id_seq', COALESCE((SELECT MAX(id)+1 FROM employees), 1), false)`);
-    log.ok(`${inserted.length} employees inserted`);
-    return inserted.map((r) => r.id);
-  } catch (err) {
-    log.error(`Employees seed failed: ${err}`);
-    return [];
-  }
+  });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// EMPLOYEE FEES
-// Paid fees get a transaction row; transactionId is set on the fee directly.
-// seedDevEmployeePayments is REMOVED — bridge table no longer exists.
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── GUARD: skip if already seeded ───────────────────────────────────────────
 
-export async function seedDevEmployeeFees(cashboxIds: string[]): Promise<void> {
-  log.section("DEV — EMPLOYEE FEES");
-  if (cashboxIds.length === 0) {
-    log.warn("No cashboxes — skipping employee fees");
-    return;
-  }
-  const existing = await db.select({ id: schema.employeeFees.id }).from(schema.employeeFees);
-  if (existing.length > 0) {
-    log.warn(`Employee fees already exist (${existing.length}), skipping`);
-    return;
-  }
-
-  const categoryId = await getOrCreateSystemCategory("SALARIO", "Pago de salarios", "outcome");
-
-  const activeEmployees = await db
-    .select({ id: schema.employees.id, baseSalary: schema.employees.baseSalary })
+async function alreadySeeded(): Promise<boolean> {
+  const rows = await db
+    .select({ id: schema.employees.id })
     .from(schema.employees)
-    .where(eq(schema.employees.status, "activo"));
-
-  const periods = lastNMonths(12);
-  const pendingFees: schema.InsertEmployeeFee[] = [];
-
-  for (const emp of activeEmployees) {
-    for (let pi = 0; pi < periods.length; pi++) {
-      const period = periods[pi]!;
-      const dueDate = periodToDate(period);
-      dueDate.setDate(28);
-      const amount = Number(emp.baseSalary);
-
-      let status: schema.FeePaymentStatus;
-      if (pi === periods.length - 1) {
-        status = "pendiente";
-      } else if (pi === periods.length - 2 && Math.random() > 0.7) {
-        status = "parcial";
-      } else {
-        status = "pagado";
-      }
-
-      if (status === "pendiente" || status === "parcial") {
-        pendingFees.push({
-          employeeId: emp.id,
-          period,
-          amount,
-          status,
-          dueDate,
-          paymentMethod: "efectivo",
-        });
-      } else {
-        // Paid — create transaction first, then fee with transactionId
-        const cashboxId = pick(cashboxIds);
-        const createdAt = new Date(dueDate.getTime() + Math.random() * 5 * 86400000);
-
-        await db.transaction(async (tx) => {
-          const [financeTx] = await tx
-            .insert(schema.transactions)
-            .values({
-              type: "withdraw",
-              amount: toDecimal(amount),
-              categoryId,
-              concept: `Salario ${period} — Empleado #${emp.id}`,
-              cashboxId,
-              createdByUserId: "system",
-              status: "completado",
-              linkedEntityType: "employee_fee",
-              createdAt,
-            })
-            .returning({ id: schema.transactions.id });
-
-          await tx.insert(schema.employeeFees).values({
-            employeeId: emp.id,
-            period,
-            amount,
-            status,
-            dueDate,
-            paymentMethod: pick(["efectivo", "transferencia", "cheque"] as schema.SalaryPaymentMethod[]),
-            transactionId: financeTx!.id,
-          });
-        });
-      }
-    }
-  }
-
-  // Batch insert pending/parcial fees
-  if (pendingFees.length > 0) {
-    const CHUNK = 200;
-    for (let i = 0; i < pendingFees.length; i += CHUNK) {
-      await db.insert(schema.employeeFees).values(pendingFees.slice(i, i + CHUNK));
-    }
-  }
-
-  await db.execute(sql`SELECT setval('employee_fees_id_seq', COALESCE((SELECT MAX(id)+1 FROM employee_fees), 1), false)`);
-  log.ok(`Employee fee records inserted`);
+    .where(eq(schema.employees.createdByUserId, "audit-scenario-seed"))
+    .limit(1);
+  return rows.length > 0;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ORCHESTRATOR
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log(`\n${c.cyan}${c.bold}╔══════════════════════════════╗`);
-  console.log(`║   DEV MOCK — extended seed   ║`);
-  console.log(`╚══════════════════════════════╝${c.reset}\n`);
+  console.log(`\n${c.cyan}${c.bold}╔════════════════════════════════════════╗`);
+  console.log(`║   AUDIT SCENARIO SEED                  ║`);
+  console.log(`╚════════════════════════════════════════╝${c.reset}\n`);
 
-  const cashboxRows = await db.select({ id: schema.cashboxes.id }).from(schema.cashboxes);
-  const cashboxIds = cashboxRows.map((r) => r.id);
-  if (cashboxIds.length === 0) {
-    log.error("No cashboxes found. Run `bun run db:mock` first.");
-    process.exit(1);
+  if (await alreadySeeded()) {
+    log.warn("Audit scenarios already seeded. Delete employees with createdByUserId='audit-scenario-seed' to re-run.");
+    process.exit(0);
   }
 
-  const contractorIds = await seedDevContractors();
-  await seedDevContractorPayments(contractorIds, cashboxIds);
+  const cashboxId   = await getFirstCashboxId();
+  const sectorId    = await getFirstSectorId();
+  const salaryCatId = await getSalaryCategoryId();
+  const rentCatId   = await getRentCategoryId();
 
-  const tenantIds = await seedDevTenants();
-  await seedDevTenantPayments(tenantIds, cashboxIds);
+  const past6  = lastNMonths(6);   // 6 months ago → 1 month ago
+  const past3  = lastNMonths(3);
+  const past2  = lastNMonths(2);
+  const past1  = lastNMonths(1);
+  const now    = currentPeriod();
 
-  await seedDevEmployees();
-  await seedDevEmployeeFees(cashboxIds);
-  // seedDevEmployeePayments — REMOVED, bridge table deleted from schema
+  // ══════════════════════════════════════════════════════════════════════════
+  // EMPLOYEE SCENARIOS
+  // ══════════════════════════════════════════════════════════════════════════
 
-  console.log(`\n${c.green}${c.bold}✔ DEV mock complete.${c.reset}\n`);
+  log.section("EMPLOYEE SCENARIOS");
+
+  // ── A. Fully paid — no gaps ───────────────────────────────────────────────
+  {
+    log.info("A: Carlos Condori — fully paid (no gaps expected)");
+    const [emp] = await db.insert(schema.employees).values({
+      ci: "10000001", fullName: "Carlos Condori Mamani",
+      chargeTitle: "Secretario General", employeeType: "directorio",
+      sectorId, hireDate: new Date(new Date().setMonth(new Date().getMonth() - 7)),
+      baseSalary: 5000, status: "activo", createdByUserId: "audit-scenario-seed",
+    }).returning({ id: schema.employees.id });
+
+    for (const period of [...past6, now]) {
+      await createPaidFee(emp!.id, period, 5000, cashboxId, salaryCatId);
+    }
+    log.ok("A done — 0 gaps");
+  }
+
+  // ── B. Missing last 2 months (rows never created) ────────────────────────
+  {
+    log.info("B: Rosa Quispe Flores — missing last 2 months (rows never created)");
+    const [emp] = await db.insert(schema.employees).values({
+      ci: "10000002", fullName: "Rosa Quispe Flores",
+      chargeTitle: "Secretaria de Actas", employeeType: "planta",
+      sectorId, hireDate: new Date(new Date().setMonth(new Date().getMonth() - 7)),
+      baseSalary: 2800, status: "activo", createdByUserId: "audit-scenario-seed",
+    }).returning({ id: schema.employees.id });
+
+    // Pay everything EXCEPT last 2 months and current
+    const paid = past6.slice(0, 4); // oldest 4 of last 6
+    for (const period of paid) {
+      await createPaidFee(emp!.id, period, 2800, cashboxId, salaryCatId);
+    }
+    // past6[4], past6[5], and now → NO ROWS CREATED → "Sin registro"
+    log.ok("B done — 3 gaps expected (2 past + current)");
+  }
+
+  // ── C. Row generated but unpaid (pendiente) ───────────────────────────────
+  {
+    log.info("C: Juan Apaza Lima — current month generated but not paid");
+    const [emp] = await db.insert(schema.employees).values({
+      ci: "10000003", fullName: "Juan Apaza Lima",
+      chargeTitle: "Encargado de Caja", employeeType: "planta",
+      sectorId, hireDate: new Date(new Date().setMonth(new Date().getMonth() - 7)),
+      baseSalary: 3200, status: "activo", createdByUserId: "audit-scenario-seed",
+    }).returning({ id: schema.employees.id });
+
+    for (const period of past6) {
+      await createPaidFee(emp!.id, period, 3200, cashboxId, salaryCatId);
+    }
+    // Current month: row exists but pending → "Pendiente" amber
+    await db.insert(schema.employeeFees).values({
+      employeeId: emp!.id, period: now, amount: 3200,
+      status: "pendiente", dueDate: dueDate(now, 28), paymentMethod: "efectivo",
+    });
+    log.ok("C done — 1 pending gap (amber)");
+  }
+
+  // ── D. One old missing month, rest paid ───────────────────────────────────
+  {
+    log.info("D: María Choque Vela — skipped payment 3 months ago");
+    const [emp] = await db.insert(schema.employees).values({
+      ci: "10000004", fullName: "María Choque Vela",
+      chargeTitle: "Aux. Contabilidad", employeeType: "planta",
+      sectorId, hireDate: new Date(new Date().setMonth(new Date().getMonth() - 7)),
+      baseSalary: 2500, status: "activo", createdByUserId: "audit-scenario-seed",
+    }).returning({ id: schema.employees.id });
+
+    // Pay all EXCEPT 3 months ago (past6[3] = 3 months ago)
+    for (let i = 0; i < past6.length; i++) {
+      if (i === 3) continue; // this one is "forgotten" — no row
+      await createPaidFee(emp!.id, past6[i]!, 2500, cashboxId, salaryCatId);
+    }
+    await createPaidFee(emp!.id, now, 2500, cashboxId, salaryCatId);
+    log.ok("D done — 1 missing gap (red, old period)");
+  }
+
+  // ── E. New hire, current month missing ────────────────────────────────────
+  {
+    log.info("E: Pedro Vargas Ticona — hired 2 months ago, current not generated");
+    const hireDate = new Date(new Date().setMonth(new Date().getMonth() - 2));
+    const [emp] = await db.insert(schema.employees).values({
+      ci: "10000005", fullName: "Pedro Vargas Ticona",
+      chargeTitle: "Portero", employeeType: "planta",
+      sectorId, hireDate,
+      baseSalary: 1800, status: "activo", createdByUserId: "audit-scenario-seed",
+    }).returning({ id: schema.employees.id });
+
+    // Only pay the month they were hired (1 month ago, past1[0])
+    await createPaidFee(emp!.id, past1[0]!, 1800, cashboxId, salaryCatId);
+    // Current month → no row → "Sin registro"
+    log.ok("E done — 1 missing gap (current month, new hire)");
+  }
+
+  // ── F. Overdue salary — 2 months generated but never paid ────────────────
+  {
+    log.info("F: Ana Gutierrez Poma — 2 old pending fees (overdue)");
+    const [emp] = await db.insert(schema.employees).values({
+      ci: "10000006", fullName: "Ana Gutierrez Poma",
+      chargeTitle: "Fiscal", employeeType: "directorio",
+      sectorId, hireDate: new Date(new Date().setMonth(new Date().getMonth() - 7)),
+      baseSalary: 4000, status: "activo", createdByUserId: "audit-scenario-seed",
+    }).returning({ id: schema.employees.id });
+
+    // Paid oldest 4
+    for (const period of past6.slice(0, 4)) {
+      await createPaidFee(emp!.id, period, 4000, cashboxId, salaryCatId);
+    }
+    // Last 2 past months: rows exist but pending (overdue)
+    for (const period of past6.slice(4)) {
+      await db.insert(schema.employeeFees).values({
+        employeeId: emp!.id, period, amount: 4000,
+        status: "pendiente", dueDate: dueDate(period, 28), paymentMethod: "transferencia",
+      });
+    }
+    // Current also pending
+    await db.insert(schema.employeeFees).values({
+      employeeId: emp!.id, period: now, amount: 4000,
+      status: "pendiente", dueDate: dueDate(now, 28), paymentMethod: "transferencia",
+    });
+    log.ok("F done — 3 pending gaps (2 overdue + current, all amber)");
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TENANT SCENARIOS
+  // ══════════════════════════════════════════════════════════════════════════
+
+  log.section("TENANT SCENARIOS");
+
+  // ── G. Perfect tenant — no gaps ───────────────────────────────────────────
+  {
+    log.info("G: Lucía Zenteno — perfect payment history (no gaps)");
+    const startDate = new Date(new Date().setMonth(new Date().getMonth() - 7));
+    const [ten] = await db.insert(schema.tenants).values({
+      fullName: "Lucía Zenteno Arce", ci: "20000001",
+      phone: "76123456", roomNumber: "201", floor: "2",
+      monthlyRent: 1200, startDate, status: "activo",
+      createdByUserId: "audit-scenario-seed",
+    }).returning({ id: schema.tenants.id });
+
+    for (const period of [...past6, now]) {
+      await createPaidRent(ten!.id, period, 1200, cashboxId, rentCatId);
+    }
+    log.ok("G done — 0 gaps");
+  }
+
+  // ── H. Moroso — 3 months missing entirely (never registered) ─────────────
+  {
+    log.info("H: Roberto Limachi — moroso, 3 months never registered");
+    const startDate = new Date(new Date().setMonth(new Date().getMonth() - 7));
+    const [ten] = await db.insert(schema.tenants).values({
+      fullName: "Roberto Limachi Choque", ci: "20000002",
+      phone: "71987654", roomNumber: "302", floor: "3",
+      monthlyRent: 900, startDate, status: "moroso",
+      notes: "Notificado 3 veces. No responde.",
+      createdByUserId: "audit-scenario-seed",
+    }).returning({ id: schema.tenants.id });
+
+    // Paid first 3 months
+    for (const period of past6.slice(0, 3)) {
+      await createPaidRent(ten!.id, period, 900, cashboxId, rentCatId);
+    }
+    // Last 3 past months + current = 4 months with NO ROWS → "Sin registro"
+    log.ok("H done — 4 missing gaps (red)");
+  }
+
+  // ── I. Registered but uncollected (pending row exists) ───────────────────
+  {
+    log.info("I: Carla Ticona — current month registered but not collected");
+    const startDate = new Date(new Date().setMonth(new Date().getMonth() - 7));
+    const [ten] = await db.insert(schema.tenants).values({
+      fullName: "Carla Ticona Vargas", ci: "20000003",
+      phone: "70456789", roomNumber: "103", floor: "1",
+      monthlyRent: 1500, startDate, status: "activo",
+      createdByUserId: "audit-scenario-seed",
+    }).returning({ id: schema.tenants.id });
+
+    for (const period of past6) {
+      await createPaidRent(ten!.id, period, 1500, cashboxId, rentCatId);
+    }
+    // Current month: row exists, pending → "Pendiente" amber
+    await db.insert(schema.tenantPayments).values({
+      tenantId: ten!.id, period: now, amount: 1500,
+      status: "pendiente", dueDate: dueDate(now),
+      notes: "Inquilino prometió pagar el viernes.",
+    });
+    log.ok("I done — 1 pending gap (amber)");
+  }
+
+  // ── J. Inactive tenant — should NOT appear in audit ───────────────────────
+  {
+    log.info("J: Fidel Machaca — inactive tenant (excluded from audit)");
+    const startDate = new Date(new Date().setMonth(new Date().getMonth() - 10));
+    const endDate   = new Date(new Date().setMonth(new Date().getMonth() - 1));
+    await db.insert(schema.tenants).values({
+      fullName: "Fidel Machaca Salinas", ci: "20000004",
+      phone: "72345678", roomNumber: "LOC-A", floor: "PB",
+      monthlyRent: 2000, startDate, endDate, status: "inactivo",
+      notes: "Contrato finalizado.",
+      createdByUserId: "audit-scenario-seed",
+    });
+    log.ok("J done — not in audit (inactivo)");
+  }
+
+  // ── K. Old missing + recent gap combo (tenant) ────────────────────────────
+  {
+    log.info("K: Sandra Huanca — skipped month 4 months ago AND current missing");
+    const startDate = new Date(new Date().setMonth(new Date().getMonth() - 7));
+    const [ten] = await db.insert(schema.tenants).values({
+      fullName: "Sandra Huanca Mamani", ci: "20000005",
+      phone: "73654321", roomNumber: "204", floor: "2",
+      monthlyRent: 1100, startDate, status: "activo",
+      createdByUserId: "audit-scenario-seed",
+    }).returning({ id: schema.tenants.id });
+
+    for (let i = 0; i < past6.length; i++) {
+      if (i === 2) continue; // skip month 4 months ago (past6[2])
+      await createPaidRent(ten!.id, past6[i]!, 1100, cashboxId, rentCatId);
+    }
+    // Current month → no row → "Sin registro"
+    log.ok("K done — 2 missing gaps (1 old red, 1 current red)");
+  }
+
+  // ── Fix sequences ─────────────────────────────────────────────────────────
+  await db.execute(sql`SELECT setval('employees_id_seq',   COALESCE((SELECT MAX(id)+1 FROM employees),   1), false)`);
+  await db.execute(sql`SELECT setval('employee_fees_id_seq', COALESCE((SELECT MAX(id)+1 FROM employee_fees), 1), false)`);
+  await db.execute(sql`SELECT setval('tenants_id_seq',     COALESCE((SELECT MAX(id)+1 FROM tenants),     1), false)`);
+  await db.execute(sql`SELECT setval('tenant_payments_id_seq', COALESCE((SELECT MAX(id)+1 FROM tenant_payments), 1), false)`);
+
+  // ── Summary ───────────────────────────────────────────────────────────────
+  console.log(`\n${c.cyan}${c.bold}━━ EXPECTED AUDIT RESULTS ━━${c.reset}`);
+  console.log(`${c.yellow}  EMPLOYEES (6 people seeded):`);
+  console.log(`    A. Carlos Condori    → ✅ no gaps`);
+  console.log(`    B. Rosa Quispe       → 🔴 3 sin registro  (2 past + current)`);
+  console.log(`    C. Juan Apaza        → 🟡 1 pendiente     (current, amber)`);
+  console.log(`    D. María Choque      → 🔴 1 sin registro  (old period)`);
+  console.log(`    E. Pedro Vargas      → 🔴 1 sin registro  (current, new hire)`);
+  console.log(`    F. Ana Gutierrez     → 🟡 3 pendientes    (2 overdue + current)`);
+  console.log(`\n  TENANTS (5 active seeded):`);
+  console.log(`    G. Lucía Zenteno     → ✅ no gaps`);
+  console.log(`    H. Roberto Limachi   → 🔴 4 sin registro  (moroso, 3 past + current)`);
+  console.log(`    I. Carla Ticona      → 🟡 1 pendiente     (current, amber)`);
+  console.log(`    J. Fidel Machaca     → ✅ excluded         (inactivo)`);
+  console.log(`    K. Sandra Huanca     → 🔴 2 sin registro  (1 old + current)`);
+  console.log(`\n  TOPBAR BADGE should show: ~15 gaps`);
+  console.log(`${c.reset}`);
+
+  console.log(`\n${c.green}${c.bold}✔ Audit scenario seed complete.${c.reset}\n`);
 }
 
 await main();

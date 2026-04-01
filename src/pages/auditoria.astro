@@ -1,0 +1,305 @@
+---
+/**
+ * /auditoria
+ * Payment coverage audit: surfaces missing and pending periods for
+ * all active employees and tenants, with inline actions to fix them.
+ */
+import FinanceLayout from "@/layouts/FinanceLayout.astro";
+import { actions, isActionError } from "astro:actions";
+import { getFullAudit } from "@/services/audit.service";
+import { getSectorCashboxLinks } from "@/services/rrhh/rrhh.service";
+import {
+    CheckCircle,
+    AlertCircle,
+    Users,
+    Building,
+    FileWarning,
+    TriangleAlert,
+    PlusCircle,
+    CreditCard,
+} from "@lucide/astro";
+
+const { user } = Astro.locals;
+if (!user) return Astro.redirect("/login");
+
+const ALLOWED = ["ADMIN", "ADMON", "ACTS", "ACCO"] as const;
+if (!ALLOWED.includes(user.role as any)) return Astro.redirect("/panel");
+const canEdit = (["ADMIN", "ADMON"] as const).includes(user.role as any);
+
+const generateFeeResult   = Astro.getActionResult(actions.rrhh.createEmployeeFee);
+const generateRentResult  = Astro.getActionResult(actions.inquilinos.createPendingRent);
+
+const successMsg =
+    (!generateFeeResult?.error  && generateFeeResult?.data?.message)  ||
+    (!generateRentResult?.error && generateRentResult?.data?.message) ||
+    null;
+
+const errorMsg =
+    (isActionError(generateFeeResult?.error)  && generateFeeResult.error.message)  ||
+    (isActionError(generateRentResult?.error) && generateRentResult.error.message) ||
+    null;
+
+const [audit, cashboxLinks] = await Promise.all([
+    getFullAudit(),
+    getSectorCashboxLinks(),
+]);
+
+const defaultCashboxId = cashboxLinks[0]?.cashboxId ?? "";
+
+const {
+    employeeGaps,
+    tenantGaps,
+    totalMissingEmployeeFees,
+    totalPendingEmployeeAmount,
+    totalMissingTenantPeriods,
+    totalPendingTenantAmount,
+} = audit;
+
+const totalGaps = employeeGaps.length + tenantGaps.length;
+
+const formatPeriod = (p: string) => {
+    const [y, m] = p.split("-");
+    return new Date(Number(y), Number(m) - 1).toLocaleDateString("es-BO", {
+        month: "long",
+        year: "numeric",
+    });
+};
+
+const formatBs = (n: number) => n.toLocaleString("es-BO", { minimumFractionDigits: 2 });
+
+const KIND_BADGE = { missing: "bg-red-100 text-red-700", pending: "bg-amber-100 text-amber-700" };
+const KIND_LABEL = { missing: "Sin registro", pending: "Pendiente" };
+const KIND_ROW   = { missing: "bg-red-50/40",  pending: "bg-amber-50/30" };
+---
+
+<FinanceLayout title="Auditoría de Pagos" user={user}>
+
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+            <p class="text-sm text-slate-500 mb-0.5">Administración</p>
+            <h1 class="text-xl font-bold text-slate-900">Auditoría de Pagos</h1>
+            <p class="text-sm text-slate-500 mt-0.5">
+                Detecta meses sin registro o sin pagar para empleados e inquilinos activos.
+            </p>
+        </div>
+    </div>
+
+    {successMsg && (
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
+            <CheckCircle class="size-4 shrink-0 text-emerald-500" />
+            <span>{successMsg}</span>
+        </div>
+    )}
+    {errorMsg && (
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+            <TriangleAlert class="size-4 shrink-0" />
+            <span>{errorMsg}</span>
+        </div>
+    )}
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class:list={["rounded-xl border p-4 shadow-sm", totalGaps === 0 ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"]}>
+            <div class="flex items-center justify-between mb-2">
+                <p class:list={["text-xs uppercase tracking-wide", totalGaps === 0 ? "text-emerald-600" : "text-red-600"]}>Total Huecos</p>
+                {totalGaps === 0 ? <CheckCircle class="h-4 w-4 text-emerald-500" /> : <FileWarning class="h-4 w-4 text-red-500" />}
+            </div>
+            <p class:list={["text-3xl font-bold tabular-nums", totalGaps === 0 ? "text-emerald-800" : "text-red-800"]}>{totalGaps}</p>
+            <p class:list={["text-xs mt-0.5", totalGaps === 0 ? "text-emerald-600" : "text-red-500"]}>{totalGaps === 0 ? "Todo al día ✓" : "períodos con problemas"}</p>
+        </div>
+
+        <div class="rounded-xl border border-violet-200 bg-violet-50 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs text-violet-600 uppercase tracking-wide">Personal</p>
+                <Users class="h-4 w-4 text-violet-500" />
+            </div>
+            <p class="text-2xl font-bold text-violet-800 tabular-nums">{employeeGaps.length}</p>
+            <p class="text-xs text-violet-600 mt-0.5">{totalMissingEmployeeFees} sin registro</p>
+        </div>
+
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs text-blue-600 uppercase tracking-wide">Inquilinos</p>
+                <Building class="h-4 w-4 text-blue-500" />
+            </div>
+            <p class="text-2xl font-bold text-blue-800 tabular-nums">{tenantGaps.length}</p>
+            <p class="text-xs text-blue-600 mt-0.5">{totalMissingTenantPeriods} sin registro</p>
+        </div>
+
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+                <p class="text-xs text-slate-500 uppercase tracking-wide">Monto Total</p>
+                <AlertCircle class="h-4 w-4 text-slate-400" />
+            </div>
+            <p class="text-base font-bold text-slate-900 tabular-nums">
+                Bs {formatBs(totalPendingEmployeeAmount + totalPendingTenantAmount)}
+            </p>
+            <p class="text-xs text-slate-400 mt-0.5">sin registrar / sin cobrar</p>
+        </div>
+    </div>
+
+    {totalGaps === 0 && (
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-6 py-12 text-center">
+            <CheckCircle class="size-10 text-emerald-400 mx-auto mb-3" />
+            <p class="font-semibold text-emerald-800">Sin huecos detectados</p>
+            <p class="text-sm text-emerald-600 mt-1">Todos los períodos están registrados y pagados.</p>
+        </div>
+    )}
+
+    <!-- EMPLOYEE GAPS -->
+    {employeeGaps.length > 0 && (
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                <Users class="size-4 text-violet-500" />
+                <h2 class="font-semibold text-slate-800 text-sm">
+                    Personal — {employeeGaps.length} período{employeeGaps.length !== 1 ? "s" : ""} con problemas
+                </h2>
+            </div>
+            <div class="px-5 py-2.5 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                <span class="flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-full bg-red-300"></span>Rojo = mes nunca generado → <strong>"Crear cuota"</strong> lo registra como pendiente</span>
+                <span class="flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-full bg-amber-300"></span>Ámbar = generado pero sin pagar → ir a Salarios a pagarlo</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50 text-xs text-slate-500 border-b border-slate-200">
+                        <tr>
+                            <th class="py-3 px-5 text-left font-medium">Empleado</th>
+                            <th class="py-3 px-4 text-left font-medium">Mes faltante</th>
+                            <th class="py-3 px-4 text-right font-medium">Monto</th>
+                            <th class="py-3 px-4 text-center font-medium">Problema</th>
+                            {canEdit && <th class="py-3 px-4 text-right font-medium">Acción</th>}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {employeeGaps.map((gap) => (
+                            <tr class:list={["transition-colors hover:bg-slate-50/50", KIND_ROW[gap.kind]]}>
+                                <td class="py-3.5 px-5">
+                                    <p class="font-medium text-slate-900">{gap.fullName}</p>
+                                    <p class="text-xs text-slate-400">{gap.chargeTitle}</p>
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-700 capitalize">
+                                    {formatPeriod(gap.period)}
+                                    <span class="block text-xs text-slate-400 font-mono">{gap.period}</span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
+                                    Bs {formatBs(gap.kind === "pending" ? gap.amount : gap.expectedAmount)}
+                                </td>
+                                <td class="py-3.5 px-4 text-center">
+                                    <span class:list={["rounded-full px-2.5 py-0.5 text-xs font-medium", KIND_BADGE[gap.kind]]}>
+                                        {KIND_LABEL[gap.kind]}
+                                    </span>
+                                </td>
+                                {canEdit && (
+                                    <td class="py-3.5 px-4 text-right">
+                                        {gap.kind === "missing" ? (
+                                            <form method="POST" action={actions.rrhh.createEmployeeFee} class="inline">
+                                                <input type="hidden" name="employeeId" value={gap.employeeId} />
+                                                <input type="hidden" name="period"     value={gap.period} />
+                                                <input type="hidden" name="amount"     value={gap.expectedAmount} />
+                                                <input type="hidden" name="cashboxId"  value={defaultCashboxId} />
+                                                <button
+                                                    type="submit"
+                                                    onclick={`return confirm('Registrar deuda de salario\\n\\nEmpleado: ${gap.fullName}\\nPeríodo: ${gap.period}\\nMonto: Bs ${formatBs(gap.expectedAmount)}\\n\\nQuedará como PENDIENTE. Luego lo pagas desde Salarios.')`}
+                                                    class="inline-flex items-center gap-1.5 rounded border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 transition-colors"
+                                                >
+                                                    <PlusCircle class="size-3" />
+                                                    Crear cuota
+                                                </button>
+                                            </form>
+                                        ) : (
+                                            <a
+                                                href={`/rrhh/salarios?period=${gap.period}&status=pendiente`}
+                                                class="inline-flex items-center gap-1.5 rounded border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+                                            >
+                                                <CreditCard class="size-3" />
+                                                Ir a pagar
+                                            </a>
+                                        )}
+                                    </td>
+                                )}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    )}
+
+    <!-- TENANT GAPS -->
+    {tenantGaps.length > 0 && (
+        <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+                <Building class="size-4 text-blue-500" />
+                <h2 class="font-semibold text-slate-800 text-sm">
+                    Inquilinos — {tenantGaps.length} período{tenantGaps.length !== 1 ? "s" : ""} con problemas
+                </h2>
+            </div>
+            <div class="px-5 py-2.5 border-b border-slate-100 bg-slate-50 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                <span class="flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-full bg-red-300"></span>Rojo = mes nunca registrado → <strong>"Registrar deuda"</strong> lo crea como pendiente</span>
+                <span class="flex items-center gap-1.5"><span class="inline-block size-2.5 rounded-full bg-amber-300"></span>Ámbar = registrado pero sin cobrar → ir a Inquilinos a cobrarlo</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50 text-xs text-slate-500 border-b border-slate-200">
+                        <tr>
+                            <th class="py-3 px-5 text-left font-medium">Inquilino</th>
+                            <th class="py-3 px-4 text-left font-medium">Mes faltante</th>
+                            <th class="py-3 px-4 text-right font-medium">Monto</th>
+                            <th class="py-3 px-4 text-center font-medium">Problema</th>
+                            {canEdit && <th class="py-3 px-4 text-right font-medium">Acción</th>}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {tenantGaps.map((gap) => (
+                            <tr class:list={["transition-colors hover:bg-slate-50/50", KIND_ROW[gap.kind]]}>
+                                <td class="py-3.5 px-5">
+                                    <p class="font-medium text-slate-900">{gap.fullName}</p>
+                                    <p class="text-xs text-slate-400">Hab. {gap.roomNumber}</p>
+                                </td>
+                                <td class="py-3.5 px-4 text-slate-700 capitalize">
+                                    {formatPeriod(gap.period)}
+                                    <span class="block text-xs text-slate-400 font-mono">{gap.period}</span>
+                                </td>
+                                <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
+                                    Bs {formatBs(gap.kind === "pending" ? gap.amount : gap.expectedAmount)}
+                                </td>
+                                <td class="py-3.5 px-4 text-center">
+                                    <span class:list={["rounded-full px-2.5 py-0.5 text-xs font-medium", KIND_BADGE[gap.kind]]}>
+                                        {KIND_LABEL[gap.kind]}
+                                    </span>
+                                </td>
+                                {canEdit && (
+                                    <td class="py-3.5 px-4 text-right">
+                                        {gap.kind === "missing" ? (
+                                            <form method="POST" action={actions.inquilinos.createPendingRent} class="inline">
+                                                <input type="hidden" name="tenantId" value={gap.tenantId} />
+                                                <input type="hidden" name="period"   value={gap.period} />
+                                                <input type="hidden" name="amount"   value={gap.expectedAmount} />
+                                                <button
+                                                    type="submit"
+                                                    onclick={`return confirm('Registrar deuda de alquiler\\n\\nInquilino: ${gap.fullName} — Hab. ${gap.roomNumber}\\nPeríodo: ${gap.period}\\nMonto: Bs ${formatBs(gap.expectedAmount)}\\n\\nQuedará como PENDIENTE. Luego lo cobras desde Inquilinos.')`}
+                                                    class="inline-flex items-center gap-1.5 rounded border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                                                >
+                                                    <PlusCircle class="size-3" />
+                                                    Registrar deuda
+                                                </button>
+                                            </form>
+                                        ) : (
+                                            <a
+                                                href="/inquilinos"
+                                                class="inline-flex items-center gap-1.5 rounded border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+                                            >
+                                                <CreditCard class="size-3" />
+                                                Ir a cobrar
+                                            </a>
+                                        )}
+                                    </td>
+                                )}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    )}
+
+</FinanceLayout>

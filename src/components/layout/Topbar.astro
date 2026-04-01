@@ -1,12 +1,86 @@
 ---
-import { PanelLeft } from "@lucide/astro";
+import { PanelLeft, ShieldAlert, DatabaseBackup } from "@lucide/astro";
+import { getHoursSinceLastBackup } from "@/lib/server/backup.service";
+import { db } from "@/db";
+import { employees, employeeFees, tenants, tenantPayments } from "@/db/schema";
+import { and, eq, isNull, inArray, count, sql } from "drizzle-orm";
 
-const { title } = Astro.props;
+const { title, user } = Astro.props;
+
+const ADMIN_ROLES = ["ADMIN", "ADMON", "ACTS", "ACCO"];
+const canSeeAlerts = ADMIN_ROLES.includes(user?.role ?? "");
+
+// ── Backup alert ───────────────────────────────────────────────────────
+const BACKUP_WARN_HOURS     = 24;
+const BACKUP_CRITICAL_HOURS = 72;
+
+let backupLevel: "warning" | "critical" | null = null;
+let backupLabel = "";
+
+if (canSeeAlerts) {
+    try {
+        const hours = await getHoursSinceLastBackup();
+        if (hours === null) {
+            backupLevel = "critical";
+            backupLabel = "Sin respaldos registrados";
+        } else if (hours > BACKUP_WARN_HOURS) {
+            backupLevel = hours > BACKUP_CRITICAL_HOURS ? "critical" : "warning";
+            backupLabel = `Último respaldo hace ${hours}h`;
+        }
+    } catch {
+        backupLevel = "critical";
+        backupLabel = "No se pudo verificar respaldos";
+    }
+}
+
+// ── Pending payments alert ─────────────────────────────────────────────
+let gapCount = 0;
+let gapLabel = "";
+
+if (canSeeAlerts) {
+    try {
+        const now = new Date();
+        const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+        const [overdueEmp, overdueTen, activeEmpCount, generatedEmpCount, activeTenCount, generatedTenCount] =
+            await Promise.all([
+                db.select({ n: count() }).from(employeeFees).where(
+                    and(eq(employeeFees.status, "pendiente"), sql`${employeeFees.period} < ${currentPeriod}`)
+                ),
+                db.select({ n: count() }).from(tenantPayments).where(
+                    and(eq(tenantPayments.status, "pendiente"), sql`${tenantPayments.period} < ${currentPeriod}`)
+                ),
+                db.select({ n: count() }).from(employees).where(
+                    and(isNull(employees.deletedAt), inArray(employees.status, ["activo", "suspendido", "licencia"]))
+                ),
+                db.select({ n: count() }).from(employeeFees).where(eq(employeeFees.period, currentPeriod)),
+                db.select({ n: count() }).from(tenants).where(
+                    and(isNull(tenants.deletedAt), inArray(tenants.status, ["activo", "moroso"]))
+                ),
+                db.select({ n: count() }).from(tenantPayments).where(eq(tenantPayments.period, currentPeriod)),
+            ]);
+
+        const overdueTotal  = Number(overdueEmp[0]?.n ?? 0) + Number(overdueTen[0]?.n ?? 0);
+        const missingEmp    = Math.max(0, Number(activeEmpCount[0]?.n ?? 0) - Number(generatedEmpCount[0]?.n ?? 0));
+        const missingTen    = Math.max(0, Number(activeTenCount[0]?.n ?? 0) - Number(generatedTenCount[0]?.n ?? 0));
+        const missingTotal  = missingEmp + missingTen;
+
+        gapCount = overdueTotal + missingTotal;
+
+        if (gapCount > 0) {
+            const parts: string[] = [];
+            if (missingTotal > 0) parts.push(`${missingTotal} sin generar`);
+            if (overdueTotal > 0) parts.push(`${overdueTotal} atrasados`);
+            gapLabel = parts.join(" · ");
+        }
+    } catch {
+        // Silently fail — topbar must never crash the layout
+    }
+}
 ---
 
 <header class="topbar">
     <div class="topbar-inner">
-        <!-- Mobile hamburger -->
         <button
             id="sidebar-mobile-btn"
             class="mobile-menu-btn"
@@ -16,11 +90,36 @@ const { title } = Astro.props;
             <PanelLeft class="size-5" />
         </button>
 
-        <!-- Breadcrumb -->
         <div class="topbar-breadcrumb">
             <span class="topbar-breadcrumb-root">Panel</span>
             <span class="topbar-breadcrumb-sep" aria-hidden="true">/</span>
             <span class="topbar-breadcrumb-current">{title}</span>
+        </div>
+
+        <div class="topbar-actions">
+
+            {gapCount > 0 && (
+                <a
+                    href="/auditoria"
+                    class:list={["alert-btn", gapCount >= 5 ? "alert-btn--critical" : "alert-btn--warning"]}
+                    aria-label={`${gapCount} pagos pendientes o sin generar`}
+                >
+                    <ShieldAlert class="alert-icon" />
+                    <span class="alert-badge">{gapCount > 99 ? "99+" : gapCount}</span>
+                    <span class="alert-tooltip">{gapLabel} — Ver auditoría</span>
+                </a>
+            )}
+
+            {backupLevel && (
+                <a
+                    href="/respaldo"
+                    class:list={["alert-btn", backupLevel === "critical" ? "alert-btn--critical" : "alert-btn--warning"]}
+                    aria-label={`Alerta de respaldo: ${backupLabel}`}
+                >
+                    <DatabaseBackup class="alert-icon" />
+                    <span class="alert-tooltip">{backupLabel} — Ir a respaldos</span>
+                </a>
+            )}
         </div>
     </div>
 </header>
@@ -64,7 +163,6 @@ const { title } = Astro.props;
 
     .mobile-menu-btn:hover {
         background: var(--secondary);
-        color: var(--foreground);
     }
 
     .topbar-breadcrumb {
@@ -74,15 +172,11 @@ const { title } = Astro.props;
         font-size: 0.8125rem;
     }
 
-    .topbar-breadcrumb-root {
-        color: var(--muted-foreground);
-    }
+    .topbar-breadcrumb-root { color: var(--muted-foreground); }
 
     @media (max-width: 480px) {
         .topbar-breadcrumb-root,
-        .topbar-breadcrumb-sep {
-            display: none;
-        }
+        .topbar-breadcrumb-sep { display: none; }
     }
 
     .topbar-breadcrumb-sep {
@@ -95,7 +189,81 @@ const { title } = Astro.props;
         color: var(--foreground);
     }
 
-    .topbar-breadcrumb {
-        margin-right: auto;
+    .topbar-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
     }
+
+    /* ── Alert button ─────────────────────────────────────── */
+    .alert-btn {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.4rem;
+        border: 1px solid transparent;
+        text-decoration: none;
+        transition: background 140ms, border-color 140ms;
+        flex-shrink: 0;
+    }
+
+    .alert-btn--warning {
+        background: oklch(0.97 0.05 85);
+        border-color: oklch(0.88 0.1 85);
+        color: oklch(0.55 0.18 75);
+    }
+    .alert-btn--warning:hover { background: oklch(0.93 0.08 85); }
+
+    .alert-btn--critical {
+        background: oklch(0.96 0.05 25);
+        border-color: oklch(0.87 0.1 25);
+        color: oklch(0.52 0.2 25);
+    }
+    .alert-btn--critical:hover { background: oklch(0.92 0.08 25); }
+
+    .alert-icon {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+    }
+
+    .alert-badge {
+        position: absolute;
+        top: -0.25rem;
+        right: -0.25rem;
+        min-width: 1rem;
+        height: 1rem;
+        padding: 0 0.2rem;
+        border-radius: 9999px;
+        background: oklch(0.52 0.2 25);
+        color: white;
+        font-size: 0.55rem;
+        font-weight: 700;
+        line-height: 1rem;
+        text-align: center;
+        pointer-events: none;
+    }
+
+    .alert-tooltip {
+        display: none;
+        position: absolute;
+        top: calc(100% + 0.5rem);
+        right: 0;
+        white-space: nowrap;
+        background: oklch(0.15 0.005 285);
+        color: oklch(0.98 0 0);
+        font-size: 0.7rem;
+        font-weight: 500;
+        padding: 0.3rem 0.6rem;
+        border-radius: 0.375rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        pointer-events: none;
+        z-index: 100;
+    }
+
+    .alert-btn:hover .alert-tooltip { display: block; }
 </style>

@@ -2,7 +2,7 @@ import { defineAction, ActionError } from "astro:actions";
 import { z } from "zod";
 import { db } from "@/db";
 import { tenants, tenantPayments, transactions, transactionCategories, cashboxes, employees } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 const ADMIN_ROLES = ["ADMIN", "ADMON"] as const;
 
@@ -223,12 +223,56 @@ export const registerRentPayment = defineAction({
   },
 });
 
+// ─── Inquilinos: Create pending rent obligation (no payment yet) ──────────────
+// Used by the audit page to register a missing month debt without paying it.
+
+export const createPendingRent = defineAction({
+  accept: "form",
+  input: z.object({
+    tenantId: z.coerce.number().int().positive(),
+    period: z.string().regex(/^\d{4}-\d{2}$/, "Período inválido"),
+    amount: z.coerce.number().min(0),
+  }),
+  handler: async (input, ctx) => {
+    const user = ctx.locals.user;
+    if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
+    requireAdmin(user.role);
+
+    const [existing] = await db
+      .select({ id: tenantPayments.id })
+      .from(tenantPayments)
+      .where(
+      and(
+        eq(tenantPayments.tenantId, input.tenantId),
+        eq(tenantPayments.period, input.period)
+      )
+      );
+
+    if (existing) {
+      throw new ActionError({
+        code: "CONFLICT",
+        message: `Ya existe un registro para este inquilino en ${input.period}.`,
+      });
+    }
+
+    await db.insert(tenantPayments).values({
+      tenantId: input.tenantId,
+      period: input.period,
+      amount: input.amount,
+      status: "pendiente",
+    });
+
+    return { success: true, message: `Deuda de alquiler ${input.period} registrada como pendiente.` };
+  },
+});
+
 // ─── Namespace exports ────────────────────────────────────────────────────────
 
 export const inquilinos = {
   createTenant,
   deleteTenant,
   registerRentPayment,
+  createPendingRent,
 };
 
 export const rrhhExtra = {

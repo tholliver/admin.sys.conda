@@ -12,6 +12,7 @@ import {
     Building,
     ArrowLeftRight,
     Handshake,
+    ShieldAlert,
 } from "@lucide/astro";
 
 export interface NavLink {
@@ -66,6 +67,7 @@ export const navGroups: NavGroup[] = [
         links: [
             { label: "Cuentas", href: "/cuentas", icon: Tags },
             { label: "Talonarios", href: "/talonarios", icon: ReceiptText },
+            { label: "Auditoría", href: "/auditoria", icon: ShieldAlert },
         ],
     },
 ];
