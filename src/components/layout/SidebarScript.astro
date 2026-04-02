@@ -135,7 +135,7 @@
                 import("/src/lib/actions/tooltip.ts").then(({ tooltip: tooltipAction }) => {
                     document.querySelectorAll("[data-tooltip]").forEach((el) => {
                         const content = el.getAttribute("data-tooltip") ?? "";
-                        const instance = tooltipAction(el, content);
+                        const instance = tooltipAction(el, { content, side: "right" });
                         if (instance?.destroy) tooltipDestroyFns.push(instance.destroy);
                     });
                 });

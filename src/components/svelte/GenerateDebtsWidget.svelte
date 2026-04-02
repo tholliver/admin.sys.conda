@@ -87,7 +87,7 @@
 
   <!-- Trigger button -->
   <button
-    use:tooltip={triggerTooltip}
+    use:tooltip={{ content: triggerTooltip }}
     on:click={toggle}
     class="trigger-btn"
     class:is-open={open}
