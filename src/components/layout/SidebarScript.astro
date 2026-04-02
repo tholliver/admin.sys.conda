@@ -16,7 +16,6 @@
             const sidebar = document.getElementById("app-sidebar");
             const toggleBtn = document.getElementById("sidebar-mobile-btn");
             const mobileOverlay = document.getElementById("sidebar-overlay");
-            const tooltip = document.getElementById("sidebar-tooltip");
             const media = window.matchMedia(MOBILE_QUERY);
 
             if (!sidebar) return;
@@ -123,30 +122,29 @@
                 });
             });
 
-            // --- Tooltips (collapsed mode only) ---
-            const showTooltip = (target) => {
-                if (!tooltip || !target) return;
-                if (sidebar.getAttribute("data-collapsed") !== "true") {
-                    tooltip.classList.add("hidden");
-                    return;
-                }
-                const label = target.getAttribute("data-tooltip");
-                if (!label) return;
-                tooltip.textContent = label;
-                const rect = target.getBoundingClientRect();
-                tooltip.style.top = `${rect.top + rect.height / 2}px`;
-                tooltip.style.left = `${rect.right + 10}px`;
-                tooltip.classList.remove("hidden");
-            };
+            // --- Tooltips (collapsed mode only) — uses shared tooltip.ts action ---
+            let tooltipDestroyFns = [];
 
-            const hideTooltip = () => tooltip?.classList.add("hidden");
+            function bindTooltips() {
+                tooltipDestroyFns.forEach((fn) => fn());
+                tooltipDestroyFns = [];
 
-            document.querySelectorAll("[data-tooltip]").forEach((item) => {
-                item.addEventListener("mouseenter", () => showTooltip(item));
-                item.addEventListener("focus", () => showTooltip(item));
-                item.addEventListener("mouseleave", hideTooltip);
-                item.addEventListener("blur", hideTooltip);
-            });
+                const isCollapsed = sidebar.getAttribute("data-collapsed") === "true";
+                if (!isCollapsed) return;
+
+                import("/src/lib/actions/tooltip.ts").then(({ tooltip: tooltipAction }) => {
+                    document.querySelectorAll("[data-tooltip]").forEach((el) => {
+                        const content = el.getAttribute("data-tooltip") ?? "";
+                        const instance = tooltipAction(el, content);
+                        if (instance?.destroy) tooltipDestroyFns.push(instance.destroy);
+                    });
+                });
+            }
+
+            bindTooltips();
+
+            const collapseObserver = new MutationObserver(() => bindTooltips());
+            collapseObserver.observe(sidebar, { attributes: true, attributeFilter: ["data-collapsed"] });
         }
 
         document.addEventListener("DOMContentLoaded", initSidebar);

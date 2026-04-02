@@ -1,5 +1,6 @@
 ---
 import { PanelLeft, ShieldAlert, DatabaseBackup } from "@lucide/astro";
+import GenerateDebtsWidget from "@/components/svelte/GenerateDebtsWidget.svelte";
 import { getHoursSinceLastBackup } from "@/lib/server/backup.service";
 import { db } from "@/db";
 import { employees, employeeFees, tenants, tenantPayments } from "@/db/schema";
@@ -34,15 +35,22 @@ if (canSeeAlerts) {
 }
 
 // ── Pending payments alert ─────────────────────────────────────────────
-let gapCount = 0;
-let gapLabel = "";
+let gapCount     = 0;
+let gapLabel     = "";
+let missingTotal = 0;
+let overdueTotal = 0;
+let missingEmp   = 0;
+let missingTen   = 0;
+let overdueEmp   = 0;
+let overdueTen   = 0;
+let currentPeriod = "";
 
 if (canSeeAlerts) {
     try {
         const now = new Date();
-        const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-        const [overdueEmp, overdueTen, activeEmpCount, generatedEmpCount, activeTenCount, generatedTenCount] =
+        const [overdueEmpRow, overdueTenRow, activeEmpCount, generatedEmpCount, activeTenCount, generatedTenCount] =
             await Promise.all([
                 db.select({ n: count() }).from(employeeFees).where(
                     and(eq(employeeFees.status, "pendiente"), sql`${employeeFees.period} < ${currentPeriod}`)
@@ -60,12 +68,13 @@ if (canSeeAlerts) {
                 db.select({ n: count() }).from(tenantPayments).where(eq(tenantPayments.period, currentPeriod)),
             ]);
 
-        const overdueTotal  = Number(overdueEmp[0]?.n ?? 0) + Number(overdueTen[0]?.n ?? 0);
-        const missingEmp    = Math.max(0, Number(activeEmpCount[0]?.n ?? 0) - Number(generatedEmpCount[0]?.n ?? 0));
-        const missingTen    = Math.max(0, Number(activeTenCount[0]?.n ?? 0) - Number(generatedTenCount[0]?.n ?? 0));
-        const missingTotal  = missingEmp + missingTen;
-
-        gapCount = overdueTotal + missingTotal;
+        overdueTotal = Number(overdueEmpRow[0]?.n ?? 0) + Number(overdueTenRow[0]?.n ?? 0);
+        overdueEmp   = Number(overdueEmpRow[0]?.n ?? 0);
+        overdueTen   = Number(overdueTenRow[0]?.n ?? 0);
+        missingEmp   = Math.max(0, Number(activeEmpCount[0]?.n ?? 0) - Number(generatedEmpCount[0]?.n ?? 0));
+        missingTen   = Math.max(0, Number(activeTenCount[0]?.n ?? 0) - Number(generatedTenCount[0]?.n ?? 0));
+        missingTotal = missingEmp + missingTen;
+        gapCount     = overdueTotal + missingTotal;
 
         if (gapCount > 0) {
             const parts: string[] = [];
@@ -81,6 +90,7 @@ if (canSeeAlerts) {
 
 <header class="topbar">
     <div class="topbar-inner">
+
         <button
             id="sidebar-mobile-btn"
             class="mobile-menu-btn"
@@ -98,31 +108,54 @@ if (canSeeAlerts) {
 
         <div class="topbar-actions">
 
-            {gapCount > 0 && (
+            {canSeeAlerts && gapCount > 0 && (
+                <>
+                    {(missingTotal > 0 || overdueTotal > 0) && (
+                        <GenerateDebtsWidget
+                            client:load
+                            missingEmp={missingEmp}
+                            missingTen={missingTen}
+                            overdueEmp={overdueEmp}
+                            overdueTen={overdueTen}
+                            currentPeriod={currentPeriod}
+                        />
+                    )}
+                    <a
+                        href="/auditoria"
+                        id="audit-alert-btn"
+                        class:list={["alert-btn", gapCount >= 5 ? "alert-btn--critical" : "alert-btn--warning"]}
+                        data-tip={`${gapLabel} — Ver auditoría`}
+                    >
+                        <ShieldAlert class="alert-icon" />
+                        <span class="alert-badge">{gapCount > 99 ? "99+" : gapCount}</span>
+                    </a>
+                </>
+            )}
+
+            {canSeeAlerts && backupLevel && (
                 <a
-                    href="/auditoria"
-                    class:list={["alert-btn", gapCount >= 5 ? "alert-btn--critical" : "alert-btn--warning"]}
-                    aria-label={`${gapCount} pagos pendientes o sin generar`}
+                    href="/respaldo"
+                    id="backup-alert-btn"
+                    class:list={["alert-btn", backupLevel === "critical" ? "alert-btn--critical" : "alert-btn--warning"]}
+                    data-tip={backupLabel}
                 >
-                    <ShieldAlert class="alert-icon" />
-                    <span class="alert-badge">{gapCount > 99 ? "99+" : gapCount}</span>
-                    <span class="alert-tooltip">{gapLabel} — Ver auditoría</span>
+                    <DatabaseBackup class="alert-icon" />
                 </a>
             )}
 
-            {backupLevel && (
-                <a
-                    href="/respaldo"
-                    class:list={["alert-btn", backupLevel === "critical" ? "alert-btn--critical" : "alert-btn--warning"]}
-                    aria-label={`Alerta de respaldo: ${backupLabel}`}
-                >
-                    <DatabaseBackup class="alert-icon" />
-                    <span class="alert-tooltip">{backupLabel} — Ir a respaldos</span>
-                </a>
-            )}
         </div>
     </div>
 </header>
+
+<!-- Wire tooltip action to alert buttons -->
+<script>
+    import { tooltip } from "@/lib/actions/tooltip";
+
+    document.querySelectorAll<HTMLElement>("[data-tip]").forEach((el) => {
+        const content = el.getAttribute("data-tip") ?? "";
+        tooltip(el, content);
+    });
+</script>
 
 <style>
     .topbar {
@@ -161,9 +194,7 @@ if (canSeeAlerts) {
         z-index: 60;
     }
 
-    .mobile-menu-btn:hover {
-        background: var(--secondary);
-    }
+    .mobile-menu-btn:hover { background: var(--secondary); }
 
     .topbar-breadcrumb {
         display: flex;
@@ -179,15 +210,9 @@ if (canSeeAlerts) {
         .topbar-breadcrumb-sep { display: none; }
     }
 
-    .topbar-breadcrumb-sep {
-        color: var(--border);
-        user-select: none;
-    }
+    .topbar-breadcrumb-sep { color: var(--border); user-select: none; }
 
-    .topbar-breadcrumb-current {
-        font-weight: 600;
-        color: var(--foreground);
-    }
+    .topbar-breadcrumb-current { font-weight: 600; color: var(--foreground); }
 
     .topbar-actions {
         margin-left: auto;
@@ -196,7 +221,6 @@ if (canSeeAlerts) {
         gap: 0.375rem;
     }
 
-    /* ── Alert button ─────────────────────────────────────── */
     .alert-btn {
         position: relative;
         display: inline-flex;
@@ -225,45 +249,23 @@ if (canSeeAlerts) {
     }
     .alert-btn--critical:hover { background: oklch(0.92 0.08 25); }
 
-    .alert-icon {
-        width: 1rem;
-        height: 1rem;
-        flex-shrink: 0;
-    }
+    .alert-icon { width: 1rem; height: 1rem; flex-shrink: 0; }
 
     .alert-badge {
         position: absolute;
-        top: -0.25rem;
-        right: -0.25rem;
-        min-width: 1rem;
-        height: 1rem;
+        top: -0.3rem;
+        right: -0.3rem;
+        min-width: 1.1rem;
+        height: 1.1rem;
         padding: 0 0.2rem;
         border-radius: 9999px;
         background: oklch(0.52 0.2 25);
         color: white;
         font-size: 0.55rem;
         font-weight: 700;
-        line-height: 1rem;
+        line-height: 1.1rem;
         text-align: center;
         pointer-events: none;
+        border: 1.5px solid white;
     }
-
-    .alert-tooltip {
-        display: none;
-        position: absolute;
-        top: calc(100% + 0.5rem);
-        right: 0;
-        white-space: nowrap;
-        background: oklch(0.15 0.005 285);
-        color: oklch(0.98 0 0);
-        font-size: 0.7rem;
-        font-weight: 500;
-        padding: 0.3rem 0.6rem;
-        border-radius: 0.375rem;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        pointer-events: none;
-        z-index: 100;
-    }
-
-    .alert-btn:hover .alert-tooltip { display: block; }
 </style>

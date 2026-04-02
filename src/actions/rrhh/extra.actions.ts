@@ -2,7 +2,7 @@ import { defineAction, ActionError } from "astro:actions";
 import { z } from "zod";
 import { db } from "@/db";
 import { tenants, tenantPayments, transactions, transactionCategories, cashboxes, employees } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 
 const ADMIN_ROLES = ["ADMIN", "ADMON"] as const;
 
@@ -266,6 +266,68 @@ export const createPendingRent = defineAction({
   },
 });
 
+// ─── Inquilinos: Bulk generate pending rent rows for current period ───────────
+// Mirror of rrhh.bulkGenerateFees — creates one pending row per active tenant
+// that doesn't already have a row for the given period.
+
+export const bulkGenerateRents = defineAction({
+  accept: "form",
+  input: z.object({
+    period: z.string().regex(/^\d{4}-\d{2}$/, "Período inválido"),
+  }),
+  handler: async ({ period }, ctx) => {
+    const user = ctx.locals.user;
+    if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
+    requireAdmin(user.role);
+
+    // Load active/moroso tenants
+    const activeTenants = await db
+      .select({ id: tenants.id, monthlyRent: tenants.monthlyRent })
+      .from(tenants)
+      .where(
+        and(
+          isNull(tenants.deletedAt),
+          inArray(tenants.status, ["activo", "moroso"])
+        )
+      );
+
+    if (activeTenants.length === 0) return { created: 0, skipped: 0, message: "Sin inquilinos activos." };
+
+    // Find existing rows for this period
+    const existingTenantIds = (
+      await db
+        .select({ tenantId: tenantPayments.tenantId })
+        .from(tenantPayments)
+        .where(
+          and(
+            eq(tenantPayments.period, period),
+            inArray(tenantPayments.tenantId, activeTenants.map((t) => t.id))
+          )
+        )
+    ).map((r) => r.tenantId);
+
+    const toCreate = activeTenants.filter((t) => !existingTenantIds.includes(t.id));
+    const skipped  = activeTenants.length - toCreate.length;
+
+    if (toCreate.length > 0) {
+      await db.insert(tenantPayments).values(
+        toCreate.map((t) => ({
+          tenantId: t.id,
+          period,
+          amount: t.monthlyRent,
+          status: "pendiente" as const,
+        }))
+      ).onConflictDoNothing();
+    }
+
+    return {
+      created: toCreate.length,
+      skipped,
+      message: `${toCreate.length} alquileres generados. ${skipped} ya existían.`,
+    };
+  },
+});
+
 // ─── Namespace exports ────────────────────────────────────────────────────────
 
 export const inquilinos = {
@@ -273,6 +335,7 @@ export const inquilinos = {
   deleteTenant,
   registerRentPayment,
   createPendingRent,
+  bulkGenerateRents,
 };
 
 export const rrhhExtra = {

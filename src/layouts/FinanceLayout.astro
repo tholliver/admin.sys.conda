@@ -5,7 +5,7 @@ import Toaster from "@/lib/toast/Toaster.astro";
 import Sidebar from "@/components/layout/Sidebar.astro";
 import Topbar from "@/components/layout/Topbar.astro";
 import SidebarScript from "@/components/layout/SidebarScript.astro";
-import BackupFreshnessNotice from "@/components/BackupFreshnessNotice.astro";
+// import BackupFreshnessNotice from "@/components/BackupFreshnessNotice.astro";
 
 const { title, user } = Astro.props;
 const currentPath = Astro.url.pathname;
@@ -25,8 +25,8 @@ const currentPath = Astro.url.pathname;
         <div class="layout-shell">
             <Sidebar currentPath={currentPath} />
             <div class="main-shell">
-                <Topbar title={title} />
-                <BackupFreshnessNotice userRole={user.role} />
+                <Topbar title={title} user={user} />
+                <!-- <BackupFreshnessNotice userRole={user.role} /> -->
                 <main class="main-content">
                     <slot />
                     <Toaster richColors position="top-center" />
