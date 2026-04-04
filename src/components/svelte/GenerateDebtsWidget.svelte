@@ -43,7 +43,10 @@
     if (empState === "loading" || empState === "done") return;
     empState = "loading";
     try {
-      const res = await actions.rrhh.bulkGenerateFees({ period: currentPeriod });
+      const fd = new FormData();
+      fd.set("period", currentPeriod);
+      const res = await actions.rrhh.bulkGenerateFees(fd);
+      if (res?.error) throw new Error(res.error.message ?? "Error al generar salarios");
       empCreated = res.data?.created ?? 0;
       empState = "done";
       missingEmp = 0;
@@ -55,7 +58,10 @@
     if (tenState === "loading" || tenState === "done") return;
     tenState = "loading";
     try {
-      const res = await actions.inquilinos.bulkGenerateRents({ period: currentPeriod });
+      const fd = new FormData();
+      fd.set("period", currentPeriod);
+      const res = await actions.inquilinos.bulkGenerateRents(fd);
+      if (res?.error) throw new Error(res.error.message ?? "Error al generar alquileres");
       tenCreated = res.data?.created ?? 0;
       tenState = "done";
       missingTen = 0;
@@ -81,14 +87,14 @@
 </script>
 
 <!-- Click-outside to close -->
-<svelte:window on:click={(e) => { if (open && !(e.target as Element)?.closest(".gdw-root")) close(); }} />
+<svelte:window onclick={(e) => { if (open && !(e.target as Element)?.closest(".gdw-root")) close(); }} />
 
 <div class="gdw-root">
 
   <!-- Trigger button -->
   <button
     use:tooltip={{ content: triggerTooltip }}
-    on:click={toggle}
+    onclick={toggle}
     class="trigger-btn"
     class:is-open={open}
     aria-expanded={open}
@@ -135,7 +141,7 @@
               <span class="row-sub">Personal activo · {periodCapitalized}</span>
             </div>
             {#if empState === "idle"}
-              <button class="row-action row-action--generate" on:click={generateEmp}>
+              <button class="row-action row-action--generate" onclick={generateEmp}>
                 Generar
               </button>
             {:else if empState === "loading"}
@@ -167,7 +173,7 @@
               <span class="row-sub">Inquilinos activos · {periodCapitalized}</span>
             </div>
             {#if tenState === "idle"}
-              <button class="row-action row-action--generate" on:click={generateTen}>
+              <button class="row-action row-action--generate" onclick={generateTen}>
                 Generar
               </button>
             {:else if tenState === "loading"}
@@ -192,7 +198,7 @@
               <span class="row-label">{overdueEmp} salario{overdueEmp !== 1 ? "s" : ""} atrasado{overdueEmp !== 1 ? "s" : ""}</span>
               <span class="row-sub">Períodos anteriores sin pagar</span>
             </div>
-            <a class="row-action row-action--pay" href="/rrhh/salarios?status=pendiente" on:click={close}>
+            <a class="row-action row-action--pay" href="/rrhh/salarios?status=pendiente" onclick={close}>
               Ver
             </a>
           </div>
@@ -210,7 +216,7 @@
               <span class="row-label">{overdueTen} alquiler{overdueTen !== 1 ? "es" : ""} atrasado{overdueTen !== 1 ? "s" : ""}</span>
               <span class="row-sub">Períodos anteriores sin cobrar</span>
             </div>
-            <a class="row-action row-action--pay" href="/inquilinos" on:click={close}>
+            <a class="row-action row-action--pay" href="/inquilinos" onclick={close}>
               Ver
             </a>
           </div>
@@ -223,7 +229,7 @@
         {#if totalMissing > 0}
           <button
             class="footer-btn footer-btn--primary"
-            on:click={generateAll}
+            onclick={generateAll}
             disabled={empState === "loading" || tenState === "loading"}
           >
             {#if empState === "loading" || tenState === "loading"}
@@ -233,7 +239,7 @@
             {/if}
           </button>
         {/if}
-        <a class="footer-btn footer-btn--ghost" href="/auditoria" on:click={close}>
+        <a class="footer-btn footer-btn--ghost" href="/auditoria" onclick={close}>
           Ver auditoría completa
         </a>
       </div>

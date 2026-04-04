@@ -17,8 +17,8 @@ import { feeFiltersSchema } from "@/lib/schemas/rrhh.schemas";
 import {
     CalendarClock,
     DollarSign,
-    CheckCircle,
-    AlertCircle,
+    CircleCheckBig,
+    CircleAlert,
     RefreshCw,
     TriangleAlert,
     ChevronLeft,
@@ -29,9 +29,9 @@ import {
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
-const ALLOWED = ["ADMIN", "ADMON", "ACTS", "ACCO"] as const;
-if (!ALLOWED.includes(user.role as any)) return Astro.redirect("/panel");
-const canEdit = (["ADMIN", "ADMON"] as const).includes(user.role as any);
+const ALLOWED = ["ADMIN"] as const;
+if (!ALLOWED.includes(user.role as any)) return Astro.redirect("/");
+const canEdit = (["ADMIN"] as const).includes(user.role as any);
 
 // Handle action results
 const generateResult = Astro.getActionResult(actions.rrhh.bulkGenerateFees);
@@ -198,7 +198,7 @@ const STATUS_COLORS: Record<string, string> = {
     {
         successMsg && (
             <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
-                <CheckCircle class="size-4 shrink-0 text-emerald-500" />
+                <CircleCheckBig class="size-4 shrink-0 text-emerald-500" />
                 <span>{successMsg}</span>
             </div>
         )
@@ -284,7 +284,7 @@ const STATUS_COLORS: Record<string, string> = {
         isCurrentPeriod && totalFees > 0 && !allPaid && !successMsg && (
             <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5 flex items-center justify-between gap-4">
                 <div class="flex items-center gap-2.5 text-sm text-amber-800 min-w-0">
-                    <AlertCircle class="size-4 shrink-0 text-amber-500" />
+                    <CircleAlert class="size-4 shrink-0 text-amber-500" />
                     <span>
                         <strong>
                             {pendingCount + partialCount}{" "}
@@ -315,7 +315,7 @@ const STATUS_COLORS: Record<string, string> = {
     {
         isCurrentPeriod && allPaid && !successMsg && (
             <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3.5 flex items-center gap-2.5 text-sm text-emerald-800">
-                <CheckCircle class="size-4 shrink-0 text-emerald-500" />
+                <CircleCheckBig class="size-4 shrink-0 text-emerald-500" />
                 <span>
                     Todos los salarios de{" "}
                     <strong class="capitalize">{formatPeriod(period)}</strong>{" "}
@@ -344,7 +344,7 @@ const STATUS_COLORS: Record<string, string> = {
                 <p class="text-xs text-emerald-600 uppercase tracking-wide">
                     Pagado
                 </p>
-                <CheckCircle class="h-4 w-4 text-emerald-500" />
+                <CircleCheckBig class="h-4 w-4 text-emerald-500" />
             </div>
             <p class="text-2xl font-bold text-emerald-800 tabular-nums">
                 {Number(paidRow?.total ?? 0)}
@@ -363,7 +363,7 @@ const STATUS_COLORS: Record<string, string> = {
                 <p class="text-xs text-amber-600 uppercase tracking-wide">
                     Pendiente
                 </p>
-                <AlertCircle class="h-4 w-4 text-amber-500" />
+                <CircleAlert class="h-4 w-4 text-amber-500" />
             </div>
             <p class="text-2xl font-bold text-amber-800 tabular-nums">
                 {pendingCount}

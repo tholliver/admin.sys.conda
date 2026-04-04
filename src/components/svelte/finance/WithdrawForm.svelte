@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fade } from "svelte/transition";
+    import { type SelectCashbox } from '@/db/schema'
     import {
         CircleAlert,
         CircleCheck,
@@ -12,7 +13,6 @@
     import type { SelectTransactionCategories } from "@/db/schema";
     import {
         createWithdrawStore,
-        type Cashbox,
     } from "@/lib/stores/withdraw.store.svelte";
     import QuickAmountActions from "./QuickAmountActions.svelte";
     import TransactionSuccess from "./TransactionSuccess.svelte";
@@ -21,12 +21,13 @@
 
     interface Props {
         concepts: SelectTransactionCategories[];
-        cashboxes: Cashbox[];
+        cashboxes: SelectCashbox[];
     }
 
     let { concepts, cashboxes }: Props = $props();
-
+    
     const w = createWithdrawStore(cashboxes, concepts);
+  
 </script>
 
 <svelte:window onclick={w.onClickOutside} />

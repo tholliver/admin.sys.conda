@@ -55,9 +55,8 @@ const activeWithdrawalTransactionCategories = await db
     .orderBy(asc(transactionCategories.sortOrder));
 
 // Change quickCashboxes query to select isQuick field, or just drop it entirely
-// and change activeCashboxes query to include isQuick:
 const activeCashboxes = await db
-    .select({ id: cashboxes.id, name: cashboxes.name, code: cashboxes.code, isQuick: cashboxes.isQuick })
+    .select()
     .from(cashboxes)
     .where(eq(cashboxes.status, CASHBOX_STATUS.ACTIVE));
 
