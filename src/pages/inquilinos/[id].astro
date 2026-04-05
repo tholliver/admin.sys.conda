@@ -33,15 +33,7 @@ const tenant = tenantRows[0];
 if (!tenant) return Astro.redirect("/inquilinos");
 
 const payments = await db
-    .select({
-        id: tenantPayments.id,
-        period: tenantPayments.period,
-        amount: tenantPayments.amount,
-        status: tenantPayments.status,
-        dueDate: tenantPayments.dueDate,
-        receiptNumber: tenantPayments.receiptNumber,
-        notes: tenantPayments.notes,
-    })
+    .select()
     .from(tenantPayments)
     .where(eq(tenantPayments.tenantId, tenantId))
     .orderBy(desc(tenantPayments.period));
