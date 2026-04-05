@@ -14,6 +14,7 @@ import {
 } from "@/services/rrhh/rrhh.service";
 import { getSectorCashboxLinks } from "@/services/rrhh/rrhh.service";
 import { feeFiltersSchema } from "@/lib/schemas/rrhh.schemas";
+import PayFeeDialog from "@/components/svelte/rrhh/PayFeeDialog.svelte";
 import {
     CalendarClock,
     DollarSign,
@@ -35,8 +36,8 @@ const canEdit = (["ADMIN"] as const).includes(user.role as any);
 
 // Handle action results
 const generateResult = Astro.getActionResult(actions.rrhh.bulkGenerateFees);
-const payResult = Astro.getActionResult(actions.rrhh.payEmployeeFee);
-const voidResult = Astro.getActionResult(actions.rrhh.voidEmployeeFee);
+const payResult      = Astro.getActionResult(actions.rrhh.payEmployeeFee);
+const voidResult     = Astro.getActionResult(actions.rrhh.voidEmployeeFee);
 
 const successMsg =
     (!generateResult?.error && generateResult?.data?.message) ||
@@ -57,32 +58,24 @@ const filters = feeFiltersSchema.parse({
     status: rawFilters.status ?? "all",
 });
 
-const today = currentPeriod();
+const today  = currentPeriod();
 const period = filters.period ?? today;
 const isCurrentPeriod = period === today;
 
 const periodDate = (() => {
     const [y, m] = period.split("-").map(Number);
-    return { year: y, month: m }; // month is 1-based
+    return { year: y, month: m };
 })();
 
 const prevPeriod = (() => {
-    let y = periodDate.year,
-        m = periodDate.month - 1;
-    if (m < 1) {
-        m = 12;
-        y -= 1;
-    }
+    let y = periodDate.year, m = periodDate.month - 1;
+    if (m < 1) { m = 12; y -= 1; }
     return `${y}-${String(m).padStart(2, "0")}`;
 })();
 
 const nextPeriod = (() => {
-    let y = periodDate.year,
-        m = periodDate.month + 1;
-    if (m > 12) {
-        m = 1;
-        y += 1;
-    }
+    let y = periodDate.year, m = periodDate.month + 1;
+    if (m > 12) { m = 1; y += 1; }
     return `${y}-${String(m).padStart(2, "0")}`;
 })();
 
@@ -95,37 +88,66 @@ const [fees, summary, cashboxLinks, overdue] = await Promise.all([
     getOverdueFeesSummary(today),
 ]);
 
-const pendingRow = summary.find((r) => r.status === "pendiente");
-const paidRow = summary.find((r) => r.status === "pagado");
-const partialRow = summary.find((r) => r.status === "parcial");
-const totalFees = summary.reduce((s, r) => s + Number(r.total), 0);
-const pendingAmt = Number(pendingRow?.totalAmount ?? 0);
-const paidAmt = Number(paidRow?.totalAmount ?? 0);
+const pendingRow   = summary.find((r) => r.status === "pendiente");
+const paidRow      = summary.find((r) => r.status === "pagado");
+const partialRow   = summary.find((r) => r.status === "parcial");
+const totalFees    = summary.reduce((s, r) => s + Number(r.total), 0);
+const pendingAmt   = Number(pendingRow?.totalAmount ?? 0);
+const paidAmt      = Number(paidRow?.totalAmount ?? 0);
 const pendingCount = Number(pendingRow?.total ?? 0);
 const partialCount = Number(partialRow?.total ?? 0);
-const allPaid = totalFees > 0 && pendingCount === 0 && partialCount === 0;
+const allPaid      = totalFees > 0 && pendingCount === 0 && partialCount === 0;
 
-// v2: getSectorCashboxLinks returns flat rows — cashboxId is directly on the row
-const defaultCashboxId = cashboxLinks[0]?.cashboxId ?? "";
+// Cashbox lookup by sectorId — used to show balance in PayFeeDialog
+const cashboxBySector = new Map(
+    cashboxLinks
+        .filter((l) => l.cashboxId && l.cashboxName)
+        .map((l) => [
+            l.sectorId,
+            {
+                id:      l.cashboxId!,
+                name:    l.cashboxName!,
+                balance: Number(l.cashboxBalance ?? 0),
+            },
+        ]),
+);
+
+// Helper: get cashbox for a fee's employee sector (null = no linked cashbox)
+const feeGetCashbox = (fee: (typeof fees)[number]) => {
+    const sectorId = fee.employee.sectorId ?? null;
+    if (sectorId == null) return null;
+    return cashboxBySector.get(sectorId) ?? null;
+};
+
+// Split overdue (pending from past periods) from current-period rows
+const overdueFees = fees.filter(
+    (f) => f.status === "pendiente" && f.period < today,
+);
+const currentFees = fees.filter(
+    (f) => !(f.status === "pendiente" && f.period < today),
+);
 
 const STATUS_LABELS: Record<string, string> = {
     pendiente: "Pendiente",
-    pagado: "Pagado",
-    parcial: "Parcial",
-    anulado: "Anulado",
+    pagado:    "Pagado",
+    parcial:   "Parcial",
+    anulado:   "Anulado",
 };
 const STATUS_COLORS: Record<string, string> = {
     pendiente: "bg-amber-100 text-amber-700",
-    pagado: "bg-emerald-100 text-emerald-700",
-    parcial: "bg-blue-100 text-blue-700",
-    anulado: "bg-slate-100 text-slate-500 line-through",
+    pagado:    "bg-emerald-100 text-emerald-700",
+    parcial:   "bg-blue-100 text-blue-700",
+    anulado:   "bg-slate-100 text-slate-500 line-through",
 };
+
+const bsFormat = (n: number) =>
+    "Bs " + n.toLocaleString("es-BO", { minimumFractionDigits: 2 });
 ---
 
 <FinanceLayout title={`Salarios — ${formatPeriod(period)}`} user={user}>
-    <div
-        class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-    >
+
+    <!-- ── HEADER ──────────────────────────────────────────────────────── -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
             <div class="text-sm text-slate-500 flex items-center gap-1.5 mb-1">
                 <a href="/rrhh" class="hover:text-slate-700">RRHH</a>
@@ -134,17 +156,14 @@ const STATUS_COLORS: Record<string, string> = {
             </div>
             <h1 class="text-xl font-bold text-slate-900 capitalize">
                 {formatPeriod(period)}
-                {
-                    !isCurrentPeriod && (
-                        <span class="ml-2 text-xs font-normal text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
-                            Período pasado
-                        </span>
-                    )
-                }
+                {!isCurrentPeriod && (
+                    <span class="ml-2 text-xs font-normal text-slate-400 bg-slate-100 rounded-full px-2 py-0.5">
+                        Período pasado
+                    </span>
+                )}
             </h1>
         </div>
 
-        <!-- Period navigation -->
         <div class="flex items-center gap-2">
             <a
                 href={`?period=${prevPeriod}`}
@@ -152,442 +171,412 @@ const STATUS_COLORS: Record<string, string> = {
             >
                 <ChevronLeft class="h-4 w-4" />
             </a>
-            <span
-                class="text-sm font-medium text-slate-700 min-w-32 text-center capitalize"
-            >
+            <span class="text-sm font-medium text-slate-700 min-w-32 text-center capitalize">
                 {formatPeriod(period)}
             </span>
-            {
-                period < today ? (
-                    <a
-                        href={`?period=${nextPeriod}`}
-                        class="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 transition-colors"
-                    >
-                        <ChevronRight class="h-4 w-4" />
-                    </a>
-                ) : (
-                    <span class="rounded-lg border border-slate-100 p-2 text-slate-300 cursor-not-allowed">
-                        <ChevronRight class="h-4 w-4" />
-                    </span>
-                )
-            }
+            {period < today ? (
+                <a
+                    href={`?period=${nextPeriod}`}
+                    class="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                    <ChevronRight class="h-4 w-4" />
+                </a>
+            ) : (
+                <span class="rounded-lg border border-slate-100 p-2 text-slate-300 cursor-not-allowed">
+                    <ChevronRight class="h-4 w-4" />
+                </span>
+            )}
 
-            {
-                canEdit && !isFuturePeriod && (
-                    <form
-                        method="POST"
-                        action={actions.rrhh.bulkGenerateFees}
-                        class="ml-2"
+            {canEdit && !isFuturePeriod && (
+                <form method="POST" action={actions.rrhh.bulkGenerateFees} class="ml-2">
+                    <input type="hidden" name="period" value={period} />
+                    <button
+                        type="submit"
+                        onclick="return confirm('¿Generar cuotas para todo el personal activo en este periodo?')"
+                        class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
                     >
-                        <input type="hidden" name="period" value={period} />
-                        <button
-                            type="submit"
-                            onclick="return confirm('Generar cuotas para todo el personal activo en este periodo?')"
-                            class="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-                        >
-                            <RefreshCw class="h-3.5 w-3.5" />
-                            Generar Cuotas
-                        </button>
-                    </form>
-                )
-            }
+                        <RefreshCw class="h-3.5 w-3.5" />
+                        Generar Cuotas
+                    </button>
+                </form>
+            )}
         </div>
     </div>
 
-    <!-- ACTION FEEDBACK -->
-    {
-        successMsg && (
-            <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
-                <CircleCheckBig class="size-4 shrink-0 text-emerald-500" />
-                <span>{successMsg}</span>
-            </div>
-        )
-    }
-    {
-        errorMsg && (
-            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
-                <TriangleAlert class="size-4 shrink-0" />
-                <span>{errorMsg}</span>
-            </div>
-        )
-    }
+    <!-- ── ACTION FEEDBACK ─────────────────────────────────────────────── -->
+    {successMsg && (
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
+            <CircleCheckBig class="size-4 shrink-0 text-emerald-500" />
+            <span>{successMsg}</span>
+        </div>
+    )}
+    {errorMsg && (
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+            <TriangleAlert class="size-4 shrink-0" />
+            <span>{errorMsg}</span>
+        </div>
+    )}
 
-    <!-- OVERDUE BANNER — pending fees from past periods -->
-    {
-        overdue.count > 0 && (
-            <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between gap-4">
-                <div class="flex items-center gap-2.5 text-sm text-red-800 min-w-0">
-                    <Clock class="size-4 shrink-0 text-red-500" />
-                    <span>
-                        <strong>
-                            {overdue.count}{" "}
-                            {overdue.count === 1
-                                ? "salario atrasado"
-                                : "salarios atrasados"}
-                        </strong>{" "}
-                        de períodos anteriores — Bs{" "}
-                        {overdue.totalAmount.toLocaleString("es-BO", {
-                            minimumFractionDigits: 2,
-                        })}{" "}
-                        pendiente{overdue.count !== 1 ? "s" : ""}.
-                    </span>
+    <!-- ── OVERDUE BANNER ──────────────────────────────────────────────── -->
+    {overdue.count > 0 && (
+        <div class="rounded-xl border-2 border-red-300 bg-red-50 px-5 py-4 flex items-center justify-between gap-4">
+            <div class="flex items-start gap-3 min-w-0">
+                <Clock class="size-5 shrink-0 text-red-500 mt-0.5" />
+                <div>
+                    <p class="text-sm font-semibold text-red-800">
+                        {overdue.count}{" "}
+                        {overdue.count === 1 ? "salario atrasado" : "salarios atrasados"} de períodos anteriores
+                    </p>
+                    <p class="text-xs text-red-600 mt-0.5">
+                        Total pendiente: <strong>{bsFormat(overdue.totalAmount)}</strong> — Requieren atención inmediata.
+                    </p>
                 </div>
-                <a
-                    href="?status=pendiente"
-                    class="shrink-0 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
-                >
-                    Revisar
-                </a>
             </div>
-        )
-    }
+            <a
+                href="?status=pendiente"
+                class="shrink-0 rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 transition-colors"
+            >
+                Revisar ahora
+            </a>
+        </div>
+    )}
 
-    <!-- PERIOD STATUS ALERT: not generated yet -->
-    {
-        isCurrentPeriod && totalFees === 0 && !successMsg && (
-            <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3.5 flex items-center justify-between gap-4">
-                <div class="flex items-center gap-2.5 text-sm text-blue-800">
-                    <Info class="size-4 shrink-0 text-blue-500" />
-                    <span>
-                        Las cuotas de{" "}
-                        <strong class="capitalize">
-                            {formatPeriod(period)}
-                        </strong>{" "}
-                        aún no fueron generadas.
-                        {canEdit
-                            ? " Generálas para habilitar los pagos."
-                            : " Contacta a un administrador."}
-                    </span>
-                </div>
-                {canEdit && (
-                    <form
-                        method="POST"
-                        action={actions.rrhh.bulkGenerateFees}
-                        class="shrink-0"
-                    >
-                        <input type="hidden" name="period" value={period} />
-                        <button
-                            type="submit"
-                            onclick="return confirm('Generar cuotas para todo el personal activo en este periodo?')"
-                            class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
-                        >
-                            Generar ahora
-                        </button>
-                    </form>
-                )}
-            </div>
-        )
-    }
-
-    <!-- PERIOD STATUS ALERT: pending fees -->
-    {
-        isCurrentPeriod && totalFees > 0 && !allPaid && !successMsg && (
-            <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5 flex items-center justify-between gap-4">
-                <div class="flex items-center gap-2.5 text-sm text-amber-800 min-w-0">
-                    <CircleAlert class="size-4 shrink-0 text-amber-500" />
-                    <span>
-                        <strong>
-                            {pendingCount + partialCount}{" "}
-                            {pendingCount + partialCount === 1
-                                ? "salario pendiente"
-                                : "salarios pendientes"}
-                        </strong>{" "}
-                        por pagar en{" "}
-                        <span class="capitalize">{formatPeriod(period)}</span> —
-                        Bs{" "}
-                        {pendingAmt.toLocaleString("es-BO", {
-                            minimumFractionDigits: 2,
-                        })}
-                        .
-                    </span>
-                </div>
-                <a
-                    href={`?period=${period}&status=pendiente`}
-                    class="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
-                >
-                    Ver pendientes
-                </a>
-            </div>
-        )
-    }
-
-    <!-- PERIOD STATUS ALERT: all paid -->
-    {
-        isCurrentPeriod && allPaid && !successMsg && (
-            <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3.5 flex items-center gap-2.5 text-sm text-emerald-800">
-                <CircleCheckBig class="size-4 shrink-0 text-emerald-500" />
+    <!-- ── PERIOD STATUS ALERTS ────────────────────────────────────────── -->
+    {isCurrentPeriod && totalFees === 0 && !successMsg && (
+        <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3.5 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2.5 text-sm text-blue-800">
+                <Info class="size-4 shrink-0 text-blue-500" />
                 <span>
-                    Todos los salarios de{" "}
+                    Las cuotas de{" "}
                     <strong class="capitalize">{formatPeriod(period)}</strong>{" "}
-                    están pagados. ✓
+                    aún no fueron generadas.
+                    {canEdit ? " Generálas para habilitar los pagos." : " Contacta a un administrador."}
                 </span>
             </div>
-        )
-    }
+            {canEdit && (
+                <form method="POST" action={actions.rrhh.bulkGenerateFees} class="shrink-0">
+                    <input type="hidden" name="period" value={period} />
+                    <button
+                        type="submit"
+                        onclick="return confirm('¿Generar cuotas para todo el personal activo en este periodo?')"
+                        class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                    >
+                        Generar ahora
+                    </button>
+                </form>
+            )}
+        </div>
+    )}
 
-    <!-- KPI CARDS -->
+    {isCurrentPeriod && totalFees > 0 && !allPaid && !successMsg && (
+        <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3.5 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-2.5 text-sm text-amber-800 min-w-0">
+                <CircleAlert class="size-4 shrink-0 text-amber-500" />
+                <span>
+                    <strong>
+                        {pendingCount + partialCount}{" "}
+                        {pendingCount + partialCount === 1 ? "salario pendiente" : "salarios pendientes"}
+                    </strong>{" "}
+                    por pagar en <span class="capitalize">{formatPeriod(period)}</span> —{" "}
+                    <strong>{bsFormat(pendingAmt)}</strong>
+                </span>
+            </div>
+            <a
+                href={`?period=${period}&status=pendiente`}
+                class="shrink-0 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors"
+            >
+                Ver pendientes
+            </a>
+        </div>
+    )}
+
+    {isCurrentPeriod && allPaid && !successMsg && (
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3.5 flex items-center gap-2.5 text-sm text-emerald-800">
+            <CircleCheckBig class="size-4 shrink-0 text-emerald-500" />
+            <span>
+                Todos los salarios de{" "}
+                <strong class="capitalize">{formatPeriod(period)}</strong>{" "}
+                están pagados. ✓
+            </span>
+        </div>
+    )}
+
+    <!-- ── KPI CARDS ───────────────────────────────────────────────────── -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div class="flex items-center justify-between mb-2">
-                <p class="text-xs text-slate-500 uppercase tracking-wide">
-                    Total Cuotas
-                </p>
+                <p class="text-xs text-slate-500 uppercase tracking-wide">Total Cuotas</p>
                 <CalendarClock class="h-4 w-4 text-slate-400" />
             </div>
-            <p class="text-2xl font-bold text-slate-900 tabular-nums">
-                {totalFees}
-            </p>
+            <p class="text-2xl font-bold text-slate-900 tabular-nums">{totalFees}</p>
+            {partialCount > 0 && (
+                <p class="text-xs text-blue-600 tabular-nums mt-0.5">
+                    {partialCount} parcial{partialCount !== 1 ? "es" : ""}
+                </p>
+            )}
         </div>
 
         <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
             <div class="flex items-center justify-between mb-2">
-                <p class="text-xs text-emerald-600 uppercase tracking-wide">
-                    Pagado
-                </p>
+                <p class="text-xs text-emerald-600 uppercase tracking-wide">Pagado</p>
                 <CircleCheckBig class="h-4 w-4 text-emerald-500" />
             </div>
             <p class="text-2xl font-bold text-emerald-800 tabular-nums">
                 {Number(paidRow?.total ?? 0)}
             </p>
-            <p class="text-xs text-emerald-600 tabular-nums mt-0.5">
-                Bs {
-                    paidAmt.toLocaleString("es-BO", {
-                        minimumFractionDigits: 2,
-                    })
-                }
-            </p>
+            <p class="text-xs text-emerald-600 tabular-nums mt-0.5">{bsFormat(paidAmt)}</p>
         </div>
 
         <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
             <div class="flex items-center justify-between mb-2">
-                <p class="text-xs text-amber-600 uppercase tracking-wide">
-                    Pendiente
-                </p>
+                <p class="text-xs text-amber-600 uppercase tracking-wide">Pendiente</p>
                 <CircleAlert class="h-4 w-4 text-amber-500" />
             </div>
-            <p class="text-2xl font-bold text-amber-800 tabular-nums">
-                {pendingCount}
-            </p>
-            <p class="text-xs text-amber-600 tabular-nums mt-0.5">
-                Bs {
-                    pendingAmt.toLocaleString("es-BO", {
-                        minimumFractionDigits: 2,
-                    })
-                }
-            </p>
+            <p class="text-2xl font-bold text-amber-800 tabular-nums">{pendingCount}</p>
+            <p class="text-xs text-amber-600 tabular-nums mt-0.5">{bsFormat(pendingAmt)}</p>
         </div>
 
         <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div class="flex items-center justify-between mb-2">
-                <p class="text-xs text-slate-500 uppercase tracking-wide">
-                    Masa Salarial
-                </p>
+                <p class="text-xs text-slate-500 uppercase tracking-wide">Masa Salarial</p>
                 <DollarSign class="h-4 w-4 text-slate-400" />
             </div>
             <p class="text-xl font-bold text-slate-900 tabular-nums">
-                Bs {
-                    (pendingAmt + paidAmt).toLocaleString("es-BO", {
-                        minimumFractionDigits: 2,
-                    })
-                }
+                {bsFormat(pendingAmt + paidAmt)}
             </p>
+            {totalFees > 0 && (
+                <div class="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                        class="h-full rounded-full bg-emerald-500 transition-all"
+                        style={`width:${Math.min(100, Math.round((paidAmt / (paidAmt + pendingAmt || 1)) * 100))}%`}
+                    />
+                </div>
+            )}
         </div>
     </div>
 
-    <!-- STATUS FILTER PILLS -->
+    <!-- ── STATUS FILTER PILLS ─────────────────────────────────────────── -->
     <div class="flex flex-wrap gap-2">
-        {
-            ["all", "pendiente", "pagado", "parcial", "anulado"].map((s) => (
-                <a
-                    href={`?period=${period}&status=${s}`}
-                    class:list={[
-                        "rounded-full px-3 py-1 text-xs font-medium border transition-colors",
-                        filters.status === s
-                            ? "bg-slate-800 text-white border-slate-800"
-                            : "bg-white text-slate-600 border-slate-200 hover:border-slate-400",
-                    ]}
-                >
-                    {s === "all" ? "Todos" : (STATUS_LABELS[s] ?? s)}
-                    {s === "pendiente" && pendingCount > 0 && (
-                        <span class="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold px-1.5 py-px">
-                            {pendingCount}
-                        </span>
-                    )}
-                </a>
-            ))
-        }
+        {["all", "pendiente", "pagado", "parcial", "anulado"].map((s) => (
+            <a
+                href={`?period=${period}&status=${s}`}
+                class:list={[
+                    "rounded-full px-3 py-1 text-xs font-medium border transition-colors",
+                    filters.status === s
+                        ? "bg-slate-800 text-white border-slate-800"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-400",
+                ]}
+            >
+                {s === "all" ? "Todos" : (STATUS_LABELS[s] ?? s)}
+                {s === "pendiente" && pendingCount > 0 && (
+                    <span class="ml-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold px-1.5 py-px">
+                        {pendingCount}
+                    </span>
+                )}
+            </a>
+        ))}
     </div>
 
-    <!-- FEES TABLE -->
-    <div
-        class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
-    >
+    <!-- ── OVERDUE SUB-TABLE ───────────────────────────────────────────── -->
+    {overdueFees.length > 0 &&
+        (filters.status === "all" || filters.status === "pendiente") && (
+        <div class="rounded-xl border-2 border-red-200 bg-white shadow-sm overflow-hidden">
+            <div class="flex items-center gap-2 bg-red-50 px-5 py-3 border-b border-red-200">
+                <Clock class="size-4 text-red-500" />
+                <span class="text-sm font-semibold text-red-700">
+                    Pagos Atrasados — Períodos Anteriores ({overdueFees.length})
+                </span>
+                <span class="ml-auto text-xs font-mono font-semibold text-red-700">
+                    {bsFormat(overdueFees.reduce((s, f) => s + Number(f.amount), 0))}
+                </span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-red-50/50 text-xs text-slate-500 border-b border-red-100">
+                        <tr>
+                            <th class="py-3 px-5 text-left font-medium">Personal</th>
+                            <th class="py-3 px-4 text-left font-medium">Período</th>
+                            <th class="py-3 px-4 text-left font-medium">Sector</th>
+                            <th class="py-3 px-4 text-right font-medium">Monto</th>
+                            {canEdit && (
+                                <th class="py-3 px-4 text-right font-medium">Acción</th>
+                            )}
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-red-50">
+                        {overdueFees.map((fee) => (
+                            <tr class="bg-red-50/20 hover:bg-red-50/40 transition-colors">
+                                <td class="py-3.5 px-5">
+                                    <p class="font-medium text-slate-900">{fee.employee.fullName}</p>
+                                    <p class="text-xs text-slate-400 font-mono">{fee.employee.ci}</p>
+                                </td>
+                                <td class="py-3.5 px-4">
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5 capitalize">
+                                        <Clock class="size-3" />
+                                        {formatPeriod(fee.period)}
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-xs text-slate-600">
+                                    {fee.employee.sectorName}
+                                </td>
+                                <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
+                                    {bsFormat(Number(fee.amount))}
+                                </td>
+                                {canEdit && (
+                                    <td class="py-3.5 px-4 text-right">
+                                        <PayFeeDialog
+                                            client:load
+                                            fee={{
+                                                id:       fee.id,
+                                                amount:   fee.amount,
+                                                period:   fee.period,
+                                                status:   fee.status,
+                                                employee: {
+                                                    fullName:    fee.employee.fullName,
+                                                    ci:          fee.employee.ci,
+                                                    sectorId:    fee.employee.sectorId,
+                                                    sectorName:  fee.employee.sectorName,
+                                                    chargeTitle: fee.employee.chargeTitle,
+                                                },
+                                            }}
+                                            cashbox={feeGetCashbox(fee)}
+                                            currentPeriod={today}
+                                            periodLabel={formatPeriod(fee.period)}
+                                        />
+                                    </td>
+                                )}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    )}
+
+    <!-- ── MAIN FEES TABLE ─────────────────────────────────────────────── -->
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        {overdueFees.length > 0 &&
+            currentFees.length > 0 &&
+            (filters.status === "all" || filters.status === "pendiente") && (
+            <div class="px-5 py-2.5 bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Período actual — {formatPeriod(period)}
+            </div>
+        )}
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
-                <thead
-                    class="bg-slate-50 text-xs text-slate-500 border-b border-slate-200"
-                >
+                <thead class="bg-slate-50 text-xs text-slate-500 border-b border-slate-200">
                     <tr>
-                        <th class="py-3 px-5 text-left font-medium">Personal</th
-                        >
-                        <th class="py-3 px-4 text-left font-medium"
-                            >Tipo / Cargo</th
-                        >
+                        <th class="py-3 px-5 text-left font-medium">Personal</th>
+                        <th class="py-3 px-4 text-left font-medium">Tipo / Cargo</th>
                         <th class="py-3 px-4 text-left font-medium">Sector</th>
                         <th class="py-3 px-4 text-right font-medium">Monto</th>
-                        <th class="py-3 px-4 text-center font-medium">Estado</th
-                        >
-                        {
-                            canEdit && (
-                                <th class="py-3 px-4 text-right font-medium">
-                                    Pagar
-                                </th>
-                            )
-                        }
+                        <th class="py-3 px-4 text-center font-medium">Estado</th>
+                        {canEdit && (
+                            <th class="py-3 px-4 text-right font-medium">Acción</th>
+                        )}
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
-                    {
-                        fees.length === 0 ? (
-                            <tr>
-                                <td colspan="6" class="py-14 text-center">
-                                    <div class="flex flex-col items-center gap-2 text-slate-400">
-                                        <CalendarClock class="size-8 opacity-30" />
-                                        <p class="text-sm">
-                                            {filters.status !== "all"
-                                                ? `No hay cuotas con estado "${STATUS_LABELS[filters.status] ?? filters.status}" en este período.`
-                                                : 'No hay cuotas para este periodo. Usa "Generar Cuotas" para crearlas.'}
-                                        </p>
-                                        {filters.status !== "all" && (
-                                            <a
-                                                href={`?period=${period}`}
-                                                class="text-xs text-blue-600 hover:underline"
-                                            >
-                                                Ver todos los estados
-                                            </a>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ) : (
-                            fees.map((fee) => (
-                                <tr
-                                    class:list={[
-                                        "hover:bg-slate-50/50 transition-colors",
-                                        fee.status === "pendiente" &&
-                                        !isCurrentPeriod
-                                            ? "bg-red-50/30"
-                                            : "",
-                                    ]}
-                                >
-                                    <td class="py-3.5 px-5">
-                                        <p class="font-medium text-slate-900">
-                                            {fee.employee.fullName}
-                                        </p>
-                                        <p class="text-xs text-slate-400 font-mono">
-                                            {fee.employee.ci}
-                                        </p>
-                                    </td>
-                                    <td class="py-3.5 px-4">
-                                        <span
-                                            class:list={[
-                                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
-                                                fee.employee.employeeType ===
-                                                "directorio"
-                                                    ? "bg-blue-100 text-blue-700"
-                                                    : "bg-violet-100 text-violet-700",
-                                            ]}
-                                        >
-                                            {fee.employee.employeeType}
-                                        </span>
-                                        <p class="text-xs text-slate-500 mt-0.5">
-                                            {fee.employee.chargeTitle}
-                                        </p>
-                                    </td>
-                                    <td class="py-3.5 px-4 text-xs text-slate-600">
-                                        {fee.employee.sectorName}
-                                    </td>
-                                    <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
-                                        Bs{" "}
-                                        {Number(fee.amount).toLocaleString(
-                                            "es-BO",
-                                            { minimumFractionDigits: 2 },
-                                        )}
-                                    </td>
-                                    <td class="py-3.5 px-4 text-center">
-                                        <span
-                                            class:list={[
-                                                "rounded-full px-2.5 py-0.5 text-xs font-medium",
-                                                STATUS_COLORS[fee.status] ??
-                                                    "bg-slate-100 text-slate-500",
-                                            ]}
-                                        >
-                                            {STATUS_LABELS[fee.status] ??
-                                                fee.status}
-                                        </span>
-                                        {fee.status === "pendiente" &&
-                                            !isCurrentPeriod && (
-                                                <span class="block text-[10px] text-red-500 font-medium mt-0.5">
-                                                    Atrasado
-                                                </span>
-                                            )}
-                                    </td>
-                                    {canEdit && (
-                                        <td class="py-3.5 px-4 text-right">
-                                            {fee.status === "pendiente" ||
-                                            fee.status === "parcial" ? (
-                                                <form
-                                                    method="POST"
-                                                    action={
-                                                        actions.rrhh
-                                                            .payEmployeeFee
-                                                    }
-                                                    class="inline"
-                                                >
-                                                    <input
-                                                        type="hidden"
-                                                        name="feeId"
-                                                        value={fee.id}
-                                                    />
-                                                    <input
-                                                        type="hidden"
-                                                        name="amountPaid"
-                                                        value={fee.amount}
-                                                    />
-                                                    <input
-                                                        type="hidden"
-                                                        name="cashboxId"
-                                                        value={
-                                                            fee.cashboxId ??
-                                                            defaultCashboxId
-                                                        }
-                                                    />
-                                                    <input
-                                                        type="hidden"
-                                                        name="paymentMethod"
-                                                        value="efectivo"
-                                                    />
-                                                    <button
-                                                        type="submit"
-                                                        onclick={`return confirm('Registrar pago de Bs ${Number(fee.amount).toLocaleString("es-BO")} para ${fee.employee.fullName}?')`}
-                                                        class="rounded border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
-                                                    >
-                                                        Pagar
-                                                    </button>
-                                                </form>
-                                            ) : (
-                                                <span class="text-xs text-slate-300">
-                                                    --
-                                                </span>
-                                            )}
-                                        </td>
+                    {currentFees.length === 0 ? (
+                        <tr>
+                            <td colspan="6" class="py-14 text-center">
+                                <div class="flex flex-col items-center gap-2 text-slate-400">
+                                    <CalendarClock class="size-8 opacity-30" />
+                                    <p class="text-sm">
+                                        {filters.status !== "all"
+                                            ? `No hay cuotas con estado "${STATUS_LABELS[filters.status] ?? filters.status}" en este período.`
+                                            : 'No hay cuotas para este periodo. Usa "Generar Cuotas" para crearlas.'}
+                                    </p>
+                                    {filters.status !== "all" && (
+                                        <a href={`?period=${period}`} class="text-xs text-blue-600 hover:underline">
+                                            Ver todos los estados
+                                        </a>
                                     )}
-                                </tr>
-                            ))
-                        )
-                    }
+                                </div>
+                            </td>
+                        </tr>
+                    ) : (
+                        currentFees.map((fee) => (
+                            <tr class="hover:bg-slate-50/50 transition-colors">
+                                <td class="py-3.5 px-5">
+                                    <p class="font-medium text-slate-900">{fee.employee.fullName}</p>
+                                    <p class="text-xs text-slate-400 font-mono">{fee.employee.ci}</p>
+                                </td>
+                                <td class="py-3.5 px-4">
+                                    <span
+                                        class:list={[
+                                            "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase",
+                                            fee.employee.employeeType === "directorio"
+                                                ? "bg-blue-100 text-blue-700"
+                                                : "bg-violet-100 text-violet-700",
+                                        ]}
+                                    >
+                                        {fee.employee.employeeType}
+                                    </span>
+                                    <p class="text-xs text-slate-500 mt-0.5">{fee.employee.chargeTitle}</p>
+                                </td>
+                                <td class="py-3.5 px-4 text-xs text-slate-600">
+                                    {fee.employee.sectorName}
+                                </td>
+                                <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
+                                    {bsFormat(Number(fee.amount))}
+                                </td>
+                                <td class="py-3.5 px-4 text-center">
+                                    <span
+                                        class:list={[
+                                            "rounded-full px-2.5 py-0.5 text-xs font-medium",
+                                            STATUS_COLORS[fee.status] ?? "bg-slate-100 text-slate-500",
+                                        ]}
+                                    >
+                                        {STATUS_LABELS[fee.status] ?? fee.status}
+                                    </span>
+                                </td>
+                                {canEdit && (
+                                    <td class="py-3.5 px-4 text-right">
+                                        {fee.status === "pendiente" || fee.status === "parcial" ? (
+                                            <PayFeeDialog
+                                                client:load
+                                                fee={{
+                                                    id:       fee.id,
+                                                    amount:   fee.amount,
+                                                    period:   fee.period,
+                                                    status:   fee.status,
+                                                    employee: {
+                                                        fullName:    fee.employee.fullName,
+                                                        ci:          fee.employee.ci,
+                                                        sectorId:    fee.employee.sectorId,
+                                                        sectorName:  fee.employee.sectorName,
+                                                        chargeTitle: fee.employee.chargeTitle,
+                                                    },
+                                                }}
+                                                cashbox={feeGetCashbox(fee)}
+                                                currentPeriod={today}
+                                                periodLabel={formatPeriod(fee.period)}
+                                            />
+                                        ) : (
+                                            <span class="text-xs text-slate-300">—</span>
+                                        )}
+                                    </td>
+                                )}
+                            </tr>
+                        ))
+                    )}
                 </tbody>
+                {currentFees.length > 0 && (
+                    <tfoot class="border-t-2 border-slate-200 bg-slate-50/70 text-xs text-slate-500">
+                        <tr>
+                            <td colspan="3" class="py-2.5 px-5 font-medium">
+                                {currentFees.length} registro{currentFees.length !== 1 ? "s" : ""}
+                            </td>
+                            <td class="py-2.5 px-4 text-right font-mono font-semibold text-slate-700">
+                                {bsFormat(currentFees.reduce((s, f) => s + Number(f.amount), 0))}
+                            </td>
+                            <td colspan={canEdit ? 2 : 1} />
+                        </tr>
+                    </tfoot>
+                )}
             </table>
         </div>
     </div>
+
 </FinanceLayout>
