@@ -44,10 +44,10 @@
     let inputErrors = $state<Record<string, string | string[]>>({});
     let serverError = $state<string | null>(null);
     let successMsg = $state<string | null>(null);
-    const formId = `sector-cashbox-link-form-${Math.random().toString(36).slice(2)}`;
+    const formId = `sector-cashbox-link-form-${initialSectorId ?? "new"}`;
 
-    let sectorId = $state(initialSectorId ? String(initialSectorId) : "");
-    let cashboxId = $state(initialCashboxId ?? "");
+    let sectorId = $derived(initialSectorId ? String(initialSectorId) : "");
+    let cashboxId = $derived(initialCashboxId ?? "");
     const selectedSectorName = $derived(
         sectors.find((s) => String(s.id) === sectorId)?.name ??
             "Sector no encontrado",
@@ -162,12 +162,10 @@
                     >
                         Sector <span class="text-red-500">*</span>
                     </label>
-                    {#if lockSector}
-                        <div
-                            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
-                        >
-                            {selectedSectorName}
-                        </div>
+                {#if lockSector}
+                    <div class="w-full rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700 font-medium">
+                        {selectedSectorName}
+                    </div>
                     {:else}
                         <select
                             bind:value={sectorId}
@@ -202,9 +200,8 @@
                         <option value="">-- Seleccionar caja --</option>
                         {#each cashboxes as c}
                             <option value={c.id}>
-                                {c.name} ({c.code}) . Bs {parseFloat(
-                                    c.balance ?? "0",
-                                ).toLocaleString("es-BO")}
+                                {c.name} ({c.code}) — Bs {parseFloat(c.balance ?? "0").toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+                                {c.id === initialCashboxId ? " · actual" : ""}
                             </option>
                         {/each}
                     </select>

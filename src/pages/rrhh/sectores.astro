@@ -4,7 +4,7 @@ import { actions, isActionError } from "astro:actions";
 import { db } from "@/db";
 import { cashboxes, sectors, employees } from "@/db/schema";
 import { eq, asc, and } from "drizzle-orm";
-import { Wallet, Building2, ChevronLeft } from "@lucide/astro";
+import { Wallet, Building2, ChevronLeft, TriangleAlert } from "@lucide/astro";
 import CreateSectorDialog from "@/components/svelte/dialogs/CreateSectorDialog.svelte";
 import EditSectorDialog from "@/components/svelte/dialogs/EditSectorDialog.svelte";
 import SectorCashboxAssignDialog from "@/components/svelte/rrhh/SectorCashboxAssignDialog.svelte";
@@ -23,7 +23,7 @@ const [cashbox] = await db
   .from(cashboxes)
   .where(eq(cashboxes.id, id!));
 
-if (!cashbox) return Astro.redirect("/cajas");
+// if (!cashbox) return Astro.redirect("/cajas");
 
 const cashboxSectors = await db
   .select({
@@ -113,7 +113,7 @@ const canCover = balance >= totalSalary;
 
   {!canCover && totalSalary > 0 && (
     <div class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      <AlertTriangle class="h-4 w-4 shrink-0" />
+      <TriangleAlert class="h-4 w-4 shrink-0" />
       Faltan Bs {(totalSalary - balance).toLocaleString("es-BO", { minimumFractionDigits: 2 })} para cubrir la masa salarial total.
     </div>
   )}
@@ -200,7 +200,7 @@ const canCover = balance >= totalSalary;
                       method="post"
                       action={actions.sector.linkSectorCashbox}
                       class="inline"
-                      onsubmit={`return confirm(${JSON.stringify(`¿Quitar el sector "${sector.name}" de la caja "${cashbox.name}"? Se asignará a la caja general.`)})`}
+                      onsubmit={`return confirm(${JSON.stringify(`¿Quitar el sector "${sector.name}" de la caja "${cashbox.name}"? Se asignará a la CAJA GENERAL.`)})`}
                     >
                       <input type="hidden" name="sectorId" value={sector.id} />
                       <input type="hidden" name="cashboxId" value={defaultCashbox.id} />
