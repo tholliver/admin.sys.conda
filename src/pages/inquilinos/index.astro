@@ -297,6 +297,18 @@ const monthName = now.toLocaleDateString("es-BO", {
                                                 : "",
                                         ]}
                                     >
+                                    <td class="py-3.5 px-4">
+                                        <a href={`/inquilinos/${tenant.id}`} class="group">
+                                            <p class="font-medium text-slate-900 group-hover:text-blue-600 group-hover:underline transition-colors">
+                                                {tenant.fullName}
+                                            </p>
+                                            {isOverdue && (
+                                                <p class="text-[10px] text-red-500 font-medium mt-0.5">
+                                                    Tiene pagos atrasados
+                                                </p>
+                                            )}
+                                        </a>
+                                    </td>
                                         <td class="py-3.5 px-5">
                                             <div>
                                                 <p class="font-bold text-slate-900 font-mono">
@@ -308,16 +320,6 @@ const monthName = now.toLocaleDateString("es-BO", {
                                                     </p>
                                                 )}
                                             </div>
-                                        </td>
-                                        <td class="py-3.5 px-4">
-                                            <p class="font-medium text-slate-900">
-                                                {tenant.fullName}
-                                            </p>
-                                            {isOverdue && (
-                                                <p class="text-[10px] text-red-500 font-medium mt-0.5">
-                                                    Tiene pagos atrasados
-                                                </p>
-                                            )}
                                         </td>
                                         <td class="py-3.5 px-4 text-sm text-slate-500">
                                             {tenant.phone ?? "—"}
@@ -358,70 +360,60 @@ const monthName = now.toLocaleDateString("es-BO", {
                                         </td>
                                             <td class="py-3.5 px-4 text-right">
                                                 <div class="flex items-center justify-end gap-2">
-                                                    {!isPaid &&
-                                                        tenant.status ===
-                                                            "activo" && (
-                                                            <form
-                                                                method="POST"
-                                                                action={
-                                                                    actions
-                                                                        .inquilinos
-                                                                        .registerRentPayment
-                                                                }
-                                                                class="inline"
+                                                    {!isPaid && tenant.status === "activo" && (
+                                                        <form
+                                                            method="POST"
+                                                            action={actions.inquilinos.registerRentPayment}
+                                                            class="inline"
+                                                        >
+                                                            <input type="hidden" name="tenantId" value={tenant.id} />
+                                                            <input type="hidden" name="period" value={currentPeriod} />
+                                                            <input type="hidden" name="tenantName" value={tenant.fullName} />
+                                                            <input type="hidden" name="amount" value={tenant.monthlyRent} />
+                                                            <button
+                                                                type="submit"
+                                                                onclick={`return confirm('Registrar pago de Bs ${Number(tenant.monthlyRent).toLocaleString("es-BO")} para ${tenant.fullName}?')`}
+                                                                class="rounded border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
                                                             >
-                                                                <input
-                                                                    type="hidden"
-                                                                    name="tenantId"
-                                                                    value={
-                                                                        tenant.id
-                                                                    }
-                                                                />
-                                                                <input
-                                                                    type="hidden"
-                                                                    name="period"
-                                                                    value={
-                                                                        currentPeriod
-                                                                    }
-                                                                />
-                                                                <input
-                                                                    type="hidden"
-                                                                    name="tenantName"
-                                                                    value={
-                                                                        tenant.fullName
-                                                                    }
-                                                                />
-                                                                <input
-                                                                    type="hidden"
-                                                                    name="amount"
-                                                                    value={
-                                                                        tenant.monthlyRent
-                                                                    }
-                                                                />
-                                                                <button
-                                                                    type="submit"
-                                                                    onclick={`return confirm('Registrar pago de Bs ${Number(tenant.monthlyRent).toLocaleString("es-BO")} para ${tenant.fullName}?')`}
-                                                                    class="rounded border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors"
-                                                                >
-                                                                    Pagar
-                                                                </button>
-                                                            </form>
-                                                        )}
-                                                    <a
-                                                        href={`/inquilinos/${tenant.id}`}
-                                                        class="rounded border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                                                    >
-                                                        Ver
-                                                    </a>
-                                                    {tenant.status ===
-                                                        "activo" && (
+                                                                Pagar
+                                                            </button>
+                                                        </form>
+                                                    )}
+
+                                                    {tenant.status !== "activo" && (
+                                                        <form method="POST" action={actions.inquilinos.updateTenantStatus} class="inline">
+                                                            <input type="hidden" name="id" value={tenant.id} />
+                                                            <input type="hidden" name="status" value="activo" />
+                                                            <button
+                                                                type="submit"
+                                                                onclick={`return confirm('¿Reactivar a ${tenant.fullName}?')`}
+                                                                class="rounded border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                                                            >
+                                                                Reactivar
+                                                            </button>
+                                                        </form>
+                                                    )}
+
+                                                    {tenant.status === "activo" && (
+                                                        <form method="POST" action={actions.inquilinos.updateTenantStatus} class="inline">
+                                                            <input type="hidden" name="id" value={tenant.id} />
+                                                            <input type="hidden" name="status" value="moroso" />
+                                                            <button
+                                                                type="submit"
+                                                                onclick={`return confirm('¿Marcar a ${tenant.fullName} como moroso?')`}
+                                                                class="rounded border border-red-200 bg-red-50 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
+                                                            >
+                                                                Moroso
+                                                            </button>
+                                                        </form>
+                                                    )}
+
+                                                    {tenant.status === "activo" && (
                                                         <DeleteConfirmDialog
                                                             client:load
                                                             entityType="tenant"
                                                             entityId={tenant.id}
-                                                            entityName={
-                                                                tenant.fullName
-                                                            }
+                                                            entityName={tenant.fullName}
                                                             entityLabel={`Amb. ${tenant.roomNumber}`}
                                                         />
                                                     )}

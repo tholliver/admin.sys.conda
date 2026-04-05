@@ -131,6 +131,7 @@
                 <!-- Nombre -->
                 <div>
                     <label
+                        for="name"
                         class="block text-xs font-medium text-slate-600 mb-1"
                     >
                         Nombre <span class="text-red-500">*</span>
@@ -155,7 +156,9 @@
 
                 <!-- Descripcion -->
                 <div>
-                    <label class="block text-xs font-medium text-slate-600 mb-1"
+                    <label
+                        for="description"
+                        class="block text-xs font-medium text-slate-600 mb-1"
                         >Descripcion</label
                     >
                     <input
@@ -210,5 +213,3 @@
         {/if}
     {/snippet}
 </Dialog>
-
-

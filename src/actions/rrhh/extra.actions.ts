@@ -328,11 +328,98 @@ export const bulkGenerateRents = defineAction({
   },
 });
 
+// ─── Inquilinos: Update Tenant Status ────────────────────────────────────────
+
+export const updateTenantStatus = defineAction({
+  accept: "form",
+  input: z.object({
+    id: z.coerce.number().int().positive(),
+    status: z.enum(["activo", "inactivo", "moroso"]),
+  }),
+  handler: async (input, ctx) => {
+    const user = ctx.locals.user;
+    if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
+    requireAdmin(user.role);
+
+    const [existing] = await db
+      .select({ id: tenants.id })
+      .from(tenants)
+      .where(eq(tenants.id, input.id));
+
+    if (!existing) {
+      throw new ActionError({ code: "NOT_FOUND", message: "Inquilino no encontrado." });
+    }
+
+    await db
+      .update(tenants)
+      .set({ status: input.status, updatedAt: new Date() })
+      .where(eq(tenants.id, input.id));
+
+    return { success: true, message: `Estado actualizado a "${input.status}".` };
+  },
+});
+
+// ─── Inquilinos: Update Tenant ────────────────────────────────────────────────
+
+export const updateTenant = defineAction({
+  accept: "form",
+  input: z.object({
+    id: z.coerce.number().int().positive(),
+    fullName: z.string().min(2, "Nombre requerido"),
+    ci: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().email("Correo inválido").optional().or(z.literal("")),
+    roomNumber: z.string().min(1, "N° de ambiente requerido"),
+    floor: z.string().optional(),
+    description: z.string().optional(),
+    monthlyRent: z.coerce.number().min(1, "Monto debe ser mayor a 0"),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date().optional(),
+    notes: z.string().optional(),
+  }),
+  handler: async (input, ctx) => {
+    const user = ctx.locals.user;
+    if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
+    requireAdmin(user.role);
+
+    const [existing] = await db
+      .select({ id: tenants.id })
+      .from(tenants)
+      .where(eq(tenants.id, input.id));
+
+    if (!existing) {
+      throw new ActionError({ code: "NOT_FOUND", message: "Inquilino no encontrado." });
+    }
+
+    await db
+      .update(tenants)
+      .set({
+        fullName: input.fullName,
+        ci: input.ci || null,
+        phone: input.phone || null,
+        email: input.email || null,
+        roomNumber: input.roomNumber,
+        floor: input.floor || null,
+        description: input.description || null,
+        monthlyRent: input.monthlyRent,
+        startDate: input.startDate,
+        endDate: input.endDate ?? null,
+        notes: input.notes || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(tenants.id, input.id));
+
+    return { success: true, message: "Inquilino actualizado correctamente." };
+  },
+});
+
 // ─── Namespace exports ────────────────────────────────────────────────────────
 
 export const inquilinos = {
   createTenant,
   deleteTenant,
+  updateTenant,        // ← add
+  updateTenantStatus,  // ← from previous step
   registerRentPayment,
   createPendingRent,
   bulkGenerateRents,
