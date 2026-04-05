@@ -8,6 +8,7 @@
         X,
         Zap,
     } from "@lucide/svelte";
+    import { formatBOB } from "@/utils/formatters";
 
     interface CategoryOption {
         id: string;
@@ -155,18 +156,14 @@
                 <div class="flex justify-between text-xs">
                     <span class="text-slate-500">Saldo actual</span>
                     <span class="font-bold text-slate-800 tabular-nums">
-                        Bs {currentBalance.toLocaleString("es-BO", {
-                            minimumFractionDigits: 2,
-                        })}
+                        {formatBOB(currentBalance)}
                     </span>
                 </div>
                 {#if monthlySalary > 0}
                     <div class="flex justify-between text-xs">
                         <span class="text-slate-500">Masa salarial</span>
                         <span class="font-medium text-slate-700 tabular-nums">
-                            Bs {monthlySalary.toLocaleString("es-BO", {
-                                minimumFractionDigits: 0,
-                            })}
+                        {formatBOB(monthlySalary)}
                         </span>
                     </div>
                     <div>
@@ -221,10 +218,7 @@
                                 class="inline-flex items-center gap-1 rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition-colors"
                             >
                                 <Zap class="h-3 w-3" />
-                                Cubrir faltante (Bs {gap.toLocaleString(
-                                    "es-BO",
-                                    { minimumFractionDigits: 2 },
-                                )})
+                                Cubrir faltante ({formatBOB(gap)})
                             </button>
                         {/if}
                     </div>

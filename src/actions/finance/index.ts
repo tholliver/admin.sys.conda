@@ -11,6 +11,7 @@ import { formatBOB } from "@/utils/formatters";
 import { voidTransaction } from "./void-transaction.action";
 import { transfer, payContractor, createContractor, updateContractorStatus } from "./transfer.action";
 import { toggleQuickCashbox } from "./toggle-quick-cashbox.action";
+import { toggleCashboxStatus } from "./toggle-cashbox-status.action";
 
 export const deposit = defineAction({
   accept: "form",
@@ -1219,5 +1220,6 @@ export const finance = {
   payContractor,
   createContractor,
   updateContractorStatus,
-  toggleQuickCashbox
+  toggleQuickCashbox,
+  toggleCashboxStatus
 };

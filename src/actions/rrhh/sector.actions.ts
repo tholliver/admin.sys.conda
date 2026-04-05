@@ -8,6 +8,7 @@ import {
   transactionCategories,
 } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { formatBOB } from "@/utils/formatters";
 
 const ADMIN_ROLES = ["ADMIN", "ADMON"] as const;
 
@@ -309,7 +310,7 @@ export const depositToCashboxAction = defineAction({
 
     return {
       success: true,
-      message: `Bs ${input.amount.toLocaleString("es-BO", { minimumFractionDigits: 2 })} depositados en "${cashbox.name}".`,
+      message: `Bs ${formatBOB(input.amount)} depositados en "${cashbox.name}".`,
       cashboxName: cashbox.name,
       newBalance,
     };

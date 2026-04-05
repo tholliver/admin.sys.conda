@@ -3,8 +3,8 @@ import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { actions, isActionError } from "astro:actions";
 import { db } from "@/db";
 import { cashboxes, sectors, employees } from "@/db/schema";
-import { eq, asc, and } from "drizzle-orm";
-import { Wallet, Building2, ChevronLeft, TriangleAlert } from "@lucide/astro";
+import { eq, asc, and, count } from "drizzle-orm";
+import { Building2, Wallet, Users, Link } from "@lucide/astro";
 import CreateSectorDialog from "@/components/svelte/dialogs/CreateSectorDialog.svelte";
 import EditSectorDialog from "@/components/svelte/dialogs/EditSectorDialog.svelte";
 import SectorCashboxAssignDialog from "@/components/svelte/rrhh/SectorCashboxAssignDialog.svelte";
@@ -13,57 +13,39 @@ const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
 if (!["ADMIN", "ADMON"].includes(user.role ?? "")) return Astro.redirect("/");
 
-const { id } = Astro.params;
 const linkResult = Astro.getActionResult(actions.sector.linkSectorCashbox);
 const successMsg = !linkResult?.error && linkResult?.data?.message ? linkResult.data.message : null;
 const errorMsg = isActionError(linkResult?.error) ? linkResult.error.message : null;
 
-const [cashbox] = await db
-  .select()
-  .from(cashboxes)
-  .where(eq(cashboxes.id, id!));
-
-// if (!cashbox) return Astro.redirect("/cajas");
-
-const cashboxSectors = await db
+// All sectors (active + inactive) with their cashbox info
+const allSectors = await db
   .select({
     id: sectors.id,
     name: sectors.name,
     description: sectors.description,
     isActive: sectors.isActive,
+    cashboxId: sectors.cashboxId,
+    cashboxName: cashboxes.name,
+    cashboxCode: cashboxes.code,
   })
   .from(sectors)
-  .where(and(eq(sectors.cashboxId, id!), eq(sectors.isActive, true)))
+  .leftJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
   .orderBy(asc(sectors.name));
 
-const allActiveSectors = await db
-  .select({ id: sectors.id, name: sectors.name, cashboxId: sectors.cashboxId })
-  .from(sectors)
-  .where(eq(sectors.isActive, true))
-  .orderBy(asc(sectors.name));
-
-const linkableSectors = allActiveSectors.filter((s) => s.cashboxId !== id);
-
-const sectorEmployees = await db
+// Employee counts per sector
+const empStats = await db
   .select({
     sectorId: employees.sectorId,
-    employeeId: employees.id,
-    fullName: employees.fullName,
-    chargeTitle: employees.chargeTitle,
-    baseSalary: employees.baseSalary,
-    status: employees.status,
+    employeeCount: count(employees.id),
   })
   .from(employees)
-  .innerJoin(sectors, eq(sectors.id, employees.sectorId))
-  .where(and(eq(employees.status, "activo"), eq(sectors.cashboxId, id!)));
+  .where(eq(employees.status, "activo"))
+  .groupBy(employees.sectorId);
 
-const empBySector = new Map<number, typeof sectorEmployees>();
-for (const emp of sectorEmployees) {
-  if (!empBySector.has(emp.sectorId)) empBySector.set(emp.sectorId, []);
-  empBySector.get(emp.sectorId)!.push(emp);
-}
+const empCountBySector = new Map(empStats.map((e) => [e.sectorId, e.employeeCount]));
 
-const allCashboxes = await db
+// All active cashboxes for the link dialog
+const allActiveCashboxes = await db
   .select({
     id: cashboxes.id,
     name: cashboxes.name,
@@ -75,49 +57,38 @@ const allCashboxes = await db
   .where(eq(cashboxes.status, "activo"))
   .orderBy(asc(cashboxes.name));
 
+const activeSectors = allSectors.filter((s) => s.isActive);
+const inactiveSectors = allSectors.filter((s) => !s.isActive);
+
+// Default cashbox (GEN) for "unlinked" fallback
 const [defaultCashbox] = await db
-  .select({ id: cashboxes.id })
+  .select({ id: cashboxes.id, name: cashboxes.name })
   .from(cashboxes)
   .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "activo")))
   .limit(1);
-
-const balance = Number(cashbox.balance ?? 0);
-const totalSalary = sectorEmployees.reduce((sum, e) => sum + Number(e.baseSalary ?? 0), 0);
-const canCover = balance >= totalSalary;
 ---
 
-<FinanceLayout title={cashbox.name} user={user}>
+<FinanceLayout title="Sectores" user={user}>
   <!-- Header -->
   <div class="flex items-start justify-between gap-4">
     <div>
-      <a href="/cajas" class="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 mb-1">
-        <ChevronLeft class="h-3 w-3" /> Cajas
-      </a>
+      <p class="text-xs text-slate-500 mb-1">RRHH</p>
       <div class="flex items-center gap-2">
-        <Wallet class="h-5 w-5 text-slate-400" />
-        <h1 class="text-xl font-bold text-slate-900">{cashbox.name}</h1>
-        <span class="font-mono text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{cashbox.code}</span>
+        <Building2 class="h-5 w-5 text-slate-400" />
+        <h1 class="text-xl font-bold text-slate-900">Sectores</h1>
       </div>
-      <p class:list={["text-2xl font-bold tabular-nums mt-1", canCover ? "text-emerald-600" : "text-red-600"]}>
-        Bs {balance.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+      <p class="text-sm text-slate-500 mt-0.5">
+        Administre sectores, su personal y la caja a la que están vinculados.
       </p>
     </div>
-
     <CreateSectorDialog
-      cashboxId={id}
       triggerLabel="Nuevo sector"
       triggerClass="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shrink-0"
       client:load
     />
   </div>
 
-  {!canCover && totalSalary > 0 && (
-    <div class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-      <TriangleAlert class="h-4 w-4 shrink-0" />
-      Faltan Bs {(totalSalary - balance).toLocaleString("es-BO", { minimumFractionDigits: 2 })} para cubrir la masa salarial total.
-    </div>
-  )}
-
+  <!-- Feedback banners -->
   {successMsg && (
     <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{successMsg}</div>
   )}
@@ -125,164 +96,148 @@ const canCover = balance >= totalSalary;
     <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMsg}</div>
   )}
 
-  <!-- Sectors list -->
-  <div class="space-y-4">
-    {linkableSectors.length > 0 && (
-      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 class="text-sm font-semibold text-slate-800">Vincular sector existente</h2>
-            <p class="text-xs text-slate-500">Seleccione un sector activo para asignarlo a esta caja.</p>
-          </div>
-          <form
-            method="post"
-            action={actions.sector.linkSectorCashbox}
-            class="flex flex-col gap-2 sm:flex-row sm:items-center"
-            onsubmit={`return confirm(${JSON.stringify(`¿Vincular el sector seleccionado a la caja "${cashbox.name}"?`)})`}
-          >
-            <input type="hidden" name="cashboxId" value={cashbox.id} />
-            <select
-              name="sectorId"
-              required
-              class="w-full rounded-lg border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 sm:min-w-60"
-            >
-              <option value="">-- Seleccionar sector --</option>
-              {linkableSectors.map((s) => (
-                <option value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors"
-            >
-              Agregar
-            </button>
-          </form>
-        </div>
-      </div>
-    )}
+  <!-- Summary strip -->
+  <div class="grid grid-cols-3 gap-3">
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-xs text-slate-500">Sectores activos</p>
+      <p class="text-2xl font-bold text-slate-900 mt-0.5">{activeSectors.length}</p>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-xs text-slate-500">Cajas asignadas</p>
+      <p class="text-2xl font-bold text-slate-900 mt-0.5">
+        {new Set(activeSectors.map((s) => s.cashboxId)).size}
+      </p>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-xs text-slate-500">Inactivos</p>
+      <p class="text-2xl font-bold text-slate-400 mt-0.5">{inactiveSectors.length}</p>
+    </div>
+  </div>
 
-    {cashboxSectors.length === 0 ? (
-      <div class="rounded-xl border-2 border-dashed border-slate-200 p-8 text-center text-slate-400">
+  <!-- Active sectors table -->
+  <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-slate-800">Sectores activos</h2>
+      <span class="text-xs text-slate-400">{activeSectors.length} sectores</span>
+    </div>
+
+    {activeSectors.length === 0 ? (
+      <div class="p-10 text-center text-slate-400">
         <Building2 class="h-8 w-8 mx-auto mb-2 opacity-30" />
-        <p class="text-sm">Esta caja no tiene sectores aun.</p>
+        <p class="text-sm">No hay sectores activos. Crea el primero.</p>
       </div>
     ) : (
-      <div class="sector-grid">
-        {cashboxSectors.map((sector) => {
-          const emps = empBySector.get(sector.id) ?? [];
-          const sectorSalary = emps.reduce((s, e) => s + Number(e.baseSalary ?? 0), 0);
-          const sectorOption = [{ id: sector.id, name: sector.name }];
+      <div class="divide-y divide-slate-100">
+        {activeSectors.map((sector) => {
+          const empCount = empCountBySector.get(sector.id) ?? 0;
+          const sectorAsOption = [{ id: sector.id, name: sector.name }];
 
           return (
-            <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-5">
-              <div class="flex items-start justify-between gap-4 mb-4">
-                <div class="flex items-center gap-2">
-                  <Building2 class="h-4 w-4 text-slate-400" />
-                  <h3 class="font-semibold text-slate-900">{sector.name}</h3>
-                  {sector.description && <p class="text-xs text-slate-400">{sector.description}</p>}
+            <div class="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50/60 transition-colors">
+              <!-- Icon + Name -->
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <div class="shrink-0 w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <Building2 class="h-3.5 w-3.5 text-slate-500" />
                 </div>
-                <div class="flex items-center gap-1.5 shrink-0">
-                  <SectorCashboxAssignDialog
-                    sectors={sectorOption as any}
-                    cashboxes={allCashboxes as any}
-                    initialSectorId={sector.id}
-                    initialCashboxId={cashbox.id}
-                    lockSector={true}
-                    triggerLabel="Reasignar"
-                    triggerClass="rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
-                    title="Reasignar caja del sector"
-                    description="Seleccione la nueva caja para este sector"
-                    client:load
-                  />
-                  {defaultCashbox && cashbox.code !== "GEN" && (
-                    <form
-                      method="post"
-                      action={actions.sector.linkSectorCashbox}
-                      class="inline"
-                      onsubmit={`return confirm(${JSON.stringify(`¿Quitar el sector "${sector.name}" de la caja "${cashbox.name}"? Se asignará a la CAJA GENERAL.`)})`}
-                    >
-                      <input type="hidden" name="sectorId" value={sector.id} />
-                      <input type="hidden" name="cashboxId" value={defaultCashbox.id} />
-                      <button
-                        type="submit"
-                        class="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors"
-                      >
-                        Quitar
-                      </button>
-                    </form>
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-slate-900 truncate">{sector.name}</p>
+                  {sector.description && (
+                    <p class="text-xs text-slate-400 truncate">{sector.description}</p>
                   )}
-                  <EditSectorDialog
-                    sectorId={sector.id}
-                    initialName={sector.name}
-                    initialDescription={sector.description}
-                    triggerLabel="Editar"
-                    triggerClass="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-                    client:load
-                  />
                 </div>
               </div>
 
-              <!-- Sector stats -->
-              <div class="grid grid-cols-3 gap-2 text-center text-xs mb-4">
-                <div class="rounded-lg bg-slate-50 p-2">
-                  <p class="text-slate-500">Personal</p>
-                  <p class="font-bold text-slate-800 text-base">{emps.length}</p>
-                </div>
-                <div class="rounded-lg bg-blue-50 p-2">
-                  <p class="text-blue-600">Estado</p>
-                  <p class="font-bold text-blue-800 tabular-nums">{sector.isActive ? "Activo" : "Inactivo"}</p>
-                </div>
-                <div class="rounded-lg bg-slate-50 p-2">
-                  <p class="text-slate-500">Masa Salarial</p>
-                  <p class="font-bold text-slate-800 tabular-nums">
-                    Bs {sectorSalary.toLocaleString("es-BO", { minimumFractionDigits: 0 })}
-                  </p>
-                </div>
+              <!-- Cashbox badge -->
+              <div class="hidden sm:flex items-center gap-1.5 shrink-0">
+                <Wallet class="h-3.5 w-3.5 text-slate-400" />
+                <span class="text-xs text-slate-600 font-medium">
+                  {sector.cashboxName ?? "—"}
+                </span>
+                {sector.cashboxCode && (
+                  <span class="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                    {sector.cashboxCode}
+                  </span>
+                )}
               </div>
 
-              <!-- Employees table -->
-              {emps.length > 0 && (
-                <div class="rounded-lg border border-slate-100 overflow-hidden">
-                  <table class="w-full text-xs">
-                    <thead class="bg-slate-50 border-b border-slate-100">
-                      <tr>
-                        <th class="px-3 py-2 text-left font-medium text-slate-500">Nombre</th>
-                        <th class="px-3 py-2 text-left font-medium text-slate-500">Cargo</th>
-                        <th class="px-3 py-2 text-right font-medium text-slate-500">Salario</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                      {emps.map((emp) => (
-                        <tr class="hover:bg-slate-50/50">
-                          <td class="px-3 py-2 font-medium text-slate-800">{emp.fullName}</td>
-                          <td class="px-3 py-2 text-slate-500">{emp.chargeTitle}</td>
-                          <td class="px-3 py-2 text-right tabular-nums text-slate-700">
-                            Bs {Number(emp.baseSalary).toLocaleString("es-BO", { minimumFractionDigits: 2 })}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <!-- Staff count -->
+              <div class="hidden sm:flex items-center gap-1 shrink-0">
+                <Users class="h-3.5 w-3.5 text-slate-400" />
+                <span class="text-xs text-slate-600">{empCount}</span>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex items-center gap-1.5 shrink-0">
+                <!-- Vincular/Reasignar caja -->
+                <SectorCashboxAssignDialog
+                  sectors={sectorAsOption as any}
+                  cashboxes={allActiveCashboxes as any}
+                  initialSectorId={sector.id}
+                  initialCashboxId={sector.cashboxId}
+                  lockSector={true}
+                  triggerLabel="Vincular caja"
+                  triggerClass="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                  title="Vincular sector a caja"
+                  description="Seleccione la caja a la que pertenecerá este sector."
+                  client:load
+                />
+
+                <!-- Editar / desactivar -->
+                <EditSectorDialog
+                  sectorId={sector.id}
+                  initialName={sector.name}
+                  initialDescription={sector.description}
+                  triggerLabel="Editar"
+                  triggerClass="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                  client:load
+                />
+              </div>
             </div>
           );
         })}
       </div>
     )}
   </div>
-</FinanceLayout>
 
-<style>
-  .sector-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 1rem;
-  }
-  @media (min-width: 768px) {
-    .sector-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-</style>
+  <!-- Inactive sectors — collapsed -->
+  {inactiveSectors.length > 0 && (
+    <details class="group rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <summary class="flex cursor-pointer items-center justify-between px-5 py-3 select-none hover:bg-slate-50 transition-colors">
+        <span class="text-sm font-semibold text-slate-500">
+          Sectores inactivos ({inactiveSectors.length})
+        </span>
+        <svg class="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </summary>
+
+      <div class="divide-y divide-slate-100 border-t border-slate-100">
+        {inactiveSectors.map((sector) => {
+          const empCount = empCountBySector.get(sector.id) ?? 0;
+
+          return (
+            <div class="flex items-center gap-4 px-5 py-3 opacity-60">
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <div class="shrink-0 w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <Building2 class="h-3.5 w-3.5 text-slate-400" />
+                </div>
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-slate-500 truncate">{sector.name}</p>
+                  {sector.description && (
+                    <p class="text-xs text-slate-400 truncate">{sector.description}</p>
+                  )}
+                </div>
+              </div>
+              <span class="hidden sm:block text-xs text-slate-400">{sector.cashboxName ?? "—"}</span>
+              <div class="hidden sm:flex items-center gap-1">
+                <Users class="h-3.5 w-3.5 text-slate-300" />
+                <span class="text-xs text-slate-400">{empCount}</span>
+              </div>
+              <span class="text-[10px] bg-slate-100 text-slate-400 rounded-full px-2 py-0.5 font-medium">Inactivo</span>
+            </div>
+          );
+        })}
+      </div>
+    </details>
+  )}
+</FinanceLayout>
