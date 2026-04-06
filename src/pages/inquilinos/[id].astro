@@ -1,5 +1,6 @@
 ---
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
+import { actions, isActionError } from "astro:actions";
 import { db } from "@/db";
 import { tenants, tenantPayments } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
@@ -12,17 +13,37 @@ import {
     Phone,
     ReceiptText,
     User,
+    TriangleAlert,
+    PlusCircle,
+    CreditCard,
 } from "@lucide/astro";
 import { formatCurrencyNoDecimals } from "@/utils/formatters";
 import { formatDate } from "@/utils/timex";
 import EditTenantDialog from "@/components/svelte/dialogs/EditTenantDialog.svelte";
+import { auditTenantPayments } from "@/services/audit.service";
+import { currentPeriod } from "@/services/rrhh/rrhh.service";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
 
+const canEdit = (["ADMIN", "ADMON"] as const).includes(user.role as any);
+
 const idParam = Astro.params.id ?? "";
 const tenantId = Number(idParam);
 if (!Number.isInteger(tenantId)) return Astro.redirect("/inquilinos");
+
+// Handle actions
+const registerResult = Astro.getActionResult(actions.inquilinos.createPendingRent);
+const collectResult  = Astro.getActionResult(actions.inquilinos.registerRentPayment);
+
+const successMsg =
+    (!registerResult?.error && registerResult?.data?.message) ||
+    (!collectResult?.error  && collectResult?.data?.message)  ||
+    null;
+const errorMsg =
+    (isActionError(registerResult?.error) && registerResult.error.message) ||
+    (isActionError(collectResult?.error)  && collectResult.error.message)  ||
+    null;
 
 const tenantRows = await db
     .select()
@@ -32,34 +53,25 @@ const tenantRows = await db
 const tenant = tenantRows[0];
 if (!tenant) return Astro.redirect("/inquilinos");
 
-const payments = await db
-    .select()
-    .from(tenantPayments)
-    .where(eq(tenantPayments.tenantId, tenantId))
-    .orderBy(desc(tenantPayments.period));
+const [payments, allGaps] = await Promise.all([
+    db.select().from(tenantPayments).where(eq(tenantPayments.tenantId, tenantId)).orderBy(desc(tenantPayments.period)),
+    auditTenantPayments(currentPeriod()),
+]);
+
+// Only this tenant's gaps
+const gaps = allGaps.filter((g) => g.tenantId === tenantId);
+const missingGaps = gaps.filter((g) => g.kind === "missing");
+const pendingGaps = gaps.filter((g) => g.kind === "pending");
 
 const paidPayments = payments.filter((p) => p.status === "pagado");
-const totalPaidAmount = paidPayments.reduce(
-    (s, p) => s + Number(p.amount ?? 0),
-    0,
-);
-const pendingCount = payments.filter(
-    (p) => p.status !== "pagado" && p.status !== "anulado",
-).length;
+const totalPaidAmount = paidPayments.reduce((s, p) => s + Number(p.amount ?? 0), 0);
+const pendingCount = payments.filter((p) => p.status !== "pagado" && p.status !== "anulado").length;
 const lastPaidAt =
     paidPayments
         .filter((p) => p.createdAt)
-        .sort(
-            (a, b) =>
-                Number(new Date(b.createdAt ?? 0)) -
-                Number(new Date(a.createdAt ?? 0)),
-        )[0]?.createdAt ?? null;
+        .sort((a, b) => Number(new Date(b.createdAt ?? 0)) - Number(new Date(a.createdAt ?? 0)))[0]?.createdAt ?? null;
 
-const STATUS_LABELS: Record<string, string> = {
-    activo: "Activo",
-    inactivo: "Inactivo",
-    moroso: "Moroso",
-};
+const STATUS_LABELS: Record<string, string> = { activo: "Activo", inactivo: "Inactivo", moroso: "Moroso" };
 const STATUS_COLORS: Record<string, string> = {
     activo: "bg-emerald-100 text-emerald-700",
     inactivo: "bg-slate-100 text-slate-500",
@@ -71,40 +83,37 @@ const PAYMENT_COLORS: Record<string, string> = {
     parcial: "bg-blue-100 text-blue-700",
     anulado: "bg-slate-100 text-slate-400",
 };
-const PAYMENT_LABELS: Record<string, string> = {
-    pagado: "Pagado",
-    pendiente: "Pendiente",
-    parcial: "Parcial",
-    anulado: "Anulado",
+const PAYMENT_LABELS: Record<string, string> = { pagado: "Pagado", pendiente: "Pendiente", parcial: "Parcial", anulado: "Anulado" };
+
+const fmtPeriod = (p: string) => {
+    const [y, m] = p.split("-");
+    return new Date(Number(y), Number(m) - 1).toLocaleDateString("es-BO", { month: "long", year: "numeric" });
 };
 ---
 
 <FinanceLayout title={`Inquilino - ${tenant.fullName}`} user={user}>
+
+    <!-- Flash -->
+    {successMsg && (
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">✓ {successMsg}</div>
+    )}
+    {errorMsg && (
+        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">✗ {errorMsg}</div>
+    )}
+
     <div class="flex items-center justify-between">
         <div>
-            <a
-                href="/inquilinos"
-                class="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700"
-            >
+            <a href="/inquilinos" class="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-700">
                 <ArrowLeft class="h-4 w-4" />
                 Volver a Inquilinos
             </a>
-            <h1 class="text-2xl font-bold text-slate-900 mt-2">
-                {tenant.fullName}
-            </h1>
+            <h1 class="text-2xl font-bold text-slate-900 mt-2">{tenant.fullName}</h1>
             <div class="flex items-center gap-2 mt-1">
-                <span
-                    class:list={[
-                        "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                        STATUS_COLORS[tenant.status] ??
-                            "bg-slate-100 text-slate-500",
-                    ]}
-                >
+                <span class:list={["rounded-full px-2.5 py-0.5 text-xs font-semibold", STATUS_COLORS[tenant.status] ?? "bg-slate-100 text-slate-500"]}>
                     {STATUS_LABELS[tenant.status] ?? tenant.status}
                 </span>
                 <span class="text-xs text-slate-400">
-                    Amb. {tenant.roomNumber}
-                    {tenant.floor ? ` / Piso ${tenant.floor}` : ""}
+                    Amb. {tenant.roomNumber}{tenant.floor ? ` / Piso ${tenant.floor}` : ""}
                 </span>
             </div>
         </div>
@@ -128,49 +137,31 @@ const PAYMENT_LABELS: Record<string, string> = {
             />
             <div class="text-right">
                 <p class="text-xs text-slate-500">Alquiler mensual</p>
-                <p class="text-xl font-bold text-slate-900 font-mono">
-                    {formatCurrencyNoDecimals(tenant.monthlyRent)}
-                </p>
+                <p class="text-xl font-bold text-slate-900 font-mono">{formatCurrencyNoDecimals(tenant.monthlyRent)}</p>
             </div>
         </div>
     </div>
 
-    <!-- Summary -->
+    <!-- Summary KPIs -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
-                Total Pagado
-            </p>
-            <p class="text-2xl font-bold text-slate-900 tabular-nums">
-                {formatCurrencyNoDecimals(totalPaidAmount)}
-            </p>
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">Total Pagado</p>
+            <p class="text-2xl font-bold text-slate-900 tabular-nums">{formatCurrencyNoDecimals(totalPaidAmount)}</p>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
-                Meses Pendientes
-            </p>
-            <p class="text-3xl font-bold text-amber-700 tabular-nums">
-                {pendingCount}
-            </p>
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">Meses Pendientes</p>
+            <p class="text-3xl font-bold text-amber-700 tabular-nums">{pendingCount}</p>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">
-                Último Pago
-            </p>
-            <p class="text-lg font-semibold text-slate-900">
-                {lastPaidAt ? formatDate(lastPaidAt) : "Sin pagos"}
-            </p>
+            <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">Último Pago</p>
+            <p class="text-lg font-semibold text-slate-900">{lastPaidAt ? formatDate(lastPaidAt) : "Sin pagos"}</p>
         </div>
     </div>
 
     <!-- Details + Contact -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div
-            class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2"
-        >
-            <h2
-                class="font-semibold text-slate-900 mb-4 flex items-center gap-2"
-            >
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+            <h2 class="font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <User class="h-4 w-4 text-slate-400" />
                 Datos del Inquilino
             </h2>
@@ -179,61 +170,46 @@ const PAYMENT_LABELS: Record<string, string> = {
                     <IdCard class="h-4 w-4 text-slate-400 mt-0.5" />
                     <div>
                         <p class="text-xs text-slate-500">CI</p>
-                        <p class="font-medium text-slate-900">
-                            {tenant.ci ?? "-"}
-                        </p>
+                        <p class="font-medium text-slate-900">{tenant.ci ?? "-"}</p>
                     </div>
                 </div>
                 <div class="flex items-start gap-3">
                     <Building class="h-4 w-4 text-slate-400 mt-0.5" />
                     <div>
                         <p class="text-xs text-slate-500">Ambiente</p>
-                        <p class="font-medium text-slate-900">
-                            {tenant.roomNumber}
-                            {tenant.floor ? ` / Piso ${tenant.floor}` : ""}
-                        </p>
+                        <p class="font-medium text-slate-900">{tenant.roomNumber}{tenant.floor ? ` / Piso ${tenant.floor}` : ""}</p>
                     </div>
                 </div>
                 <div class="flex items-start gap-3">
                     <Calendar class="h-4 w-4 text-slate-400 mt-0.5" />
                     <div>
                         <p class="text-xs text-slate-500">Inicio</p>
-                        <p class="font-medium text-slate-900">
-                            {formatDate(tenant.startDate)}
-                        </p>
+                        <p class="font-medium text-slate-900">{formatDate(tenant.startDate)}</p>
                     </div>
                 </div>
                 <div class="flex items-start gap-3">
                     <Calendar class="h-4 w-4 text-slate-400 mt-0.5" />
                     <div>
                         <p class="text-xs text-slate-500">Fin</p>
-                        <p class="font-medium text-slate-900">
-                            {tenant.endDate ? formatDate(tenant.endDate) : "-"}
-                        </p>
+                        <p class="font-medium text-slate-900">{tenant.endDate ? formatDate(tenant.endDate) : "-"}</p>
                     </div>
                 </div>
             </div>
-            {
-                tenant.description && (
-                    <div class="mt-4 text-sm text-slate-600">
-                        <p class="text-xs text-slate-500 mb-1">Descripción</p>
-                        <p>{tenant.description}</p>
-                    </div>
-                )
-            }
-            {
-                tenant.notes && (
-                    <div class="mt-4 text-sm text-slate-600">
-                        <p class="text-xs text-slate-500 mb-1">Notas</p>
-                        <p>{tenant.notes}</p>
-                    </div>
-                )
-            }
+            {tenant.description && (
+                <div class="mt-4 text-sm text-slate-600">
+                    <p class="text-xs text-slate-500 mb-1">Descripción</p>
+                    <p>{tenant.description}</p>
+                </div>
+            )}
+            {tenant.notes && (
+                <div class="mt-4 text-sm text-slate-600">
+                    <p class="text-xs text-slate-500 mb-1">Notas</p>
+                    <p>{tenant.notes}</p>
+                </div>
+            )}
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2
-                class="font-semibold text-slate-900 mb-4 flex items-center gap-2"
-            >
+            <h2 class="font-semibold text-slate-900 mb-4 flex items-center gap-2">
                 <Phone class="h-4 w-4 text-slate-400" />
                 Contacto
             </h2>
@@ -242,106 +218,143 @@ const PAYMENT_LABELS: Record<string, string> = {
                     <Phone class="h-4 w-4 text-slate-400" />
                     <div>
                         <p class="text-xs text-slate-500">Teléfono</p>
-                        <p class="font-medium text-slate-900">
-                            {tenant.phone ?? "-"}
-                        </p>
+                        <p class="font-medium text-slate-900">{tenant.phone ?? "-"}</p>
                     </div>
                 </div>
                 <div class="flex items-center gap-3">
                     <Mail class="h-4 w-4 text-slate-400" />
                     <div>
                         <p class="text-xs text-slate-500">Email</p>
-                        <p class="font-medium text-slate-900">
-                            {tenant.email ?? "-"}
-                        </p>
+                        <p class="font-medium text-slate-900">{tenant.email ?? "-"}</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- ══════════════════════════════════════════════════════
+         DEBT SECTION — anchor target from auditoria
+         Only shown when there are gaps (missing or pending)
+         ══════════════════════════════════════════════════════ -->
+    {gaps.length > 0 && (
+        <div id="deudas" class="rounded-xl border border-red-200 bg-white shadow-sm overflow-hidden scroll-mt-6">
+            <div class="px-5 py-4 border-b border-red-100 flex items-center gap-2 bg-red-50/60">
+                <TriangleAlert class="size-4 text-red-500" />
+                <h2 class="font-semibold text-red-800 text-sm">
+                    Deudas detectadas — {gaps.length} período{gaps.length !== 1 ? "s" : ""} sin resolver
+                </h2>
+            </div>
+
+            <div class="divide-y divide-slate-100">
+
+                <!-- Missing: register as pending -->
+                {missingGaps.length > 0 && (
+                    <div class="px-5 py-4">
+                        <p class="text-xs font-semibold text-red-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                            <span class="inline-block size-2 rounded-full bg-red-400"></span>
+                            Sin registro — registrar como pendiente
+                        </p>
+                        <div class="flex flex-wrap gap-2">
+                            {missingGaps.map((gap) => (
+                                <form method="POST" action={actions.inquilinos.createPendingRent}>
+                                    <input type="hidden" name="tenantId" value={gap.tenantId} />
+                                    <input type="hidden" name="period"   value={gap.period} />
+                                    <input type="hidden" name="amount"   value={gap.expectedAmount} />
+                                    <button
+                                        type="submit"
+                                        onclick={`return confirm('Registrar deuda\\n\\n${tenant.fullName} — Amb. ${tenant.roomNumber}\\nPeríodo: ${fmtPeriod(gap.period)}\\nMonto: Bs ${gap.expectedAmount}\\n\\nQuedará como PENDIENTE.')`}
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
+                                    >
+                                        <PlusCircle class="size-3 shrink-0" />
+                                        {fmtPeriod(gap.period)}
+                                        <span class="text-red-400 font-mono">Bs {gap.expectedAmount}</span>
+                                    </button>
+                                </form>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <!-- Pending: collect payment -->
+                {pendingGaps.length > 0 && canEdit && (
+                    <div class="px-5 py-4">
+                        <p class="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                            <span class="inline-block size-2 rounded-full bg-amber-400"></span>
+                            Registrados sin cobrar — marcar como pagado
+                        </p>
+                        <div class="flex flex-wrap gap-2">
+                            {pendingGaps.map((gap) => (
+                                <form method="POST" action={actions.inquilinos.registerRentPayment}>
+                                    <input type="hidden" name="tenantId"   value={gap.tenantId} />
+                                    <input type="hidden" name="tenantName" value={tenant.fullName} />
+                                    <input type="hidden" name="period"     value={gap.period} />
+                                    <input type="hidden" name="amount"     value={gap.amount} />
+                                    <button
+                                        type="submit"
+                                        onclick={`return confirm('Cobrar alquiler\\n\\n${tenant.fullName} — Amb. ${tenant.roomNumber}\\nPeríodo: ${fmtPeriod(gap.period)}\\nMonto: Bs ${gap.amount}\\n\\nSe registrará el pago en caja GEN.')`}
+                                        class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+                                    >
+                                        <CreditCard class="size-3 shrink-0" />
+                                        Cobrar {fmtPeriod(gap.period)}
+                                        <span class="text-amber-500 font-mono">Bs {gap.amount}</span>
+                                    </button>
+                                </form>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+            </div>
+        </div>
+    )}
+
     <!-- Payment History -->
-    <div
-        class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
-    >
-        <div
-            class="flex items-center justify-between px-6 py-4 border-b border-slate-100"
-        >
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100">
             <div class="flex items-center gap-2">
                 <ReceiptText class="h-5 w-5 text-slate-400" />
                 <h2 class="font-semibold text-slate-900">Historial de Pagos</h2>
             </div>
-            <span class="text-xs text-slate-500">
-                {payments.length} registro(s)
-            </span>
+            <span class="text-xs text-slate-500">{payments.length} registro(s)</span>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
-                <thead
-                    class="bg-slate-50 text-xs text-slate-500 border-b border-slate-100"
-                >
+                <thead class="bg-slate-50 text-xs text-slate-500 border-b border-slate-100">
                     <tr>
                         <th class="py-3 px-5 text-left font-medium">Periodo</th>
                         <th class="py-3 px-4 text-right font-medium">Monto</th>
-                        <th class="py-3 px-4 text-center font-medium">Estado</th
-                        >
+                        <th class="py-3 px-4 text-center font-medium">Estado</th>
                         <th class="py-3 px-4 text-center font-medium">Vence</th>
-                        <th class="py-3 px-4 text-center font-medium">Pagado</th
-                        >
+                        <th class="py-3 px-4 text-center font-medium">Pagado</th>
                         <th class="py-3 px-4 text-right font-medium">Recibo</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
-                    {
-                        payments.length === 0 ? (
-                            <tr>
-                                <td
-                                    colspan="6"
-                                    class="py-10 text-center text-slate-400 text-sm"
-                                >
-                                    Sin pagos registrados.
+                    {payments.length === 0 ? (
+                        <tr>
+                            <td colspan="6" class="py-10 text-center text-slate-400 text-sm">Sin pagos registrados.</td>
+                        </tr>
+                    ) : (
+                        payments.map((p) => (
+                            <tr class="hover:bg-slate-50/60 transition-colors">
+                                <td class="py-3.5 px-5 font-mono text-slate-700">{p.period}</td>
+                                <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
+                                    {formatCurrencyNoDecimals(p.amount)}
                                 </td>
+                                <td class="py-3.5 px-4 text-center">
+                                    <span class:list={["rounded-full px-2.5 py-0.5 text-xs font-semibold", PAYMENT_COLORS[p.status] ?? "bg-slate-100 text-slate-500"]}>
+                                        {PAYMENT_LABELS[p.status] ?? p.status}
+                                    </span>
+                                </td>
+                                <td class="py-3.5 px-4 text-center text-slate-500">{p.dueDate ? formatDate(p.dueDate) : "-"}</td>
+                                <td class="py-3.5 px-4 text-center text-slate-500">{p.createdAt ? formatDate(p.createdAt) : "Pendiente"}</td>
+                                <td class="py-3.5 px-4 text-right text-slate-500">{p.receiptNumber ?? "-"}</td>
                             </tr>
-                        ) : (
-                            payments.map((p) => (
-                                <tr class="hover:bg-slate-50/60 transition-colors">
-                                    <td class="py-3.5 px-5 font-mono text-slate-700">
-                                        {p.period}
-                                    </td>
-                                    <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
-                                        {formatCurrencyNoDecimals(p.amount)}
-                                    </td>
-                                    <td class="py-3.5 px-4 text-center">
-                                        <span
-                                            class:list={[
-                                                "rounded-full px-2.5 py-0.5 text-xs font-semibold",
-                                                PAYMENT_COLORS[p.status] ??
-                                                    "bg-slate-100 text-slate-500",
-                                            ]}
-                                        >
-                                            {PAYMENT_LABELS[p.status] ??
-                                                p.status}
-                                        </span>
-                                    </td>
-                                    <td class="py-3.5 px-4 text-center text-slate-500">
-                                        {p.dueDate
-                                            ? formatDate(p.dueDate)
-                                            : "-"}
-                                    </td>
-                                    <td class="py-3.5 px-4 text-center text-slate-500">
-                                        {p.createdAt
-                                            ? formatDate(p.createdAt)
-                                            : "Pendiente"}
-                                    </td>
-                                    <td class="py-3.5 px-4 text-right text-slate-500">
-                                        {p.receiptNumber ?? "-"}
-                                    </td>
-                                </tr>
-                            ))
-                        )
-                    }
+                        ))
+                    )}
                 </tbody>
             </table>
         </div>
     </div>
+
 </FinanceLayout>

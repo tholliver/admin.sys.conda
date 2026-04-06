@@ -270,12 +270,14 @@ const STATUS_COLORS: Record<string, string> = {
                             result.data.map((emp) => (
                                 <tr class="hover:bg-slate-50/60 transition-colors">
                                     <td class="py-3.5 px-5">
-                                        <p class="font-medium text-slate-900">
-                                            {emp.fullName}
-                                        </p>
-                                        <p class="text-xs text-slate-400 font-mono">
-                                            {emp.ci}
-                                        </p>
+                                        <a href={`/rrhh/personal/${emp.id}`} class="group">
+                                            <p class="font-medium text-slate-900 group-hover:text-violet-700 transition-colors">
+                                                {emp.fullName}
+                                            </p>
+                                            <p class="text-xs text-slate-400 font-mono">
+                                                {emp.ci}
+                                            </p>
+                                        </a>
                                     </td>
                                     <td class="py-3.5 px-4">
                                         <span

@@ -185,13 +185,14 @@ export async function updateEmployee(data: UpdateEmployeeInput) {
 // --- Fee Queries --------------------------------------------------------------
 
 export async function getFeesWithEmployees(filters: FeeFilters = {} as FeeFilters) {
-  const { period, sectorId, status = "all", employeeType = "all" } = filters;
+  const { period, sectorId, employeeId, status = "all", employeeType = "all" } = filters;
 
   const conditions = [];
 
   if (period) conditions.push(eq(employeeFees.period, period));
   if (status !== "all") conditions.push(eq(employeeFees.status, status as any));
   if (sectorId) conditions.push(eq(employees.sectorId, sectorId));
+  if (employeeId) conditions.push(eq(employeeFees.employeeId, employeeId));
   if (employeeType !== "all") conditions.push(eq(employees.employeeType, employeeType as any));
 
   const rows = await db
@@ -574,4 +575,3 @@ export async function getOverdueFeesSummary(currentPer: string) {
     totalAmount: Number(rows[0]?.totalAmount ?? 0),
   };
 }
-

@@ -137,6 +137,10 @@ export const feeFiltersSchema = z.object({
     (value) => (value === "" || value == null ? undefined : value),
     z.coerce.number().int().positive().optional(),
   ),
+  employeeId: z.preprocess(
+    (value) => (value === "" || value == null ? undefined : value),
+    z.coerce.number().int().positive().optional(),
+  ),
   status: z
     .enum(["pendiente", "pagado", "parcial", "anulado", "all"])
     .default("all"),
