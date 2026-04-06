@@ -15,6 +15,7 @@ import {
   tenantPayments,
 } from "@/db/schema";
 import { and, eq, gte, isNull, lte, inArray } from "drizzle-orm";
+import { currentPeriod } from "./rrhh/rrhh.service";
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -35,12 +36,6 @@ function periodRange(start: string, end: string): string[] {
     if (m > 12) { m = 1; y++; }
   }
   return periods;
-}
-
-/** Today's period as "YYYY-MM" */
-export function currentPeriod(): string {
-  const now = new Date();
-  return periodOf(now.getFullYear(), now.getMonth() + 1);
 }
 
 // ── Types ──────────────────────────────────────────────────────────────

@@ -42,8 +42,7 @@
         return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     }
 
-    async function handleSubmit(e: CustomEvent<EmployeeFormData>) {
-        const data = e.detail;
+    async function handleSubmit(data: EmployeeFormData) {
         fieldErrors = {};
         serverError = null;
 
@@ -146,7 +145,7 @@
                     {maxDirectorio}
                     {maxPlanta}
                     {fieldErrors}
-                    on:submit={handleSubmit}
+                    onSubmit={handleSubmit}
                 />
             {/key}
         {/if}
@@ -191,3 +190,6 @@
         {/if}
     {/snippet}
 </Dialog>
+
+
+

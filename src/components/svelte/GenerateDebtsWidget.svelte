@@ -186,75 +186,6 @@
             {/if}
           </div>
         {/if}
-
-        <!-- Missing tenant rents -->
-        {#if missingTen > 0 || tenState === "done"}
-          <div class="row" class:row--done={tenState === "done"}>
-            <div class="row-icon row-icon--ten">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-              </svg>
-            </div>
-            <div class="row-text">
-              <span class="row-label">
-                {#if tenState === "done"}
-                  {tenCreated} alquiler{tenCreated !== 1 ? "es" : ""} generado{tenCreated !== 1 ? "s" : ""}
-                {:else}
-                  {missingTen} alquiler{missingTen !== 1 ? "es" : ""} sin generar
-                {/if}
-              </span>
-              <span class="row-sub">Inquilinos activos · {periodCapitalized}</span>
-            </div>
-            {#if tenState === "idle"}
-              <button class="row-action row-action--generate" onclick={generateTen}>
-                Generar
-              </button>
-            {:else if tenState === "loading"}
-              <span class="row-spinner"></span>
-            {:else if tenState === "done"}
-              <svg class="row-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
-              <span class="row-error-dot" title="Error al generar"></span>
-            {/if}
-          </div>
-        {/if}
-
-        <!-- Overdue employee fees -->
-        {#if overdueEmp > 0}
-          <div class="row">
-            <div class="row-icon row-icon--overdue">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-            </div>
-            <div class="row-text">
-              <span class="row-label">{overdueEmp} salario{overdueEmp !== 1 ? "s" : ""} atrasado{overdueEmp !== 1 ? "s" : ""}</span>
-              <span class="row-sub">Períodos anteriores sin pagar</span>
-            </div>
-            <a class="row-action row-action--pay" href="/rrhh/salarios?status=pendiente" onclick={close}>
-              Ver
-            </a>
-          </div>
-        {/if}
-
-        <!-- Overdue tenant rents -->
-        {#if overdueTen > 0}
-          <div class="row">
-            <div class="row-icon row-icon--overdue">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-            </div>
-            <div class="row-text">
-              <span class="row-label">{overdueTen} alquiler{overdueTen !== 1 ? "es" : ""} atrasado{overdueTen !== 1 ? "s" : ""}</span>
-              <span class="row-sub">Períodos anteriores sin cobrar</span>
-            </div>
-            <a class="row-action row-action--pay" href="/inquilinos" onclick={close}>
-              Ver
-            </a>
-          </div>
-        {/if}
-
       </div>
 
       <!-- Footer -->
@@ -397,11 +328,8 @@
     flex-shrink: 0;
   }
 
-  .row-icon svg { width: 0.85rem; height: 0.85rem; }
-
   .row-icon--emp    { background: oklch(0.93 0.05 280); color: oklch(0.45 0.18 280); }
   .row-icon--ten    { background: oklch(0.93 0.05 200); color: oklch(0.42 0.16 200); }
-  .row-icon--overdue { background: oklch(0.95 0.05 50);  color: oklch(0.5 0.18 50);  }
 
   .row-text {
     flex: 1;

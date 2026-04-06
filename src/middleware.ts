@@ -1,3 +1,4 @@
+import "@/lib/server/period-close.cron";
 import { auth } from "@/auth";
 import type { MiddlewareHandler } from "astro";
 import { defineMiddleware, sequence } from "astro:middleware";

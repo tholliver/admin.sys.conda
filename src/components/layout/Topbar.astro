@@ -4,7 +4,7 @@ import GenerateDebtsWidget from "@/components/svelte/GenerateDebtsWidget.svelte"
 import { getHoursSinceLastBackup } from "@/lib/server/backup.service";
 import { db } from "@/db";
 import { employees, employeeFees, tenants, tenantPayments } from "@/db/schema";
-import { and, eq, isNull, inArray, count, sql } from "drizzle-orm";
+import { and, eq, isNull, inArray, count } from "drizzle-orm";
 
 const { title, user } = Astro.props;
 
@@ -43,48 +43,50 @@ let missingEmp   = 0;
 let missingTen   = 0;
 let overdueEmp   = 0;
 let overdueTen   = 0;
-let currentPeriod = "";
+let period  = "";
+// After your assignments, add these aliases:
+const unpaidEmp = overdueEmp;
+const unpaidTen = overdueTen;
 
 if (canSeeAlerts) {
     try {
-        // Replace the entire Promise.all block with this:
-        const now = new Date();
-        currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const now = new Date();
+      period  = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-        const [unpaidEmpRow, unpaidTenRow, activeEmpCount, activeEmpGenRow, activeTenCount, activeTenGenRow] =
-            await Promise.all([
-                // All unpaid employee fees (any period)
-                db.select({ n: count() }).from(employeeFees).where(
-                    eq(employeeFees.status, "pendiente")
-                ),
-                // All unpaid tenant payments (any period)
-                db.select({ n: count() }).from(tenantPayments).where(
-                    eq(tenantPayments.status, "pendiente")
-                ),
-                // Active employee count
-                db.select({ n: count() }).from(employees).where(
-                    and(isNull(employees.deletedAt), inArray(employees.status, ["activo", "suspendido", "licencia"]))
-                ),
-                // Generated for current period
-                db.select({ n: count() }).from(employeeFees).where(eq(employeeFees.period, currentPeriod)),
-                // Active tenant count
-                db.select({ n: count() }).from(tenants).where(
-                    and(isNull(tenants.deletedAt), inArray(tenants.status, ["activo", "moroso"]))
-                ),
-                // Generated for current period
-                db.select({ n: count() }).from(tenantPayments).where(eq(tenantPayments.period, currentPeriod)),
-            ]);
+      const [
+          unpaidEmpRow,
+          unpaidTenRow,
+          activeEmpCount,
+          activeEmpGenRow,
+          activeTenCount,
+          activeTenGenRow,
+      ] = await Promise.all([
+          db.select({ n: count() }).from(employeeFees).where(eq(employeeFees.status, "pendiente")),
+          db.select({ n: count() }).from(tenantPayments).where(eq(tenantPayments.status, "pendiente")),
+          db.select({ n: count() }).from(employees).where(
+              and(isNull(employees.deletedAt), inArray(employees.status, ["activo", "suspendido", "licencia"]))
+          ),
+          db.select({ n: count() }).from(employeeFees).where(eq(employeeFees.period, period )),
+          db.select({ n: count() }).from(tenants).where(
+              and(isNull(tenants.deletedAt), inArray(tenants.status, ["activo", "moroso"]))
+          ),
+          db.select({ n: count() }).from(tenantPayments).where(eq(tenantPayments.period, period )),
+      ]);
 
-        const rawOverdueEmp  = Number(overdueEmpRow[0]?.n  ?? 0);
-        const rawOverdueTen  = Number(overdueTenRow[0]?.n  ?? 0);
-        const rawMissingEmp  = Math.max(0, Number(activeEmpCount[0]?.n ?? 0) - Number(generatedEmpCount[0]?.n ?? 0));
-        const rawMissingTen  = Math.max(0, Number(activeTenCount[0]?.n ?? 0) - Number(generatedTenCount[0]?.n ?? 0));
-        if (gapCount > 0) {
-            const parts: string[] = [];
-            if (missingTotal > 0) parts.push(`${missingTotal} sin generar`);
-            if (overdueTotal > 0) parts.push(`${overdueTotal} atrasados`);
-            gapLabel = parts.join(" · ");
-        }
+      overdueEmp   = Number(unpaidEmpRow[0]?.n   ?? 0);
+      overdueTen   = Number(unpaidTenRow[0]?.n   ?? 0);
+      missingEmp   = Math.max(0, Number(activeEmpCount[0]?.n ?? 0) - Number(activeEmpGenRow[0]?.n ?? 0));
+      missingTen   = Math.max(0, Number(activeTenCount[0]?.n ?? 0) - Number(activeTenGenRow[0]?.n ?? 0));
+      missingTotal = missingEmp + missingTen;
+      overdueTotal = overdueEmp + overdueTen;
+      gapCount     = missingTotal + overdueTotal;
+
+      if (gapCount > 0) {
+          const parts: string[] = [];
+          if (missingTotal > 0) parts.push(`${missingTotal} sin generar`);
+          if (overdueTotal > 0) parts.push(`${overdueTotal} atrasados`);
+          gapLabel = parts.join(" · ");
+      }
     } catch {
         // Silently fail — topbar must never crash the layout
     }
@@ -120,7 +122,7 @@ if (canSeeAlerts) {
                           {missingTen}
                           unpaidEmp={unpaidEmp}
                           unpaidTen={unpaidTen}
-                          {currentPeriod}
+                          currentPeriod={period}
                       />
                     )}
                     <a

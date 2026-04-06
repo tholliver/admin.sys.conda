@@ -35,7 +35,7 @@
     let successMsg = $state<string | null>(null);
     let formKey = $state(0);
 
-    let formId = $derived(() => `edit-employee-form-${employee.id}`);
+    let formId = $derived(`edit-employee-form-${employee.id}`);
 
     function resetState() {
         fieldErrors = {};
@@ -48,8 +48,7 @@
         return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     }
 
-    async function handleSubmit(e: CustomEvent<EmployeeFormData>) {
-        const data = e.detail;
+    async function handleSubmit(data: EmployeeFormData) {
         fieldErrors = {};
         serverError = null;
 
@@ -153,7 +152,7 @@
                     {maxPlanta}
                     initial={employee}
                     {fieldErrors}
-                    on:submit={handleSubmit}
+                    onSubmit={handleSubmit}
                 />
             {/key}
         {/if}

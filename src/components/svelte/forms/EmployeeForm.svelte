@@ -1,5 +1,4 @@
 ﻿<script lang="ts">
-    import { createEventDispatcher } from "svelte";
     import { z } from "zod";
     import { CircleAlert, CircleCheck, Calendar } from "@lucide/svelte";
     import { ZodForm } from "@/lib/form/create-zod-form.svelte";
@@ -15,6 +14,7 @@
         initial?: EmployeeFormData | null;
         formId?: string;
         fieldErrors?: Record<string, string | string[]>;
+        onSubmit?: (payload: EmployeeFormData) => void;
     }
 
     const BO_CITIES = [
@@ -27,6 +27,7 @@
         { value: "TJ", label: "Tarija" },
         { value: "BE", label: "Beni" },
         { value: "PA", label: "Pando" },
+        { value: "QR", label: "QR" },
     ];
 
     const employeeFormSchema = z.object({
@@ -61,9 +62,9 @@
         initial = null,
         formId = "employee-form",
         fieldErrors = {},
+        onSubmit: onSubmitProp = () => {},
     }: Props = $props();
 
-    const dispatch = createEventDispatcher<{ submit: EmployeeFormData }>();
 
     function buildInitialValues(): EmployeeFormValues {
         if (!initial) {
@@ -119,17 +120,20 @@
     }
 
     const onSubmit = form.handleSubmit(async (values) => {
-        dispatch("submit", {
+        const payload: EmployeeFormData = {
             ...values,
+            sectorId: values.sectorId ?? "",
             id: initial?.id,
-        });
+        };
+
+        onSubmitProp(payload);
     });
 </script>
 
 <form id={formId} onsubmit={onSubmit} class="space-y-2 px-4">
     <!-- Tipo -->
     <div>
-        <label class="block text-sm font-semibold text-slate-700 mb-2">
+        <label for="employeeType" class="block text-sm font-semibold text-slate-700 mb-2">
             Tipo de personal <span class="text-red-500">*</span>
         </label>
         <div class="grid grid-cols-2 gap-3">
@@ -190,7 +194,7 @@
 
     <!-- Nombre completo -->
     <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">
+        <label for="fullName" class="block text-sm font-medium text-slate-700 mb-1">
             Nombre Completo <span class="text-red-500">*</span>
             <span class="text-slate-400 font-normal text-xs ml-1"
                 >(Nombre Apellido1 Apellido2)</span
@@ -238,7 +242,7 @@
     <!-- CI + Ciudad -->
     <div class="grid grid-cols-2 gap-4">
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">
+            <label for="ci" class="block text-sm font-medium text-slate-700 mb-1">
                 CI <span class="text-red-500">*</span>
             </label>
             <input
@@ -260,9 +264,9 @@
             {/if}
         </div>
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1"
-                >Ciudad CI</label
-            >
+            <label for="ciCity" class="block text-sm font-medium text-slate-700 mb-1">
+                Ciudad CI
+            </label>
             <select
                 name="ciCity"
                 value={form.values.ciCity}
@@ -274,7 +278,7 @@
             >
                 {#each BO_CITIES as city}
                     <option value={city.value}>
-                        {city.value} — {city.label}
+                        {city.value} · {city.label}
                     </option>
                 {/each}
             </select>
@@ -284,7 +288,7 @@
     <div class="grid grid-cols-2 gap-4">
         <!-- Cargo -->
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">
+            <label for="chargeTitle" class="block text-sm font-medium text-slate-700 mb-1">
                 Cargo / Función <span class="text-red-500">*</span>
             </label>
             <input
@@ -312,7 +316,7 @@
 
         <!-- Sector -->
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">
+            <label for="sectorId" class="block text-sm font-medium text-slate-700 mb-1">
                 Sector
             </label>
             <select
@@ -344,7 +348,7 @@
     <!-- Teléfono + Dirección -->
     <div class="grid grid-cols-2 gap-4">
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1"
+            <label for="phone" class="block text-sm font-medium text-slate-700 mb-1"
                 >Teléfono</label
             >
             <input
@@ -360,7 +364,7 @@
             />
         </div>
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1"
+            <label for="address" class="block text-sm font-medium text-slate-700 mb-1"
                 >Dirección</label
             >
             <input
@@ -380,7 +384,7 @@
     <!-- Fecha ingreso + Salario -->
     <div class="grid grid-cols-2 gap-4">
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">
+            <label for="hireDate" class="block text-sm font-medium text-slate-700 mb-1">
                 Fecha de Ingreso <span class="text-red-500">*</span>
             </label>
             <div class="relative">
@@ -410,7 +414,7 @@
             {/if}
         </div>
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">
+            <label for="baseSalary" class="block text-sm font-medium text-slate-700 mb-1">
                 Salario Base (Bs) <span class="text-red-500">*</span>
             </label>
             <div class="relative">
@@ -447,7 +451,7 @@
 
     <!-- Notas -->
     <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1"
+        <label for="notes" class="block text-sm font-medium text-slate-700 mb-1"
             >Notas</label
         >
         <textarea
@@ -463,3 +467,8 @@
         ></textarea>
     </div>
 </form>
+
+
+
+
+
