@@ -7,83 +7,76 @@
   import { actions } from "astro:actions";
   import { tooltip } from "@/lib/actions/tooltip";
 
-  // Props — all 4 counts passed from Topbar
   export let missingEmp: number  = 0;
   export let missingTen: number  = 0;
-  export let overdueEmp: number  = 0;
-  export let overdueTen: number  = 0;
-  export let currentPeriod: string = "";  // "YYYY-MM"
+  export let unpaidEmp:  number  = 0;  // replaces overdueEmp
+  export let unpaidTen:  number  = 0;  // replaces overdueTen
+  export let currentPeriod: string = "";
 
-  // Derived
-  $: totalMissing  = missingEmp + missingTen;
-  $: totalOverdue  = overdueEmp + overdueTen;
-  $: totalGaps     = totalMissing + totalOverdue;
+  // Total pending is simply: not generated + generated but unpaid
+  $: totalEmpPending = missingEmp + unpaidEmp;
+  $: totalTenPending = missingTen + unpaidTen;
+  $: totalGaps       = totalEmpPending + totalTenPending;
 
-  // Human-readable month label from "YYYY-MM"
   $: periodLabel = (() => {
-    if (!currentPeriod) return "";
-    const [y, m] = currentPeriod.split("-").map(Number);
-    return new Date(y, m - 1, 1).toLocaleDateString("es-BO", { month: "long" });
+      if (!currentPeriod) return "";
+      const [y, m] = currentPeriod.split("-").map(Number);
+      return new Date(y, m - 1, 1).toLocaleDateString("es-BO", { month: "long" });
   })();
   $: periodCapitalized = periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1);
 
-  // Panel open/close
   let open = false;
   function toggle() { open = !open; }
   function close()  { open = false; }
 
-  // Generate state per entity
   type GenState = "idle" | "loading" | "done" | "error";
-  let empState: GenState  = "idle";
-  let tenState: GenState  = "idle";
+  let empState: GenState = "idle";
+  let tenState: GenState = "idle";
   let empCreated = 0;
   let tenCreated = 0;
 
   async function generateEmp() {
-    if (empState === "loading" || empState === "done") return;
-    empState = "loading";
-    try {
-      const fd = new FormData();
-      fd.set("period", currentPeriod);
-      const res = await actions.rrhh.bulkGenerateFees(fd);
-      if (res?.error) throw new Error(res.error.message ?? "Error al generar salarios");
-      empCreated = res.data?.created ?? 0;
-      empState = "done";
-      missingEmp = 0;
-      if (tenState === "done" || missingTen === 0) scheduleReload();
-    } catch { empState = "error"; setTimeout(() => { empState = "idle"; }, 3000); }
+      if (empState === "loading" || empState === "done") return;
+      empState = "loading";
+      try {
+          const fd = new FormData();
+          fd.set("period", currentPeriod);
+          const res = await actions.rrhh.bulkGenerateFees(fd);
+          if (res?.error) throw new Error(res.error.message ?? "Error al generar salarios");
+          empCreated = res.data?.created ?? 0;
+          empState = "done";
+          missingEmp = 0;
+          if (tenState === "done" || missingTen === 0) scheduleReload();
+      } catch { empState = "error"; setTimeout(() => { empState = "idle"; }, 3000); }
   }
 
   async function generateTen() {
-    if (tenState === "loading" || tenState === "done") return;
-    tenState = "loading";
-    try {
-      const fd = new FormData();
-      fd.set("period", currentPeriod);
-      const res = await actions.inquilinos.bulkGenerateRents(fd);
-      if (res?.error) throw new Error(res.error.message ?? "Error al generar alquileres");
-      tenCreated = res.data?.created ?? 0;
-      tenState = "done";
-      missingTen = 0;
-      if (empState === "done" || missingEmp === 0) scheduleReload();
-    } catch { tenState = "error"; setTimeout(() => { tenState = "idle"; }, 3000); }
+      if (tenState === "loading" || tenState === "done") return;
+      tenState = "loading";
+      try {
+          const fd = new FormData();
+          fd.set("period", currentPeriod);
+          const res = await actions.inquilinos.bulkGenerateRents(fd);
+          if (res?.error) throw new Error(res.error.message ?? "Error al generar alquileres");
+          tenCreated = res.data?.created ?? 0;
+          tenState = "done";
+          missingTen = 0;
+          if (empState === "done" || missingEmp === 0) scheduleReload();
+      } catch { tenState = "error"; setTimeout(() => { tenState = "idle"; }, 3000); }
   }
 
   async function generateAll() {
-    await Promise.all([
-      missingEmp > 0 ? generateEmp() : Promise.resolve(),
-      missingTen > 0 ? generateTen() : Promise.resolve(),
-    ]);
+      await Promise.all([
+          missingEmp > 0 ? generateEmp() : Promise.resolve(),
+          missingTen > 0 ? generateTen() : Promise.resolve(),
+      ]);
   }
 
-  function scheduleReload() {
-    setTimeout(() => window.location.reload(), 1200);
-  }
+  function scheduleReload() { setTimeout(() => window.location.reload(), 1200); }
 
-  // Trigger button tooltip
   $: triggerTooltip = open
-    ? ""
-    : `${periodCapitalized} · ${totalGaps} pendiente${totalGaps !== 1 ? "s" : ""}`;
+      ? ""
+      : `${periodCapitalized} · ${totalGaps} pendiente${totalGaps !== 1 ? "s" : ""}`;
 </script>
 
 <!-- Click-outside to close -->
@@ -122,33 +115,73 @@
       <div class="panel-body">
 
         <!-- Missing employee fees -->
-        {#if missingEmp > 0 || empState === "done"}
+        <!-- Employee row — shows if anything is pending (missing OR unpaid) -->
+        {#if totalEmpPending > 0 || empState === "done"}
           <div class="row" class:row--done={empState === "done"}>
-            <div class="row-icon row-icon--emp">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-              </svg>
-            </div>
+            <div class="row-icon row-icon--emp"><!-- same svg --></div>
             <div class="row-text">
               <span class="row-label">
                 {#if empState === "done"}
                   {empCreated} salario{empCreated !== 1 ? "s" : ""} generado{empCreated !== 1 ? "s" : ""}
                 {:else}
-                  {missingEmp} salario{missingEmp !== 1 ? "s" : ""} sin generar
+                  {totalEmpPending} salario{totalEmpPending !== 1 ? "s" : ""} pendiente{totalEmpPending !== 1 ? "s" : ""}
                 {/if}
               </span>
-              <span class="row-sub">Personal activo · {periodCapitalized}</span>
+              <span class="row-sub">
+                {#if missingEmp > 0 && unpaidEmp > 0}
+                  {missingEmp} sin generar · {unpaidEmp} sin pagar
+                {:else if missingEmp > 0}
+                  Sin generar · {periodCapitalized}
+                {:else}
+                  Sin pagar · períodos anteriores incluidos
+                {/if}
+              </span>
             </div>
-            {#if empState === "idle"}
-              <button class="row-action row-action--generate" onclick={generateEmp}>
-                Generar
-              </button>
+            {#if missingEmp > 0 && empState === "idle"}
+              <button class="row-action row-action--generate" onclick={generateEmp}>Generar</button>
+            {:else if unpaidEmp > 0 && missingEmp === 0 && empState === "idle"}
+              <a class="row-action row-action--pay" href="/rrhh/salarios?status=pendiente" onclick={close}>Ver</a>
             {:else if empState === "loading"}
               <span class="row-spinner"></span>
             {:else if empState === "done"}
               <svg class="row-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            {:else}
+            {:else if empState === "error"}
+              <span class="row-error-dot" title="Error al generar"></span>
+            {/if}
+          </div>
+        {/if}
+
+        <!-- Tenant row -->
+        {#if totalTenPending > 0 || tenState === "done"}
+          <div class="row" class:row--done={tenState === "done"}>
+            <div class="row-icon row-icon--ten"><!-- same svg --></div>
+            <div class="row-text">
+              <span class="row-label">
+                {#if tenState === "done"}
+                  {tenCreated} alquiler{tenCreated !== 1 ? "es" : ""} generado{tenCreated !== 1 ? "s" : ""}
+                {:else}
+                  {totalTenPending} alquiler{totalTenPending !== 1 ? "es" : ""} pendiente{totalTenPending !== 1 ? "s" : ""}
+                {/if}
+              </span>
+              <span class="row-sub">
+                {#if missingTen > 0 && unpaidTen > 0}
+                  {missingTen} sin generar · {unpaidTen} sin cobrar
+                {:else if missingTen > 0}
+                  Sin generar · {periodCapitalized}
+                {:else}
+                  Sin cobrar · períodos anteriores incluidos
+                {/if}
+              </span>
+            </div>
+            {#if missingTen > 0 && tenState === "idle"}
+              <button class="row-action row-action--generate" onclick={generateTen}>Generar</button>
+            {:else if unpaidTen > 0 && missingTen === 0 && tenState === "idle"}
+              <a class="row-action row-action--pay" href="/inquilinos" onclick={close}>Ver</a>
+            {:else if tenState === "loading"}
+              <span class="row-spinner"></span>
+            {:else if tenState === "done"}
+              <svg class="row-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            {:else if tenState === "error"}
               <span class="row-error-dot" title="Error al generar"></span>
             {/if}
           </div>
@@ -226,7 +259,7 @@
 
       <!-- Footer -->
       <div class="panel-footer">
-        {#if totalMissing > 0}
+        {#if missingEmp > 0 || missingTen > 0}
           <button
             class="footer-btn footer-btn--primary"
             onclick={generateAll}
@@ -235,7 +268,7 @@
             {#if empState === "loading" || tenState === "loading"}
               <span class="footer-spinner"></span> Generando…
             {:else}
-              Generar todo · {totalMissing}
+              Generar todo · {missingEmp + missingTen}
             {/if}
           </button>
         {/if}

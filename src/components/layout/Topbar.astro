@@ -47,35 +47,38 @@ let currentPeriod = "";
 
 if (canSeeAlerts) {
     try {
+        // Replace the entire Promise.all block with this:
         const now = new Date();
         currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-        const [overdueEmpRow, overdueTenRow, activeEmpCount, generatedEmpCount, activeTenCount, generatedTenCount] =
+        const [unpaidEmpRow, unpaidTenRow, activeEmpCount, activeEmpGenRow, activeTenCount, activeTenGenRow] =
             await Promise.all([
+                // All unpaid employee fees (any period)
                 db.select({ n: count() }).from(employeeFees).where(
-                    and(eq(employeeFees.status, "pendiente"), sql`${employeeFees.period} < ${currentPeriod}`)
+                    eq(employeeFees.status, "pendiente")
                 ),
+                // All unpaid tenant payments (any period)
                 db.select({ n: count() }).from(tenantPayments).where(
-                    and(eq(tenantPayments.status, "pendiente"), sql`${tenantPayments.period} < ${currentPeriod}`)
+                    eq(tenantPayments.status, "pendiente")
                 ),
+                // Active employee count
                 db.select({ n: count() }).from(employees).where(
                     and(isNull(employees.deletedAt), inArray(employees.status, ["activo", "suspendido", "licencia"]))
                 ),
+                // Generated for current period
                 db.select({ n: count() }).from(employeeFees).where(eq(employeeFees.period, currentPeriod)),
+                // Active tenant count
                 db.select({ n: count() }).from(tenants).where(
                     and(isNull(tenants.deletedAt), inArray(tenants.status, ["activo", "moroso"]))
                 ),
+                // Generated for current period
                 db.select({ n: count() }).from(tenantPayments).where(eq(tenantPayments.period, currentPeriod)),
             ]);
 
-        overdueTotal = Number(overdueEmpRow[0]?.n ?? 0) + Number(overdueTenRow[0]?.n ?? 0);
-        overdueEmp   = Number(overdueEmpRow[0]?.n ?? 0);
-        overdueTen   = Number(overdueTenRow[0]?.n ?? 0);
-        missingEmp   = Math.max(0, Number(activeEmpCount[0]?.n ?? 0) - Number(generatedEmpCount[0]?.n ?? 0));
-        missingTen   = Math.max(0, Number(activeTenCount[0]?.n ?? 0) - Number(generatedTenCount[0]?.n ?? 0));
-        missingTotal = missingEmp + missingTen;
-        gapCount     = overdueTotal + missingTotal;
-
+        const rawOverdueEmp  = Number(overdueEmpRow[0]?.n  ?? 0);
+        const rawOverdueTen  = Number(overdueTenRow[0]?.n  ?? 0);
+        const rawMissingEmp  = Math.max(0, Number(activeEmpCount[0]?.n ?? 0) - Number(generatedEmpCount[0]?.n ?? 0));
+        const rawMissingTen  = Math.max(0, Number(activeTenCount[0]?.n ?? 0) - Number(generatedTenCount[0]?.n ?? 0));
         if (gapCount > 0) {
             const parts: string[] = [];
             if (missingTotal > 0) parts.push(`${missingTotal} sin generar`);
@@ -111,14 +114,14 @@ if (canSeeAlerts) {
             {canSeeAlerts && gapCount > 0 && (
                 <>
                     {(missingTotal > 0 || overdueTotal > 0) && (
-                        <GenerateDebtsWidget
-                            client:load
-                            missingEmp={missingEmp}
-                            missingTen={missingTen}
-                            overdueEmp={overdueEmp}
-                            overdueTen={overdueTen}
-                            currentPeriod={currentPeriod}
-                        />
+                      <GenerateDebtsWidget
+                          client:load
+                          {missingEmp}
+                          {missingTen}
+                          unpaidEmp={unpaidEmp}
+                          unpaidTen={unpaidTen}
+                          {currentPeriod}
+                      />
                     )}
                     <a
                         href="/auditoria"
