@@ -3,8 +3,9 @@ import { defineConfig } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 import svelte from "@astrojs/svelte";
 import node from "@astrojs/node";
+import { EventEmitter } from "events";
 
-import vercel from "@astrojs/vercel";
+EventEmitter.defaultMaxListeners = 20;
 
 // https://astro.build/config
 export default defineConfig({
@@ -16,11 +17,6 @@ export default defineConfig({
     plugins: [tailwindcss()],
     optimizeDeps: {
       include: [
-        "better-auth",
-        "drizzle-orm",
-        "drizzle-orm/pg-core",
-        "better-auth/plugins",
-        "better-auth/client/plugins",
       ],
     },
     server: {
@@ -50,5 +46,5 @@ export default defineConfig({
     defaultStrategy: "hover",
     prefetchAll: false,
   },
-  adapter: vercel(),
+  adapter: node({ mode: "standalone" }),
 })

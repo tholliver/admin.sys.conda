@@ -24,3 +24,8 @@ pnpm-debug.log*
 .idea/
 drizzle
 .vercel
+
+# backup job output
+/backups
+
+/logs
