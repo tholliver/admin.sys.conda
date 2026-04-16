@@ -25,7 +25,6 @@ export const voidTransaction = defineAction({
       });
     }
 
-    // Only ADMIN and ADMON can void transactions
     const allowedRoles = ["ADMIN", "ADMON"];
     if (!allowedRoles.includes(user.role)) {
       throw new ActionError({
@@ -41,27 +40,105 @@ export const voidTransaction = defineAction({
       .limit(1);
 
     if (!tx) {
-      throw new ActionError({
-        code: "NOT_FOUND",
-        message: "Transacción no encontrada.",
-      });
+      throw new ActionError({ code: "NOT_FOUND", message: "Transacción no encontrada." });
     }
 
     if (tx.status === "cancelado") {
-      throw new ActionError({
-        code: "BAD_REQUEST",
-        message: "Esta transacción ya fue anulada.",
-      });
+      throw new ActionError({ code: "BAD_REQUEST", message: "Esta transacción ya fue anulada." });
     }
 
     if (tx.status !== "completado") {
-      throw new ActionError({
-        code: "BAD_REQUEST",
-        message: "Solo se pueden anular transacciones completadas.",
-      });
+      throw new ActionError({ code: "BAD_REQUEST", message: "Solo se pueden anular transacciones completadas." });
     }
 
-    // Get the cashbox to reverse the balance
+    // ── TRANSFER: void both legs atomically ──────────────────────────────────
+    // A transfer creates two linked transactions (withdraw + deposit) sharing a
+    // transferPairId. We MUST reverse both in a single DB transaction or the
+    // total money across all cashboxes will be wrong.
+    if (tx.transferPairId) {
+      const pairLegs = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.transferPairId, tx.transferPairId));
+
+      if (pairLegs.length !== 2) {
+        throw new ActionError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "No se encontraron ambas partes de la transferencia. Contacta al administrador.",
+        });
+      }
+
+      if (pairLegs.some((leg) => leg.status === "cancelado")) {
+        throw new ActionError({
+          code: "BAD_REQUEST",
+          message: "Esta transferencia ya fue anulada.",
+        });
+      }
+
+      const debitLeg = pairLegs.find((leg) => leg.type === "withdraw")!;
+
+      await db.transaction(async (dbTx) => {
+        for (const leg of pairLegs) {
+          const [legBox] = await dbTx
+            .select()
+            .from(cashboxes)
+            .where(eq(cashboxes.id, leg.cashboxId))
+            .limit(1);
+
+          if (!legBox) {
+            throw new ActionError({
+              code: "NOT_FOUND",
+              message: `Caja de la transacción "${leg.concept}" no encontrada.`,
+            });
+          }
+
+          const currentBalance = String(legBox.balance ?? "0");
+          let reversedBalance: string;
+
+          if (leg.type === "deposit") {
+            // Deposit leg → subtract back
+            if (!DecimalService.isGreaterOrEqual(currentBalance, leg.amount)) {
+              throw new ActionError({
+                code: "BAD_REQUEST",
+                message: `No se puede anular: el saldo actual de "${legBox.name}" (${formatBOB(currentBalance)}) es menor al monto acreditado (${formatBOB(leg.amount)}).`,
+              });
+            }
+            reversedBalance = DecimalService.subtract(currentBalance, leg.amount);
+          } else {
+            // Withdraw leg → add back
+            reversedBalance = DecimalService.add(currentBalance, leg.amount);
+          }
+
+          const voidMeta = JSON.stringify({
+            voidedBy: user.id,
+            voidedAt: new Date().toISOString(),
+            reason: input.reason,
+            previousStatus: leg.status,
+            balanceBeforeVoid: currentBalance,
+            transferPairVoid: true,
+          });
+
+          await dbTx
+            .update(transactions)
+            .set({ status: "cancelado", metadata: voidMeta, updatedAt: new Date() })
+            .where(eq(transactions.id, leg.id));
+
+          await dbTx
+            .update(cashboxes)
+            .set({ balance: reversedBalance, updatedAt: new Date() })
+            .where(eq(cashboxes.id, legBox.id));
+        }
+      });
+
+      return {
+        success: true,
+        isTransfer: true,
+        message: `Transferencia de ${formatBOB(debitLeg.amount)} anulada. Ambas cajas fueron revertidas correctamente.`,
+        newBalance: null,
+      };
+    }
+
+    // ── REGULAR TRANSACTION: single leg void ─────────────────────────────────
     const [cashbox] = await db
       .select()
       .from(cashboxes)
@@ -69,17 +146,13 @@ export const voidTransaction = defineAction({
       .limit(1);
 
     if (!cashbox) {
-      throw new ActionError({
-        code: "NOT_FOUND",
-        message: "Caja de la transacción no encontrada.",
-      });
+      throw new ActionError({ code: "NOT_FOUND", message: "Caja de la transacción no encontrada." });
     }
 
     const currentBalance = String(cashbox.balance || "0");
     let newBalance: string;
 
     if (tx.type === "deposit") {
-      // Reversing a deposit: subtract the amount back
       if (!DecimalService.isGreaterOrEqual(currentBalance, tx.amount)) {
         throw new ActionError({
           code: "BAD_REQUEST",
@@ -88,11 +161,9 @@ export const voidTransaction = defineAction({
       }
       newBalance = DecimalService.subtract(currentBalance, tx.amount);
     } else {
-      // Reversing a withdrawal: add the amount back
       newBalance = DecimalService.add(currentBalance, tx.amount);
     }
 
-    // Update transaction to cancelled and store void reason in metadata
     const voidMeta = JSON.stringify({
       voidedBy: user.id,
       voidedAt: new Date().toISOString(),
@@ -101,26 +172,21 @@ export const voidTransaction = defineAction({
       balanceBeforeVoid: currentBalance,
     });
 
-    await db
-      .update(transactions)
-      .set({
-        status: "cancelado",
-        metadata: voidMeta,
-        updatedAt: new Date(),
-      })
-      .where(eq(transactions.id, tx.id));
+    await db.transaction(async (dbTx) => {
+      await dbTx
+        .update(transactions)
+        .set({ status: "cancelado", metadata: voidMeta, updatedAt: new Date() })
+        .where(eq(transactions.id, tx.id));
 
-    // Reverse cashbox balance
-    await db
-      .update(cashboxes)
-      .set({
-        balance: newBalance,
-        updatedAt: new Date(),
-      })
-      .where(eq(cashboxes.id, cashbox.id));
+      await dbTx
+        .update(cashboxes)
+        .set({ balance: newBalance, updatedAt: new Date() })
+        .where(eq(cashboxes.id, cashbox.id));
+    });
 
     return {
       success: true,
+      isTransfer: false,
       message: `Transacción de ${formatBOB(tx.amount)} anulada correctamente. Nuevo saldo: ${formatBOB(newBalance)}.`,
       newBalance,
     };

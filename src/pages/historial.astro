@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { TrendingUp, TrendingDown, Search } from "@lucide/astro";
 import InputDate from "@/components/forms/InputDate.astro";
 import { transactions, transactionCategories } from "@/db/schema";
+import { TRANSACTION_STATUS, TRANSACTION_TYPE } from "@/db/finance.types";
 import { DecimalService } from "@/services/finances/decimal.service";
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import PaginationControls from "@/components/affiliates/history/PaginationControls.astro";
@@ -12,7 +13,7 @@ import { formatBOB } from "@/utils/formatters";
 import VoidTransactionDialog from "@/components/svelte/finance/VoidTransactionDialog.svelte";
 import { actions, isActionError } from "astro:actions";
 import { decodeSimpleCursor, encodeSimpleCursor } from "@/utils/cursor-pagination";
-import { eq, and, gte, lte, ilike, or, desc, count, sql, lt } from "drizzle-orm";
+import { eq, and, gte, lte, ilike, or, desc, count, sql, lt, type SQL } from "drizzle-orm";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -51,14 +52,21 @@ if (dateTo) paginationParams.set("to", dateTo);
 const paginationQuery = paginationParams.toString();
 
 // ─── BUILD WHERE CONDITIONS ───────────────────────────────────────────────────
-const conditions: any[] = [];
+const conditions: SQL[] = [];
 
-if (typeFilter === "deposit") conditions.push(eq(transactions.type, "deposit"));
-else if (typeFilter === "withdraw") conditions.push(eq(transactions.type, "withdraw"));
+if (typeFilter === TRANSACTION_TYPE.DEPOSIT) {
+  conditions.push(eq(transactions.type, TRANSACTION_TYPE.DEPOSIT));
+} else if (typeFilter === TRANSACTION_TYPE.WITHDRAW) {
+  conditions.push(eq(transactions.type, TRANSACTION_TYPE.WITHDRAW));
+}
 
-if (statusFilter === "completado") conditions.push(eq(transactions.status, "completado"));
-else if (statusFilter === "cancelled") conditions.push(eq(transactions.status, "cancelado"));
-else if (statusFilter === "pending") conditions.push(eq(transactions.status, "pendiente"));
+if (statusFilter === TRANSACTION_STATUS.COMPLETED) {
+  conditions.push(eq(transactions.status, TRANSACTION_STATUS.COMPLETED));
+} else if (statusFilter === "cancelled") {
+  conditions.push(eq(transactions.status, TRANSACTION_STATUS.CANCELLED));
+} else if (statusFilter === "pending") {
+  conditions.push(eq(transactions.status, TRANSACTION_STATUS.PENDING));
+}
 
 if (dateFrom) conditions.push(gte(transactions.createdAt, new Date(`${dateFrom}T00:00:00-04:00`)));
 if (dateTo) conditions.push(lte(transactions.createdAt, new Date(`${dateTo}T23:59:59-04:00`)));
@@ -120,8 +128,8 @@ const nextCursor =
 // ─── FILTERED TOTALS ─────────────────────────────────────────────────────────
 const [filteredTotals] = await db
   .select({
-    totalIngresos: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'deposit' AND ${transactions.status} = 'completed' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
-    totalRetiros: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'withdraw' AND ${transactions.status} = 'completed' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+    totalIngresos: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = ${TRANSACTION_TYPE.DEPOSIT} AND ${transactions.status} = ${TRANSACTION_STATUS.COMPLETED} THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+    totalRetiros: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = ${TRANSACTION_TYPE.WITHDRAW} AND ${transactions.status} = ${TRANSACTION_STATUS.COMPLETED} THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
   })
   .from(transactions)
   .where(whereClause);

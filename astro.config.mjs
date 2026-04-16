@@ -38,7 +38,6 @@ export default defineConfig({
       },
     },
   },
-
   output: "server",
   integrations: [ svelte({ extensions: [".svelte"] }) ],
 
