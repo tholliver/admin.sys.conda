@@ -16,6 +16,7 @@ import { formatBOB } from "@/utils/formatters";
 import { CASHBOX_STATUS, TRANSACTION_TYPE } from "@/db/finance.types";
 import SectorServiceWithdrawDialog from "@/components/svelte/dialogs/SectorServiceWithdrawDialog.svelte";
 import { sectors } from "@/db/schema";
+import { realTransactionFilter } from "@/services/finances/transaction-patterns";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -72,7 +73,7 @@ const recentWithdrawals = await db
     })
     .from(transactions)
     .innerJoin(cashboxes, eq(transactions.cashboxId, cashboxes.id))
-    .where(eq(transactions.type, TRANSACTION_TYPE.WITHDRAW))
+    .where(and(eq(transactions.type, TRANSACTION_TYPE.WITHDRAW), realTransactionFilter))
     .orderBy(desc(transactions.createdAt))
     .limit(10);
 
@@ -88,6 +89,7 @@ const todaysSummary = await db
         and(
             eq(transactions.type, TRANSACTION_TYPE.WITHDRAW),
             sql`DATE(${transactions.createdAt}) = CURRENT_DATE`,
+            realTransactionFilter,
         ),
     );
 

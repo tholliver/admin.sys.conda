@@ -13,6 +13,7 @@ import {
     BanknoteArrowUp,
     ArrowUpRight,
     ArrowDownLeft,
+    ArrowLeftRight,
     FileText,
     Calendar,
     CalendarRange,
@@ -27,6 +28,7 @@ import {
     getMonthlySummary,
 } from "@/services/finances/box-queries";
 import { LucideExternalLink } from "@lucide/svelte";
+import { isTransferTransaction } from "@/services/finances/transaction-patterns";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -405,19 +407,33 @@ const outPct = 100 - incPct;
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         {
-                            recentTransactions.map((tx) => (
+                            recentTransactions.map((tx) => {
+                                const isTransfer = isTransferTransaction(tx);
+                                const typeLabel = isTransfer
+                                    ? "Traslado"
+                                    : tx.type === "deposit"
+                                      ? "Ingreso"
+                                      : "Egreso";
+
+                                return (
                                 <tr class="hover:bg-slate-50 transition-colors">
                                     <td class="py-3 px-4">
                                         <div class="flex items-center gap-3">
                                             <div
+                                                title={typeLabel}
+                                                aria-label={typeLabel}
                                                 class:list={[
                                                     "p-1.5 rounded-full shrink-0",
-                                                    tx.type === "deposit"
+                                                    isTransfer
+                                                        ? "bg-violet-100 text-violet-600"
+                                                        : tx.type === "deposit"
                                                         ? "bg-green-100 text-green-600"
                                                         : "bg-red-100 text-red-600",
                                                 ]}
                                             >
-                                                {tx.type === "deposit" ? (
+                                                {isTransfer ? (
+                                                    <ArrowLeftRight class="h-3.5 w-3.5" />
+                                                ) : tx.type === "deposit" ? (
                                                     <ArrowUpRight class="h-3.5 w-3.5" />
                                                 ) : (
                                                     <ArrowDownLeft class="h-3.5 w-3.5" />
@@ -435,7 +451,7 @@ const outPct = 100 - incPct;
                                         {tx.description || "—"}
                                     </td>
                                     <td class="py-3 px-4">
-                                        <TxStatusBadge status={tx.status} />
+                                        <TxStatusBadge status={tx.status} iconOnly />
                                     </td>
                                     <td class="py-3 px-4 text-slate-500 whitespace-nowrap hidden sm:table-cell">
                                         {formatter.format(tx.createdAt)}
@@ -454,7 +470,8 @@ const outPct = 100 - incPct;
                                         )}
                                     </td>
                                 </tr>
-                            ))
+                                );
+                            })
                         }
                     </tbody>
                 </table>

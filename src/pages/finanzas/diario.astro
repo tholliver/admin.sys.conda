@@ -13,6 +13,7 @@ import {
     TrendingDown,
     ArrowUpRight,
     ArrowDownLeft,
+    ArrowLeftRight,
     FileText,
     Download,
 } from "@lucide/astro";
@@ -47,7 +48,7 @@ const outcomeCategories = categoryBreakdown.filter(
 ---
 
 <FinanceLayout title="Reporte Diario" user={user}>
-    <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div class="px-4 py-2 sm:px-6 lg:px-8">
         <!-- Header -->
         <div class="mb-8 flex items-center justify-between">
             <div>
@@ -66,13 +67,33 @@ const outcomeCategories = categoryBreakdown.filter(
                 </p>
             </div>
 
-            <div class="flex gap-3">
-                <input
-                    type="date"
-                    value={dailyReport.date}
-                    onchange="window.location.href = `?date=${this.value}`"
-                    class="rounded-lg border border-slate-300 px-4 py-2 text-sm"
-                />
+            <div class="flex gap-2 items-center">
+                <form method="get" class="flex gap-2">
+                    <div class="relative">
+                        <input
+                            id="daily-date-input"
+                            type="date"
+                            name="date"
+                            value={dailyReport.date}
+                            max={getBoliviaDateString()}
+                            class="rounded-lg border border-slate-300 px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                            id="daily-date-picker-trigger"
+                            type="button"
+                            aria-label="Abrir calendario"
+                            class="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-slate-700"
+                        >
+                            <Calendar class="h-4 w-4" />
+                        </button>
+                    </div>
+                    <button
+                        type="submit"
+                        class="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                        Ver
+                    </button>
+                </form>
                 <button
                     id="dl"
                     type="button"
@@ -279,12 +300,16 @@ const outcomeCategories = categoryBreakdown.filter(
                                         <div class="flex items-center gap-2">
                                             <div
                                                 class={`p-1.5 rounded-full ${
-                                                    tx.type === "deposit"
-                                                        ? "bg-green-100 text-green-600"
-                                                        : "bg-red-100 text-red-600"
+                                                    tx.transferPairId
+                                                        ? "bg-violet-100 text-violet-600"
+                                                        : tx.type === "deposit"
+                                                          ? "bg-green-100 text-green-600"
+                                                          : "bg-red-100 text-red-600"
                                                 }`}
                                             >
-                                                {tx.type === "deposit" ? (
+                                                {tx.transferPairId ? (
+                                                    <ArrowLeftRight class="h-3 w-3" />
+                                                ) : tx.type === "deposit" ? (
                                                     <ArrowUpRight class="h-3 w-3" />
                                                 ) : (
                                                     <ArrowDownLeft class="h-3 w-3" />
@@ -293,6 +318,11 @@ const outcomeCategories = categoryBreakdown.filter(
                                             <span class="font-medium text-slate-900">
                                                 {tx.concept}
                                             </span>
+                                            {tx.transferPairId && (
+                                                <span class="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+                                                    Traslado
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-slate-600">
@@ -322,6 +352,19 @@ const outcomeCategories = categoryBreakdown.filter(
 </FinanceLayout>
 
 <script is:inline>
+    const dateInput = document.getElementById("daily-date-input");
+    const datePickerTrigger = document.getElementById("daily-date-picker-trigger");
+    if (dateInput instanceof HTMLInputElement && datePickerTrigger) {
+        datePickerTrigger.addEventListener("click", () => {
+            if ("showPicker" in dateInput) {
+                dateInput.showPicker();
+                return;
+            }
+            dateInput.focus();
+            dateInput.click();
+        });
+    }
+
     const downloadButton = document.getElementById("dl");
     if (downloadButton) {
         downloadButton.addEventListener("click", async () => {

@@ -1,13 +1,30 @@
 ---
 import { formatTransactionStatus } from "@/utils/formatters.ts";
+import {
+    AlertCircle,
+    CheckCircle,
+    Clock,
+    XCircle,
+} from "@lucide/astro";
 
-const { status } = Astro.props;
-const { label, color } = formatTransactionStatus(status); // Destructure once
+const { status, iconOnly = false } = Astro.props;
+const { label, color } = formatTransactionStatus(status);
 ---
 
 <span
+    title={label}
+    aria-label={label}
     class:list={[
         color,
-        "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize",
-    ]}>{label}</span
+        iconOnly
+            ? "inline-flex h-7 w-7 items-center justify-center rounded-full"
+            : "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium capitalize",
+    ]}
+>
+    {status === "completado" && <CheckCircle class="w-4 h-4" />}
+    {status === "pendiente" && <Clock class="w-4 h-4" />}
+    {status === "fallido" && <AlertCircle class="w-4 h-4" />}
+    {status === "cancelado" && <XCircle class="w-4 h-4" />}
+    {!iconOnly && label}
+</span
 >

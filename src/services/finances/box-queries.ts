@@ -1,6 +1,7 @@
 import { db } from "@/db";
 import { cashboxes, transactions } from "@/db/schema";
 import { sql, isNull, and, lte, gte, eq } from "drizzle-orm";
+import { realTransactionFilter } from "@/services/finances/transaction-patterns";
 
 interface BalanceSummary {
   totalBalance: string;
@@ -67,6 +68,7 @@ export async function getDailySummary(): Promise<DailySummary> {
         gte(transactions.createdAt, startOfDay),
         lte(transactions.createdAt, endOfDay),
         eq(transactions.status, "completado"),
+        realTransactionFilter,
       ),
     );
 
@@ -91,6 +93,7 @@ export async function getMonthlySummary(): Promise<MonthlySummary> {
         gte(transactions.createdAt, startOfMonth),
         lte(transactions.createdAt, endOfMonth),
         eq(transactions.status, "completado"),
+        realTransactionFilter,
       ),
     );
 

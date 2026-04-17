@@ -11,6 +11,7 @@ import { eq, sql, asc, desc, and } from "drizzle-orm";
 import { formatter } from "@/utils/timex";
 import { formatBOB } from "@/utils/formatters";
 import DepositForm from '@/components/svelte/finance/DepositForm.svelte';
+import { realTransactionFilter } from "@/services/finances/transaction-patterns";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -48,7 +49,7 @@ const recentDeposits = await db
     })
     .from(transactions)
     .innerJoin(cashboxes, eq(transactions.cashboxId, cashboxes.id))
-    .where(eq(transactions.type, "deposit"))
+    .where(and(eq(transactions.type, "deposit"), realTransactionFilter))
     .orderBy(desc(transactions.createdAt))
     .limit(10);
 
@@ -64,6 +65,7 @@ const [todaysSummary] = await db
         and(
             eq(transactions.type, "deposit"),
             sql`DATE(${transactions.createdAt}) = CURRENT_DATE`,
+            realTransactionFilter,
             // gte(transactions.createdAt, startOfDay),
             // lt(transactions.createdAt, endOfDay),
         ),
