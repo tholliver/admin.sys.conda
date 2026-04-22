@@ -127,7 +127,7 @@ export const deposit = defineAction({
             concept: category.name,
             cashboxId: cashAccount.id,
             reference: resolvedReference,
-            description: notes?.trim() || null,
+            notes: notes?.trim() || null,
             createdByUserId: user.id || "system",
             status: "completado",
             balanceAfter: nb,

@@ -220,7 +220,7 @@ export async function getDailyTransactionsList(date: Date = new Date()) {
             type: transactions.type,
             amount: transactions.amount,
             concept: transactions.concept,
-            description: transactions.description,
+            notes: transactions.notes,
             reference: transactions.reference,
             categoryName: transactionCategories.name,
             createdAt: transactions.createdAt,

@@ -245,7 +245,7 @@ export const transactions = financeSchema.table("transactions", {
   type:                transactionTypeEnum("type").notNull(),
   amount:              numeric("amount", { mode: "string", precision: 15, scale: 2 }).notNull(),
   concept:             varchar("concept",      { length: 255 }).notNull(),
-  description:         text("description"),
+  notes:               text("notes"),
   reference:           varchar("reference",    { length: 255 }),   // receipt / invoice number
   authorizedBy:        varchar("authorized_by",{ length: 255 }),
   createdByUserId:     varchar("created_by_user_id", { length: 255 }).notNull(),
