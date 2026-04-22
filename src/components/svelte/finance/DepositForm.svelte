@@ -177,12 +177,15 @@
         const formData = new FormData();
         formData.append("categoryId", selectedConcept.id);
         formData.append("amount", amount);
-        formData.append(
-            "reference",
-            invoicePreview ? invoicePreview.label : reference,
-        );
-        if (invoicePreview)
+
+        if (invoicePreview) {
+            // Active range: let the server resolve the next number atomically.
+            // Do NOT also send the label as `reference` — the server sets it.
             formData.append("invoiceRangeId", invoicePreview.rangeId);
+        } else if (reference.trim()) {
+            // No range (or exhausted): pass whatever the user typed manually.
+            formData.append("reference", reference.trim());
+        }
 
         isSubmitting = true;
         try {

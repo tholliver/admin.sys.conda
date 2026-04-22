@@ -15,6 +15,16 @@ export interface WithdrawResponse {
     newBalance: string;
 }
 
+// Extended type that includes the joined invoice-range fields that the
+// page query selects alongside the category columns.
+type ConceptWithRange = SelectTransactionCategories & {
+    invoiceRangeId?: string | null;
+    invoiceRangePrefix?: string | null;
+    invoiceRangeCurrent?: number | null;
+    invoiceRangeEnd?: number | null;
+    invoiceRangeIsActive?: boolean | null;
+};
+
 export function createWithdrawStore(
     cashboxes: SelectCashbox[],
     concepts: SelectTransactionCategories[],
@@ -23,7 +33,7 @@ export function createWithdrawStore(
     let cashboxId = $state<string>(
         cashboxes.find((c) => c.code === "GEN")?.id ?? cashboxes[0]?.id ?? "",
     );
-    let selectedConcept = $state<SelectTransactionCategories | null>(null);
+    let selectedConcept = $state<ConceptWithRange | null>(null);
     let amount = $state("");
     let authorizedBy = $state("");
     let reference = $state("");
@@ -66,13 +76,33 @@ export function createWithdrawStore(
         cashboxes.find((c) => c.id === cashboxId) ?? null,
     );
 
+    /**
+     * Derives the next invoice number that will be used when the selected
+     * concept has an active, non-exhausted talonario range attached to it.
+     * Returns null when no range applies (manual reference entry).
+     */
+    let invoicePreview = $derived.by(() => {
+        if (!selectedConcept) return null;
+        const c = selectedConcept as ConceptWithRange;
+        if (!c.invoiceRangeId || !c.invoiceRangeIsActive) return null;
+        const next = Number(c.invoiceRangeCurrent) + 1;
+        if (next > Number(c.invoiceRangeEnd)) return null; // exhausted
+        const label = c.invoiceRangePrefix
+            ? `${c.invoiceRangePrefix}-${next}`
+            : String(next);
+        return { rangeId: c.invoiceRangeId, nextNumber: next, label };
+    });
+
     let canSubmit = $derived(
         !!selectedConcept && !!amount && parseFloat(amount) > 0 && !isSubmitting,
     );
 
     // ── Concept actions ──────────────────────────────────────────────────────
     function selectConcept(option: SelectTransactionCategories) {
-        selectedConcept = option;
+        selectedConcept = option as ConceptWithRange;
+        // Reset manual reference whenever the concept changes so it does not
+        // carry over a stale value from the previous selection.
+        reference = "";
         searchQuery = "";
         showDropdown = false;
         highlightedIndex = 0;
@@ -80,6 +110,7 @@ export function createWithdrawStore(
 
     function clearConcept() {
         selectedConcept = null;
+        reference = "";
         searchQuery = "";
         highlightedIndex = 0;
     }
@@ -140,16 +171,29 @@ export function createWithdrawStore(
         serverError = null;
 
         const fd = new FormData();
+        fd.append("cashboxId", cashboxId);
+        fd.append("categoryId", selectedConcept!.id);
+        fd.append("amount", amount);
+
+        // Build notes from concept name and optional reference.
         const trimmedReference = reference.trim();
         const generatedNotes = selectedConcept
             ? `Egreso: ${selectedConcept.name}${trimmedReference ? ` (${trimmedReference})` : ""}`
             : "Egreso";
-        fd.append("cashboxId", cashboxId);
-        fd.append("categoryId", selectedConcept!.id);
-        fd.append("amount", amount);
         fd.append("notes", generatedNotes);
+
         if (authorizedBy.trim()) fd.append("authorizedBy", authorizedBy.trim());
-        if (trimmedReference) fd.append("reference", trimmedReference);
+
+        // ── Invoice range handling ────────────────────────────────────────
+        // If the concept has an active range, delegate numbering to the
+        // server action (which increments atomically within a DB transaction).
+        // Only fall back to manual reference when there is no active range.
+        if (invoicePreview) {
+            fd.append("invoiceRangeId", invoicePreview.rangeId);
+            // Do NOT append reference — the server resolves it from the range.
+        } else if (trimmedReference) {
+            fd.append("reference", trimmedReference);
+        }
 
         try {
             const result = await actions.finance.withdraw(fd);
@@ -215,6 +259,7 @@ export function createWithdrawStore(
         get filteredConcepts() { return filteredConcepts; },
         get quickConcepts() { return quickConcepts; },
         get selectedCashbox() { return selectedCashbox; },
+        get invoicePreview() { return invoicePreview; },
         get canSubmit() { return canSubmit; },
         // actions
         selectConcept,

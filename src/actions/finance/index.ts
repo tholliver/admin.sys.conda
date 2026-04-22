@@ -1,4 +1,4 @@
-// src/actions/finance.ts
+// src/actions/finance/index.ts
 import { ActionError, defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { db } from "@/db";
@@ -25,6 +25,9 @@ export const deposit = defineAction({
         return num > 0 && num <= ENV.TRANSACTION_HARD_LIMITS.DEPOSIT_MAX;
       }, `Monto debe ser entre 0.01 y ${formatBOB(String(ENV.TRANSACTION_HARD_LIMITS.DEPOSIT_MAX))}`),
     notes: z.string().max(1000).optional(),
+    // Bug 2 fix: accept an optional manual reference for cases where there is
+    // no active invoice range assigned to the category.
+    reference: z.string().max(255).optional(),
     invoiceRangeId: z.uuid().optional(),
   }),
   async handler(input, { locals }) {
@@ -38,7 +41,7 @@ export const deposit = defineAction({
         });
       }
 
-      const { categoryId, amount, notes, invoiceRangeId } = input;
+      const { categoryId, amount, notes, reference, invoiceRangeId } = input;
 
       // Validate category
       const [category] = await db
@@ -70,19 +73,39 @@ export const deposit = defineAction({
         throw new ActionError({ code: "BAD_REQUEST", message: "La caja principal esta inactiva. Contacta al administrador." });
       }
 
-      // Resolve invoice number from range if provided
-      let resolvedReference: string | null = null;
+      // Resolve invoice number from range if provided.
+      // Bug 3 fix: verify that the submitted invoiceRangeId actually belongs
+      // to the selected category so no range can be burned against a foreign account.
+      let resolvedReference: string | null = reference?.trim() || null;
       if (invoiceRangeId) {
+        if (category.invoiceRangeId !== invoiceRangeId) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "El talonario no corresponde a la cuenta seleccionada.",
+          });
+        }
+
         const [range] = await db
           .select()
           .from(invoiceRanges)
           .where(and(eq(invoiceRanges.id, invoiceRangeId), eq(invoiceRanges.isActive, true)));
-        if (range) {
-          const next = range.current + 1;
-          if (next <= range.rangeEnd) {
-            resolvedReference = range.prefix ? `${range.prefix}-${next}` : String(next);
-          }
+
+        if (!range) {
+          throw new ActionError({
+            code: "NOT_FOUND",
+            message: "El talonario seleccionado no existe o está inactivo.",
+          });
         }
+
+        const next = range.current + 1;
+        if (next > range.rangeEnd) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "El talonario está agotado. Amplíe el rango antes de continuar.",
+          });
+        }
+
+        resolvedReference = range.prefix ? `${range.prefix}-${next}` : String(next);
       }
 
       // Wrap balance update + insert + range bump in one transaction
@@ -121,26 +144,6 @@ export const deposit = defineAction({
         return { transaction: txn, newBalance: nb };
       });
 
-      // Create audit log
-      // await db.insert(auditLogs).values({
-      //   action: "CREATE",
-      //   entity: "TRANSACTION",
-      //   entityId: transaction.id,
-      //   userId: locals.user.id,
-      //   newValues: JSON.stringify({
-      //     type: "deposit",
-      //     amount,
-      //     concept,
-      //     reference,
-      //     affiliationId,
-      //   }),
-      //   ipAddress: locals.clientIP || null,
-      //   userAgent: locals.userAgent || null,
-      //   method: "POST",
-      //   path: "/deposit",
-      //   createdAt: new Date(),
-      // });
-
       return {
         success: true,
         message: `Deposito de ${formatBOB(amount)} registrado correctamente.`,
@@ -149,7 +152,7 @@ export const deposit = defineAction({
           amount: formatBOB(amount),
           concept: transaction.concept,
           timestamp: transaction.createdAt.toISOString(),
-          reference: transaction.reference ?? null
+          reference: transaction.reference ?? null,
         },
         newBalance: formatBOB(newBalance),
       };
@@ -160,17 +163,7 @@ export const deposit = defineAction({
         throw error;
       }
 
-      // if (error instanceof DatabaseError || error?.code?.includes("23")) {
-      //   // Database constraint violations (23xxx codes are integrity errors)
-      //   throw new ActionError({
-      //     code: "DATABASE_ERROR",
-      //     message:
-      //       "Error de base de datos. Verifique que los datos sean válidos.",
-      //   });
-      // }
-
       if (error instanceof Error) {
-        // For development: you can expose more detail if needed
         const isDev = process.env.NODE_ENV === "development";
         throw new ActionError({
           code: "INTERNAL_SERVER_ERROR",
@@ -290,24 +283,41 @@ export const withdraw = defineAction({
       }
 
       // Calculate new balance
-      const newBalance = DecimalService.subtract(
-        currentBalance,
-        normalizedAmount,
-      );
+      const newBalance = DecimalService.subtract(currentBalance, normalizedAmount);
 
-      // Resolve invoice number from range if provided
+      // Resolve invoice number from range if provided.
+      // Bug 3 fix: verify that the submitted invoiceRangeId actually belongs
+      // to the selected category so no range can be burned against a foreign account.
       let resolvedReference = reference?.trim() || null;
       if (invoiceRangeId) {
+        if (category.invoiceRangeId !== invoiceRangeId) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "El talonario no corresponde a la cuenta seleccionada.",
+          });
+        }
+
         const [range] = await db
           .select()
           .from(invoiceRanges)
           .where(and(eq(invoiceRanges.id, invoiceRangeId), eq(invoiceRanges.isActive, true)));
-        if (range) {
-          const next = range.current + 1;
-          if (next <= range.rangeEnd) {
-            resolvedReference = range.prefix ? `${range.prefix}-${next}` : String(next);
-          }
+
+        if (!range) {
+          throw new ActionError({
+            code: "NOT_FOUND",
+            message: "El talonario seleccionado no existe o está inactivo.",
+          });
         }
+
+        const next = range.current + 1;
+        if (next > range.rangeEnd) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: "El talonario está agotado. Amplíe el rango antes de continuar.",
+          });
+        }
+
+        resolvedReference = range.prefix ? `${range.prefix}-${next}` : String(next);
       }
 
       // Wrap insert + balance update + range bump in one transaction
@@ -370,6 +380,7 @@ export const withdraw = defineAction({
     }
   },
 });
+
 // ============================================================================
 // GET BALANCE ACTION
 // ============================================================================
@@ -438,7 +449,7 @@ export const getBalance = defineAction({
 });
 
 // ============================================================================
-// GET TRANSACTIONS ACTION (Fixed with array conditions)
+// GET TRANSACTIONS ACTION
 // ============================================================================
 
 export const getTransactions = defineAction({
@@ -447,8 +458,8 @@ export const getTransactions = defineAction({
     affiliationId: z.uuid("ID de afiliación inválido"),
     limit: z.number().int().positive().max(100).default(20),
     type: z.enum(["deposit", "withdraw", "all"]).default("all"),
-    startDate:  z.iso.datetime().optional(),
-    endDate:  z.iso.datetime().optional(),
+    startDate: z.iso.datetime().optional(),
+    endDate: z.iso.datetime().optional(),
   }),
   async handler(input, { locals }) {
     try {
@@ -460,17 +471,14 @@ export const getTransactions = defineAction({
         };
       }
 
-      // Build conditions array
       const conditions: any[] = [
         sql`${transactions.cashboxId} = ${input.affiliationId}`,
       ];
 
-      // Add type filter
       if (input.type !== "all") {
         conditions.push(sql`${transactions.type} = ${input.type}`);
       }
 
-      // Add date range filters
       if (input.startDate) {
         conditions.push(gte(transactions.createdAt, new Date(input.startDate)));
       }
@@ -478,7 +486,6 @@ export const getTransactions = defineAction({
         conditions.push(lt(transactions.createdAt, new Date(input.endDate)));
       }
 
-      // Execute query with all conditions
       const results = await db
         .select()
         .from(transactions)
@@ -536,22 +543,15 @@ export const getDailySummary = defineAction({
         targetDate.getFullYear(),
         targetDate.getMonth(),
         targetDate.getDate(),
-        0,
-        0,
-        0,
-        0,
+        0, 0, 0, 0,
       );
       const endOfDay = new Date(
         targetDate.getFullYear(),
         targetDate.getMonth(),
         targetDate.getDate(),
-        23,
-        59,
-        59,
-        999,
+        23, 59, 59, 999,
       );
 
-      // Get daily transactions
       const dailyTxs = await db
         .select()
         .from(transactions)
@@ -563,7 +563,6 @@ export const getDailySummary = defineAction({
           ),
         );
 
-      // Calculate summary
       const totalDeposits = dailyTxs
         .filter((tx) => tx.type === "deposit")
         .reduce((sum, tx) => sum + parseFloat(tx.amount as any), 0)
@@ -574,15 +573,9 @@ export const getDailySummary = defineAction({
         .reduce((sum, tx) => sum + parseFloat(tx.amount as any), 0)
         .toFixed(2);
 
-      const depositCount = dailyTxs.filter(
-        (tx) => tx.type === "deposit",
-      ).length;
-      const withdrawCount = dailyTxs.filter(
-        (tx) => tx.type === "withdraw",
-      ).length;
-      const netChange = (
-        parseFloat(totalDeposits) - parseFloat(totalWithdraws)
-      ).toFixed(2);
+      const depositCount = dailyTxs.filter((tx) => tx.type === "deposit").length;
+      const withdrawCount = dailyTxs.filter((tx) => tx.type === "withdraw").length;
+      const netChange = (parseFloat(totalDeposits) - parseFloat(totalWithdraws)).toFixed(2);
 
       return {
         success: true,
@@ -621,16 +614,11 @@ export const createAffiliation = defineAction({
   async handler(input, { locals }) {
     try {
       if (!locals.user?.id) {
-        return {
-          success: false,
-          error: "No autenticado",
-          code: "UNAUTHORIZED",
-        };
+        return { success: false, error: "No autenticado", code: "UNAUTHORIZED" };
       }
 
       const { name, code, description } = input;
 
-      // Create affiliation
       const [newCashBox] = await db
         .insert(cashboxes)
         .values({
@@ -644,32 +632,14 @@ export const createAffiliation = defineAction({
         })
         .returning();
 
-      // Create audit log
-      // await db.insert(auditLogs).values({
-      //   action: "CREATE",
-      //   entity: "AFFILIATION",
-      //   entityId: affiliation.id,
-      //   userId: locals.user.id,
-      //   newValues: JSON.stringify({ name, code, description }),
-      //   ipAddress: locals.clientIP || null,
-      //   userAgent: locals.userAgent || null,
-      //   method: "POST",
-      //   path: "/affiliations",
-      //   createdAt: new Date(),
-      // });
-
       return {
         success: true,
         message: `Caja ${name} creada exitosamente`,
-        cashBox: newCashBox
+        cashBox: newCashBox,
       };
     } catch (error) {
       console.error("Create affiliation error:", error);
-      return {
-        success: false,
-        error: "Error al crear afiliación",
-        code: "CREATE_AFFILIATION_ERROR",
-      };
+      return { success: false, error: "Error al crear afiliación", code: "CREATE_AFFILIATION_ERROR" };
     }
   },
 });
@@ -688,9 +658,7 @@ export const createCashbox = defineAction({
   handler: async (input, ctx) => {
     const user = ctx.locals.user;
     if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
-    // requireAdmin(user.role);
 
-    // Check unique code
     const [existing] = await db
       .select({ id: cashboxes.id })
       .from(cashboxes)
@@ -718,7 +686,6 @@ export const createCashbox = defineAction({
   },
 });
 
-
 // ============================================================================
 // TRANSACTION CATEGORY ACTIONS
 // ============================================================================
@@ -726,22 +693,10 @@ export const createCashbox = defineAction({
 export const createTransactionCategory = defineAction({
   accept: "form",
   input: z.object({
-    name: z
-      .string()
-      .trim()
-      .min(1, "Nombre requerido")
-      .max(100, "Nombre demasiado largo"),
-    code: z
-      .string()
-      .trim()
-      .min(1, "Codigo requerido")
-      .max(50, "Codigo demasiado largo"),
+    name: z.string().trim().min(1, "Nombre requerido").max(100, "Nombre demasiado largo"),
+    code: z.string().trim().min(1, "Codigo requerido").max(50, "Codigo demasiado largo"),
     type: z.enum(["income", "outcome"]),
-    description: z
-      .string()
-      .trim()
-      .max(500, "Descripcion demasiado larga")
-      .optional(),
+    description: z.string().trim().max(500, "Descripcion demasiado larga").optional(),
     icon: z.preprocess(
       (value) => {
         if (typeof value !== "string") return undefined;
@@ -771,16 +726,10 @@ export const createTransactionCategory = defineAction({
     try {
       const user = locals.user;
       if (!user?.id) {
-        throw new ActionError({
-          code: "UNAUTHORIZED",
-          message: "Debe iniciar sesion para crear cuentas",
-        });
+        throw new ActionError({ code: "UNAUTHORIZED", message: "Debe iniciar sesion para crear cuentas" });
       }
 
-      const normalizedCode = input.code
-        .trim()
-        .toUpperCase()
-        .replace(/\s+/g, "_");
+      const normalizedCode = input.code.trim().toUpperCase().replace(/\s+/g, "_");
 
       const [existingCategory] = await db
         .select({ id: transactionCategories.id })
@@ -789,35 +738,22 @@ export const createTransactionCategory = defineAction({
         .limit(1);
 
       if (existingCategory) {
-        throw new ActionError({
-          code: "CONFLICT",
-          message: "Ya existe una cuenta con ese codigo",
-        });
+        throw new ActionError({ code: "CONFLICT", message: "Ya existe una cuenta con ese codigo" });
       }
 
       if (input.parentId) {
         const [parent] = await db
-          .select({
-            id: transactionCategories.id,
-            type: transactionCategories.type,
-            status: transactionCategories.status,
-          })
+          .select({ id: transactionCategories.id, type: transactionCategories.type, status: transactionCategories.status })
           .from(transactionCategories)
           .where(eq(transactionCategories.id, input.parentId))
           .limit(1);
 
         if (!parent || !parent.status) {
-          throw new ActionError({
-            code: "NOT_FOUND",
-            message: "La cuenta padre no existe o esta inactiva",
-          });
+          throw new ActionError({ code: "NOT_FOUND", message: "La cuenta padre no existe o esta inactiva" });
         }
 
         if (parent.type !== input.type) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: "La cuenta padre debe ser del mismo tipo",
-          });
+          throw new ActionError({ code: "BAD_REQUEST", message: "La cuenta padre debe ser del mismo tipo" });
         }
       }
 
@@ -843,21 +779,11 @@ export const createTransactionCategory = defineAction({
           type: transactionCategories.type,
         });
 
-      return {
-        success: true,
-        message: "Cuenta creada correctamente",
-        category,
-      };
+      return { success: true, message: "Cuenta creada correctamente", category };
     } catch (error) {
-      if (error instanceof ActionError) {
-        throw error;
-      }
-
+      if (error instanceof ActionError) throw error;
       console.error("Create transaction category error:", error);
-      throw new ActionError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "No se pudo crear la cuenta",
-      });
+      throw new ActionError({ code: "INTERNAL_SERVER_ERROR", message: "No se pudo crear la cuenta" });
     }
   },
 });
@@ -866,22 +792,10 @@ export const updateTransactionCategory = defineAction({
   accept: "form",
   input: z.object({
     categoryId: z.uuid("ID de cuenta invalido"),
-    name: z
-      .string()
-      .trim()
-      .min(1, "Nombre requerido")
-      .max(100, "Nombre demasiado largo"),
-    code: z
-      .string()
-      .trim()
-      .min(1, "Codigo requerido")
-      .max(50, "Codigo demasiado largo"),
+    name: z.string().trim().min(1, "Nombre requerido").max(100, "Nombre demasiado largo"),
+    code: z.string().trim().min(1, "Codigo requerido").max(50, "Codigo demasiado largo"),
     type: z.enum(["income", "outcome"]),
-    description: z
-      .string()
-      .trim()
-      .max(500, "Descripcion demasiado larga")
-      .optional(),
+    description: z.string().trim().max(500, "Descripcion demasiado larga").optional(),
     icon: z.preprocess(
       (value) => {
         if (typeof value !== "string") return undefined;
@@ -911,31 +825,19 @@ export const updateTransactionCategory = defineAction({
     try {
       const user = locals.user;
       if (!user?.id) {
-        throw new ActionError({
-          code: "UNAUTHORIZED",
-          message: "Debe iniciar sesion para actualizar cuentas",
-        });
+        throw new ActionError({ code: "UNAUTHORIZED", message: "Debe iniciar sesion para actualizar cuentas" });
       }
 
-      const normalizedCode = input.code
-        .trim()
-        .toUpperCase()
-        .replace(/\s+/g, "_");
+      const normalizedCode = input.code.trim().toUpperCase().replace(/\s+/g, "_");
 
       const [existingCategory] = await db
-        .select({
-          id: transactionCategories.id,
-          code: transactionCategories.code,
-        })
+        .select({ id: transactionCategories.id, code: transactionCategories.code })
         .from(transactionCategories)
         .where(eq(transactionCategories.id, input.categoryId))
         .limit(1);
 
       if (!existingCategory) {
-        throw new ActionError({
-          code: "NOT_FOUND",
-          message: "Cuenta no encontrada",
-        });
+        throw new ActionError({ code: "NOT_FOUND", message: "Cuenta no encontrada" });
       }
 
       if (existingCategory.code !== normalizedCode) {
@@ -946,43 +848,27 @@ export const updateTransactionCategory = defineAction({
           .limit(1);
 
         if (duplicate) {
-          throw new ActionError({
-            code: "CONFLICT",
-            message: "Ya existe una cuenta con ese codigo",
-          });
+          throw new ActionError({ code: "CONFLICT", message: "Ya existe una cuenta con ese codigo" });
         }
       }
 
       if (input.parentId) {
         if (input.parentId === input.categoryId) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: "La cuenta padre no puede ser la misma",
-          });
+          throw new ActionError({ code: "BAD_REQUEST", message: "La cuenta padre no puede ser la misma" });
         }
 
         const [parent] = await db
-          .select({
-            id: transactionCategories.id,
-            type: transactionCategories.type,
-            status: transactionCategories.status,
-          })
+          .select({ id: transactionCategories.id, type: transactionCategories.type, status: transactionCategories.status })
           .from(transactionCategories)
           .where(eq(transactionCategories.id, input.parentId))
           .limit(1);
 
         if (!parent || !parent.status) {
-          throw new ActionError({
-            code: "NOT_FOUND",
-            message: "La cuenta padre no existe o esta inactiva",
-          });
+          throw new ActionError({ code: "NOT_FOUND", message: "La cuenta padre no existe o esta inactiva" });
         }
 
         if (parent.type !== input.type) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: "La cuenta padre debe ser del mismo tipo",
-          });
+          throw new ActionError({ code: "BAD_REQUEST", message: "La cuenta padre debe ser del mismo tipo" });
         }
       }
 
@@ -1001,21 +887,11 @@ export const updateTransactionCategory = defineAction({
         })
         .where(eq(transactionCategories.id, input.categoryId));
 
-      return {
-        success: true,
-        message: "Cuenta actualizada correctamente",
-        categoryId: input.categoryId,
-      };
+      return { success: true, message: "Cuenta actualizada correctamente", categoryId: input.categoryId };
     } catch (error) {
-      if (error instanceof ActionError) {
-        throw error;
-      }
-
+      if (error instanceof ActionError) throw error;
       console.error("Update transaction category error:", error);
-      throw new ActionError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "No se pudo actualizar la cuenta",
-      });
+      throw new ActionError({ code: "INTERNAL_SERVER_ERROR", message: "No se pudo actualizar la cuenta" });
     }
   },
 });
@@ -1029,69 +905,37 @@ export const disableTransactionCategory = defineAction({
     try {
       const user = locals.user;
       if (!user?.id) {
-        throw new ActionError({
-          code: "UNAUTHORIZED",
-          message: "Debe iniciar sesion para desactivar cuentas",
-        });
+        throw new ActionError({ code: "UNAUTHORIZED", message: "Debe iniciar sesion para desactivar cuentas" });
       }
 
       const [category] = await db
-        .select({
-          id: transactionCategories.id,
-          name: transactionCategories.name,
-          status: transactionCategories.status,
-          isSystem: transactionCategories.isSystem,
-        })
+        .select({ id: transactionCategories.id, name: transactionCategories.name, status: transactionCategories.status, isSystem: transactionCategories.isSystem })
         .from(transactionCategories)
         .where(eq(transactionCategories.id, input.categoryId))
         .limit(1);
 
       if (!category) {
-        throw new ActionError({
-          code: "NOT_FOUND",
-          message: "Cuenta no encontrada",
-        });
+        throw new ActionError({ code: "NOT_FOUND", message: "Cuenta no encontrada" });
       }
 
       if (!category.status) {
-        return {
-          success: true,
-          message: "La cuenta ya estaba desactivada",
-          categoryId: category.id,
-        };
+        return { success: true, message: "La cuenta ya estaba desactivada", categoryId: category.id };
       }
 
       if (category.isSystem) {
-        throw new ActionError({
-          code: "BAD_REQUEST",
-          message: "Las cuentas del sistema no se pueden desactivar",
-        });
+        throw new ActionError({ code: "BAD_REQUEST", message: "Las cuentas del sistema no se pueden desactivar" });
       }
 
       await db
         .update(transactionCategories)
-        .set({
-          status: false,
-          deletedAt: new Date(),
-          updatedAt: new Date(),
-        })
+        .set({ status: false, deletedAt: new Date(), updatedAt: new Date() })
         .where(eq(transactionCategories.id, input.categoryId));
 
-      return {
-        success: true,
-        message: `Cuenta "${category.name}" desactivada`,
-        categoryId: category.id,
-      };
+      return { success: true, message: `Cuenta "${category.name}" desactivada`, categoryId: category.id };
     } catch (error) {
-      if (error instanceof ActionError) {
-        throw error;
-      }
-
+      if (error instanceof ActionError) throw error;
       console.error("Disable transaction category error:", error);
-      throw new ActionError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "No se pudo desactivar la cuenta",
-      });
+      throw new ActionError({ code: "INTERNAL_SERVER_ERROR", message: "No se pudo desactivar la cuenta" });
     }
   },
 });
@@ -1105,61 +949,33 @@ export const activateTransactionCategory = defineAction({
     try {
       const user = locals.user;
       if (!user?.id) {
-        throw new ActionError({
-          code: "UNAUTHORIZED",
-          message: "Debe iniciar sesion para activar cuentas",
-        });
+        throw new ActionError({ code: "UNAUTHORIZED", message: "Debe iniciar sesion para activar cuentas" });
       }
 
       const [category] = await db
-        .select({
-          id: transactionCategories.id,
-          name: transactionCategories.name,
-          status: transactionCategories.status,
-        })
+        .select({ id: transactionCategories.id, name: transactionCategories.name, status: transactionCategories.status })
         .from(transactionCategories)
         .where(eq(transactionCategories.id, input.categoryId))
         .limit(1);
 
       if (!category) {
-        throw new ActionError({
-          code: "NOT_FOUND",
-          message: "Cuenta no encontrada",
-        });
+        throw new ActionError({ code: "NOT_FOUND", message: "Cuenta no encontrada" });
       }
 
       if (category.status) {
-        return {
-          success: true,
-          message: "La cuenta ya estaba activa",
-          categoryId: category.id,
-        };
+        return { success: true, message: "La cuenta ya estaba activa", categoryId: category.id };
       }
 
       await db
         .update(transactionCategories)
-        .set({
-          status: true,
-          deletedAt: null,
-          updatedAt: new Date(),
-        })
+        .set({ status: true, deletedAt: null, updatedAt: new Date() })
         .where(eq(transactionCategories.id, input.categoryId));
 
-      return {
-        success: true,
-        message: `Cuenta "${category.name}" activada`,
-        categoryId: category.id,
-      };
+      return { success: true, message: `Cuenta "${category.name}" activada`, categoryId: category.id };
     } catch (error) {
-      if (error instanceof ActionError) {
-        throw error;
-      }
-
+      if (error instanceof ActionError) throw error;
       console.error("Activate transaction category error:", error);
-      throw new ActionError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "No se pudo activar la cuenta",
-      });
+      throw new ActionError({ code: "INTERNAL_SERVER_ERROR", message: "No se pudo activar la cuenta" });
     }
   },
 });
@@ -1168,7 +984,7 @@ export const setCategorySortOrder = defineAction({
   accept: "form",
   input: z.object({
     categoryId: z.uuid("ID de cuenta invalido"),
-    sortOrder:  z.coerce.number().int().min(1).max(999),
+    sortOrder: z.coerce.number().int().min(1).max(999),
   }),
   async handler(input, { locals }) {
     try {
@@ -1192,11 +1008,7 @@ export const setCategorySortOrder = defineAction({
         .set({ sortOrder: input.sortOrder, updatedAt: new Date() })
         .where(eq(transactionCategories.id, input.categoryId));
 
-      return {
-        success: true,
-        message: `Orden actualizado para "${category.name}"`,
-        categoryId: category.id,
-      };
+      return { success: true, message: `Orden actualizado para "${category.name}"`, categoryId: category.id };
     } catch (error) {
       if (error instanceof ActionError) throw error;
       throw new ActionError({ code: "INTERNAL_SERVER_ERROR", message: "No se pudo actualizar el orden" });
@@ -1221,5 +1033,5 @@ export const finance = {
   createContractor,
   updateContractorStatus,
   toggleQuickCashbox,
-  toggleCashboxStatus
+  toggleCashboxStatus,
 };
