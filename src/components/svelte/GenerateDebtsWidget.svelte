@@ -386,27 +386,6 @@
   }
   .nav-link--ingreso:hover { background: oklch(0.92 0.08 150); }
 
-  .nav-badge {
-    position: absolute;
-    top: -0.3rem;
-    right: -0.3rem;
-    min-width: 1.1rem;
-    height: 1.1rem;
-    padding: 0 0.2rem;
-    border-radius: 9999px;
-    background: currentColor;
-    color: white;
-    font-size: 0.55rem;
-    font-weight: 700;
-    line-height: 1.1rem;
-    text-align: center;
-    pointer-events: none;
-    border: 1.5px solid white;
-  }
-
-  .nav-link--egreso .nav-badge { background: oklch(0.52 0.2 25); }
-  .nav-link--ingreso .nav-badge { background: oklch(0.45 0.18 150); }
-
   /* ── Trigger buttons ─────────────────────────────────────────────────── */
   .trigger-btn {
     position: relative;
