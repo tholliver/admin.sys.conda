@@ -59,6 +59,14 @@ export const deposit = defineAction({
         throw new ActionError({ code: "NOT_FOUND", message: "La cuenta seleccionada no existe o esta inactiva." });
       }
 
+      // All Categories should have an invoice range assigned
+      if (!category.invoiceRangeId) {
+        throw new ActionError({
+          code: "BAD_REQUEST",
+          message: `La cuenta "${category.name}" no tiene un talonario asignado. Asigne un talonario antes de registrar ingresos.`,
+        });
+      }
+
       // Get cashbox
       const [cashAccount] = await db
         .select()
@@ -101,7 +109,30 @@ export const deposit = defineAction({
         if (next > range.rangeEnd) {
           throw new ActionError({
             code: "BAD_REQUEST",
-            message: "El talonario está agotado. Amplíe el rango antes de continuar.",
+            message: `El talonario de "${category.name}" está agotado (hasta ${range.rangeEnd}). Amplíe el rango o asigne uno nuevo antes de continuar.`,
+          });
+        }
+
+        resolvedReference = range.prefix ? `${range.prefix}-${next}` : String(next);
+      } else {
+        // No invoiceRangeId submitted — auto-resolve from the category's assigned range
+        const [range] = await db
+          .select()
+          .from(invoiceRanges)
+          .where(and(eq(invoiceRanges.id, category.invoiceRangeId), eq(invoiceRanges.isActive, true)));
+
+        if (!range) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: `El talonario asignado a "${category.name}" no está activo. Active el talonario o asigne uno nuevo.`,
+          });
+        }
+
+        const next = range.current + 1;
+        if (next > range.rangeEnd) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: `El talonario de "${category.name}" está agotado (hasta ${range.rangeEnd}). Amplíe el rango o asigne uno nuevo antes de continuar.`,
           });
         }
 
@@ -250,10 +281,17 @@ export const withdraw = defineAction({
       }
 
       // Check if category requires authorization
-      if (category.requiresAuthorization && !authorizedBy) {
+      // if (category.requiresAuthorization && !authorizedBy) {
+      //   throw new ActionError({
+      //     code: "BAD_REQUEST",
+      //     message: "Esta cuenta requiere autorizacion.",
+      //   });
+      // }
+
+      if (!category.invoiceRangeId) {
         throw new ActionError({
           code: "BAD_REQUEST",
-          message: "Esta cuenta requiere autorizacion.",
+          message: `La cuenta "${category.name}" no tiene un talonario asignado. Asigne un talonario antes de registrar egresos.`,
         });
       }
 
@@ -313,7 +351,30 @@ export const withdraw = defineAction({
         if (next > range.rangeEnd) {
           throw new ActionError({
             code: "BAD_REQUEST",
-            message: "El talonario está agotado. Amplíe el rango antes de continuar.",
+            message: `El talonario de "${category.name}" está agotado (hasta ${range.rangeEnd}). Amplíe el rango o asigne uno nuevo antes de continuar.`,
+          });
+        }
+
+        resolvedReference = range.prefix ? `${range.prefix}-${next}` : String(next);
+      } else {
+        // No invoiceRangeId submitted — auto-resolve from the category's assigned range
+        const [range] = await db
+          .select()
+          .from(invoiceRanges)
+          .where(and(eq(invoiceRanges.id, category.invoiceRangeId), eq(invoiceRanges.isActive, true)));
+
+        if (!range) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: `El talonario asignado a "${category.name}" no está activo. Active el talonario o asigne uno nuevo.`,
+          });
+        }
+
+        const next = range.current + 1;
+        if (next > range.rangeEnd) {
+          throw new ActionError({
+            code: "BAD_REQUEST",
+            message: `El talonario de "${category.name}" está agotado (hasta ${range.rangeEnd}). Amplíe el rango o asigne uno nuevo antes de continuar.`,
           });
         }
 
@@ -332,7 +393,7 @@ export const withdraw = defineAction({
             authorizedBy: authorizedBy || null,
             reference: resolvedReference,
             cashboxId: cashbox.id,
-            description: notes?.trim() || null,
+            notes: notes?.trim() || null,
             createdByUserId: user.id,
             status: "completado",
             balanceAfter: newBalance,
