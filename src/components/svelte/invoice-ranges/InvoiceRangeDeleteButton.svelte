@@ -89,12 +89,12 @@
                             >{range.category}</span
                         >
                     </div>
-                    <div class="flex justify-between">
+                    <!-- <div class="flex justify-between">
                         <span class="text-slate-500">Codigo</span>
                         <span class="font-mono text-slate-700"
                             >{range.code}</span
                         >
-                    </div>
+                    </div> -->
                     <div class="flex justify-between">
                         <span class="text-slate-500">Rango</span>
                         <span class="font-mono text-slate-700">

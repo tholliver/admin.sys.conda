@@ -63,7 +63,11 @@ export const deposit = defineAction({
       if (!category.invoiceRangeId) {
         throw new ActionError({
           code: "BAD_REQUEST",
-          message: `La cuenta "${category.name}" no tiene un talonario asignado. Asigne un talonario antes de registrar ingresos.`,
+          message: JSON.stringify({
+            type: "TALONARIO_MISSING",
+            categoryName: category.name,
+            talonarioHref: "/talonarios",
+          }),
         });
       }
 
@@ -109,7 +113,12 @@ export const deposit = defineAction({
         if (next > range.rangeEnd) {
           throw new ActionError({
             code: "BAD_REQUEST",
-            message: `El talonario de "${category.name}" está agotado (hasta ${range.rangeEnd}). Amplíe el rango o asigne uno nuevo antes de continuar.`,
+            message: JSON.stringify({
+              type: "TALONARIO_EXHAUSTED",
+              categoryName: category.name,
+              rangeEnd: range.rangeEnd,
+              talonarioHref: "/talonarios",
+            }),
           });
         }
 
@@ -132,7 +141,12 @@ export const deposit = defineAction({
         if (next > range.rangeEnd) {
           throw new ActionError({
             code: "BAD_REQUEST",
-            message: `El talonario de "${category.name}" está agotado (hasta ${range.rangeEnd}). Amplíe el rango o asigne uno nuevo antes de continuar.`,
+            message: JSON.stringify({
+              type: "TALONARIO_EXHAUSTED",
+              categoryName: category.name,
+              rangeEnd: range.rangeEnd,
+              talonarioHref: "/talonarios",
+            }),
           });
         }
 
@@ -291,7 +305,11 @@ export const withdraw = defineAction({
       if (!category.invoiceRangeId) {
         throw new ActionError({
           code: "BAD_REQUEST",
-          message: `La cuenta "${category.name}" no tiene un talonario asignado. Asigne un talonario antes de registrar egresos.`,
+          message: JSON.stringify({
+            type: "TALONARIO_MISSING",
+            categoryName: category.name,
+            talonarioHref: "/talonarios",
+          }),
         });
       }
 
@@ -351,7 +369,12 @@ export const withdraw = defineAction({
         if (next > range.rangeEnd) {
           throw new ActionError({
             code: "BAD_REQUEST",
-            message: `El talonario de "${category.name}" está agotado (hasta ${range.rangeEnd}). Amplíe el rango o asigne uno nuevo antes de continuar.`,
+            message: JSON.stringify({
+              type: "TALONARIO_EXHAUSTED",
+              categoryName: category.name,
+              rangeEnd: range.rangeEnd,
+              talonarioHref: "/talonarios",
+            }),
           });
         }
 

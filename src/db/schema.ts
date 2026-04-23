@@ -220,7 +220,7 @@ export const auditLogs = financeSchema.table("audit_logs", {
 // ── Sectors (declared before transactions — transactions has a sectorId FK) ──
 export const sectors = pgTable("sectors", {
   id:          serial("id").primaryKey(),
-  cashboxId:   uuid("cashbox_id").notNull().references(() => cashboxes.id, { onDelete: "restrict" }),
+  cashboxId:   uuid("cashbox_id").references(() => cashboxes.id, { onDelete: "restrict" }),
   name:        varchar("name", { length: 100 }).notNull().unique(),
   description: text("description"),
   isActive:    boolean("is_active").notNull().default(true),

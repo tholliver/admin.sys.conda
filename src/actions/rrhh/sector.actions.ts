@@ -187,6 +187,40 @@ export const linkSectorCashboxAction = defineAction({
   },
 });
 
+export const unlinkSectorCashboxAction = defineAction({
+  accept: "form",
+  input: z.object({
+    sectorId: z.coerce.number().int().positive("Sector requerido"),
+  }),
+  handler: async (input, ctx) => {
+    const user = ctx.locals.user;
+    if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
+    requireAdmin(user.role);
+
+    const [sector] = await db
+      .select({ id: sectors.id, name: sectors.name })
+      .from(sectors)
+      .where(eq(sectors.id, input.sectorId))
+      .limit(1);
+
+    if (!sector) {
+      throw new ActionError({ code: "NOT_FOUND", message: "Sector no encontrado." });
+    }
+
+    const [updated] = await db
+      .update(sectors)
+      .set({ cashboxId: null, updatedAt: new Date() })
+      .where(eq(sectors.id, sector.id))
+      .returning();
+
+    return {
+      success: true,
+      message: `Sector "${sector.name}" desvinculado de su caja.`,
+      sector: updated,
+    };
+  },
+});
+
 export const deleteSectorAction = defineAction({
   accept: "form",
   input: z.object({ id: z.coerce.number().int().positive() }),
@@ -356,6 +390,7 @@ export const sectorActions = {
   createSector: createSectorAction,
   updateSector: updateSectorAction,
   linkSectorCashbox: linkSectorCashboxAction,
+  unlinkSectorCashbox: unlinkSectorCashboxAction,
   deactivateSector: deactivateSectorAction,
   deleteSector:     deleteSectorAction,
   depositToCashbox: depositToCashboxAction,

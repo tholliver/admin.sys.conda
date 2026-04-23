@@ -7,6 +7,7 @@ import { actions } from "astro:actions";
 import { Wallet } from "@lucide/astro";
 import CreateCashboxDialog from "@/components/svelte/dialogs/CreateCashboxDialog.svelte";
 import CashboxDepositDialog from "@/components/svelte/dialogs/CashboxDepositDialog.svelte";
+import CashboxManager from "@/components/svelte/CashboxManager.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -20,7 +21,7 @@ const [allCashboxes, sectorStats, employeeStats, incomeCategories] = await Promi
       balance: cashboxes.balance,
       status: cashboxes.status,
       description: cashboxes.description,
-      isQuick: cashboxes.isQuick,   // ← add
+      isQuick: cashboxes.isQuick,
   })
     .from(cashboxes)
     .where(eq(cashboxes.status, "activo"))
@@ -69,6 +70,9 @@ const employeeMap = new Map(
     { count: e.employeeCount, salary: Number(e.totalSalary ?? 0) },
   ]),
 );
+
+// allCashboxes shaped for ManageSectorsDialog: { id, name }
+const cashboxOptions = allCashboxes.map((c) => ({ id: c.id, name: c.name }));
 ---
 
 <FinanceLayout title="Cajas" user={user}>
@@ -133,6 +137,12 @@ const employeeMap = new Map(
                   categories={incomeCategories as any}
                   triggerLabel="Depositar"
                   triggerClass="px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded transition-colors"
+                  client:load
+                />
+                <CashboxManager
+                  cashboxId={box.id}
+                  cashboxName={box.name}
+                  allCashboxes={allCashboxes}
                   client:load
                 />
               </div>

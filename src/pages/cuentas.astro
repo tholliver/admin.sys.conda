@@ -75,7 +75,7 @@ const resolveIcon = (icon: string | null, type: "income" | "outcome") => {
 };
 
 const availableRanges = await db
-  .select({ id: invoiceRanges.id, code: invoiceRanges.code, category: invoiceRanges.category, prefix: invoiceRanges.prefix, current: invoiceRanges.current, rangeEnd: invoiceRanges.rangeEnd })
+  .select({ id: invoiceRanges.id, category: invoiceRanges.category, prefix: invoiceRanges.prefix, current: invoiceRanges.current, rangeEnd: invoiceRanges.rangeEnd })
   .from(invoiceRanges)
   .where(and(eq(invoiceRanges.isSystem, false), eq(invoiceRanges.isActive, true)))
   .orderBy(asc(invoiceRanges.category));

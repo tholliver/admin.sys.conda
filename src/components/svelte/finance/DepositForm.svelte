@@ -85,6 +85,7 @@
             : String(next);
         return { rangeId: c.invoiceRangeId, nextNumber: next, label };
     });
+    let talonarioError = $state<{ categoryName: string; talonarioHref: string } | null>(null);
 
     const iconMap = {
         "circle-dollar-sign": CircleDollarSign,
@@ -201,9 +202,16 @@
             }
 
             if (result?.error) {
-                serverError =
-                    result.error.message || "Error al procesar el depósito";
-                return;
+              try {
+                const parsed = JSON.parse(result.error.message ?? "");
+                if (parsed.type === "TALONARIO_EXHAUSTED" || parsed.type === "TALONARIO_MISSING") {
+                  talonarioError = parsed;
+                  return;
+                }
+              } catch { /* not JSON, fall through */ }
+
+              serverError = result.error.message || "Error al procesar el depósito";
+              return;
             }
 
             if (result?.data) {
