@@ -48,7 +48,6 @@ export const navGroups: NavGroup[] = [
         links: [
             { label: "Personal", href: "/rrhh/personal", icon: Users },
             { label: "Salarios", href: "/rrhh/salarios", icon: CalendarClock },
-            { label: "Sectores", href: "/rrhh/sectores", icon: Building2 },
         ],
     },
     {

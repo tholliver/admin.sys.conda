@@ -6,8 +6,9 @@ import {
   cashboxes,
   transactions,
   transactionCategories,
+  employees,
 } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, count } from "drizzle-orm";
 import { formatBOB } from "@/utils/formatters";
 
 const ADMIN_ROLES = ["ADMIN", "ADMON"] as const;
@@ -186,6 +187,38 @@ export const linkSectorCashboxAction = defineAction({
   },
 });
 
+export const deleteSectorAction = defineAction({
+  accept: "form",
+  input: z.object({ id: z.coerce.number().int().positive() }),
+  handler: async (input, ctx) => {
+    const user = ctx.locals.user;
+    if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
+    requireAdmin(user.role);
+
+    // Guard: refuse if employees are still assigned
+    const [empCheck] = await db
+      .select({ count: count(employees.id) })
+      .from(employees)
+      .where(eq(employees.sectorId, input.id));
+
+    if (Number(empCheck?.count ?? 0) > 0) {
+      throw new ActionError({
+        code: "CONFLICT",
+        message: "Reasigne el personal antes de eliminar el sector.",
+      });
+    }
+
+    const [deleted] = await db
+      .delete(sectors)
+      .where(eq(sectors.id, input.id))
+      .returning({ name: sectors.name });
+
+    if (!deleted) throw new ActionError({ code: "NOT_FOUND", message: "Sector no encontrado." });
+
+    return { success: true, message: `Sector "${deleted.name}" eliminado.` };
+  },
+});
+
 // ─── Deactivate Sector ────────────────────────────────────────────────────────
 
 export const deactivateSectorAction = defineAction({
@@ -219,8 +252,8 @@ export const deactivateSectorAction = defineAction({
 export const depositToCashboxAction = defineAction({
   accept: "form",
   input: z.object({
-    cashboxId: z.string().uuid("Caja inválida"),
-    categoryId: z.string().uuid("Categoría inválida"),
+    cashboxId: z.uuid("Caja inválida"),
+    categoryId: z.uuid("Categoría inválida"),
     amount: z.coerce
       .number()
       .min(0.01, "El monto debe ser mayor a 0")
@@ -300,7 +333,7 @@ export const depositToCashboxAction = defineAction({
         type: "deposit",
         amount: amountStr,
         concept: input.concept,
-        description: input.notes?.trim() || null,
+        notes: input.notes?.trim() || null,
         reference: input.reference?.trim() || null,
         createdByUserId: user.id,
         status: "completado",
@@ -324,5 +357,6 @@ export const sectorActions = {
   updateSector: updateSectorAction,
   linkSectorCashbox: linkSectorCashboxAction,
   deactivateSector: deactivateSectorAction,
+  deleteSector:     deleteSectorAction,
   depositToCashbox: depositToCashboxAction,
 };

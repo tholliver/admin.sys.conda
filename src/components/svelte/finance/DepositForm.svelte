@@ -339,25 +339,21 @@
                         <SelectedIcon class="h-4 w-4" />
                     </span>
                     <div class="flex-1 min-w-0">
-                        <p
-                            class="text-slate-900 font-medium"
-                            data-testid="selected-concept-name"
-                        >
+                        <p class="text-slate-900 font-medium" data-testid="selected-concept-name">
                             {selectedConcept.name}
                         </p>
                         {#if (selectedConcept as any).invoiceRangeId && !invoicePreview}
-                            <p
-                                class="text-xs text-amber-600 font-medium flex items-center gap-1 mt-0.5"
-                            >
+                            <p class="text-xs text-amber-600 font-medium flex items-center gap-1 mt-0.5">
                                 <TriangleAlert class="h-3 w-3" />
-                                Talonario agotado — la referencia debe ingresarse
-                                manualmente
+                                Talonario agotado — la referencia debe ingresarse manualmente
+                            </p>
+                        {:else if invoicePreview}
+                            <p class="text-xs text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                                <Receipt class="h-3 w-3" />
+                                Próx. talonario: <span class="font-mono">{invoicePreview.label}</span>
                             </p>
                         {:else if selectedConcept.description}
-                            <p
-                                class="text-xs text-slate-500"
-                                data-testid="selected-concept-description"
-                            >
+                            <p class="text-xs text-slate-500" data-testid="selected-concept-description">
                                 {selectedConcept.description}
                             </p>
                         {/if}

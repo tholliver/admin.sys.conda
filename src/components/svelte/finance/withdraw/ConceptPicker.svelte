@@ -39,6 +39,7 @@
         quickConcepts: SelectTransactionCategories[];
         filteredConcepts: SelectTransactionCategories[];
         selected: SelectTransactionCategories | null;
+        invoicePreview?: { label: string } | null;
         searchQuery: string;
         showDropdown: boolean;
         highlightedIndex: number;
@@ -54,6 +55,7 @@
         quickConcepts,
         filteredConcepts,
         selected,
+        invoicePreview,
         searchQuery,
         showDropdown,
         highlightedIndex,
@@ -118,17 +120,16 @@
                 <Icon class="h-4 w-4" />
             </span>
             <div class="flex-1 min-w-0">
-                <p
-                    class="text-slate-900 font-medium"
-                    data-testid="selected-concept-name"
-                >
+                <p class="text-slate-900 font-medium" data-testid="selected-concept-name">
                     {selected.name}
                 </p>
-                {#if selected.description}
-                    <p
-                        class="text-xs text-slate-500"
-                        data-testid="selected-concept-description"
-                    >
+                {#if invoicePreview}
+                    <p class="text-xs text-emerald-700 font-semibold flex items-center gap-1 mt-0.5">
+                        <!-- Receipt icon already imported as Receipt in DepositForm, but ConceptPicker uses HandCoins etc — add Receipt import -->
+                        Próx. talonario: <span class="font-mono">{invoicePreview.label}</span>
+                    </p>
+                {:else if selected.description}
+                    <p class="text-xs text-slate-500" data-testid="selected-concept-description">
                         {selected.description}
                     </p>
                 {/if}

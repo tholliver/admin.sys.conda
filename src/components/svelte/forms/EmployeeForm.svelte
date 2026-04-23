@@ -45,7 +45,7 @@
         phone: z.string().optional(),
         address: z.string().optional(),
         chargeTitle: z.string().min(2, "Cargo requerido"),
-        sectorId: z.string().optional(),
+        sectorId: z.string(),
         hireDate: z.string().min(1, "Fecha de ingreso requerida"),
         baseSalary: z.string().min(1, "Salario requerido"),
         notes: z.string().optional(),
@@ -317,9 +317,10 @@
         <!-- Sector -->
         <div>
             <label for="sectorId" class="block text-sm font-medium text-slate-700 mb-1">
-                Sector
+                Sector *
             </label>
             <select
+                required
                 name="sectorId"
                 value={form.values.sectorId}
                 onchange={(e) =>
@@ -467,8 +468,3 @@
         ></textarea>
     </div>
 </form>
-
-
-
-
-

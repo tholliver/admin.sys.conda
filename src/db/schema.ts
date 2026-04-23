@@ -156,9 +156,8 @@ export const cashboxes = financeSchema.table("cashboxes", {
 // ── Invoice ranges (talonarios) ───────────────────────────────────────
 export const invoiceRanges = pgTable("invoice_ranges", {
   id:                  uuid("id").primaryKey().default(sql`uuidv7()`),
-  code:                varchar("code",                { length: 10 }).notNull().unique(),
   category:            varchar("category",            { length: 50 }).notNull().unique(),
-  prefix:              varchar("prefix",              { length: 10 }),
+  prefix:              varchar("prefix",              { length: 10 }),          // keep — drives label format
   rangeStart:          bigint("range_start",          { mode: "number" }).notNull(),
   rangeEnd:            bigint("range_end",             { mode: "number" }).notNull(),
   current:             bigint("current",              { mode: "number" }).notNull(),

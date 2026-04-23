@@ -15,6 +15,7 @@ import {
   ArrowRightLeft,
 } from "@lucide/astro";
 import CashboxDepositDialog from "@/components/svelte/dialogs/CashboxDepositDialog.svelte";
+import SectorManager from "@/components/svelte/SectorManager.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -73,9 +74,24 @@ const totalSalary = sectorEmployees.reduce((sum, e) => sum + Number(e.baseSalary
 const canCover = balance >= totalSalary;
 const activeSectors = cashboxSectors.filter((s) => s.isActive);
 const isActive = cashbox.status === "activo";
+
+// All active cashboxes for the reassign dropdown
+const allActiveCashboxes = await db
+  .select({ id: cashboxes.id, name: cashboxes.name, code: cashboxes.code, balance: cashboxes.balance })
+  .from(cashboxes)
+  .where(eq(cashboxes.status, "activo"))
+  .orderBy(asc(cashboxes.name));
 ---
 
 <FinanceLayout title={cashbox.name} user={user}>
+    <!-- Remove the old read-only sector grid and replace with: -->
+    <SectorManager
+      cashboxId={cashbox.id}
+      cashboxIsActive={isActive}
+      initialSectors={cashboxSectors as any}
+      allCashboxes={allActiveCashboxes as any}
+      client:load
+    />
   <!-- Breadcrumb + Header -->
   <div class="flex items-start justify-between gap-4">
     <div>

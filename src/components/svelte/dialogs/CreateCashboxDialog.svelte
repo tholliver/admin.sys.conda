@@ -145,31 +145,62 @@
             </div>
 
             <!-- Código -->
-            <div>
-                <label
-                    for="code"
-                    class="block text-sm font-medium text-slate-700 mb-1"
-                >
-                    Código <span class="text-red-500">*</span>
-                    <span class="text-slate-400 font-normal text-xs ml-1"
-                        >(único, sin espacios)</span
+            <div class="flex justify-between gap-4">
+                <div>
+                    <label
+                        for="code"
+                        class="block text-sm font-medium text-slate-700 mb-1"
                     >
-                </label>
-                <input
-                    type="text"
-                    bind:value={code}
-                    required
-                    maxlength="50"
-                    placeholder="CAJA_PRINCIPAL"
-                    class="w-full rounded-lg border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500
-            {fieldError('code') ? 'border-red-400' : 'border-slate-200'}"
-                />
-                {#if fieldError("code")}
-                    <p class="mt-1 text-xs text-red-600">
-                        {fieldError("code")}
+                        Código <span class="text-red-500">*</span>
+                        <span class="text-slate-400 font-normal text-xs ml-1"
+                            >(único, sin espacios)</span
+                        >
+                    </label>
+                    <input
+                        type="text"
+                        bind:value={code}
+                        required
+                        maxlength="50"
+                        placeholder="CAJA_PRINCIPAL"
+                        class="w-full rounded-lg border px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500
+                {fieldError('code') ? 'border-red-400' : 'border-slate-200'}"
+                    />
+                    {#if fieldError("code")}
+                        <p class="mt-1 text-xs text-red-600">
+                            {fieldError("code")}
+                        </p>
+                    {/if}
+                </div>
+
+                <!-- Saldo inicial -->
+                <div>
+                    <label
+                        for="initialBalance"
+                        class="block text-sm font-medium text-slate-700 mb-1"
+                    >
+                        Saldo Inicial (Bs)
+                    </label>
+                    <div class="relative">
+                        <span
+                            class="absolute left-3 top-2.5 text-slate-500 text-sm pointer-events-none"
+                            >Bs</span
+                        >
+                        <input
+                            type="number"
+                            bind:value={initialBalance}
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            class="w-full rounded-lg border border-slate-200 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <p class="mt-1 text-xs text-slate-400">
+                        Dejar en 0 si la caja comienza vacía.
                     </p>
-                {/if}
+                </div>
+
             </div>
+
 
             <!-- Descripción -->
             <div>
@@ -184,33 +215,6 @@
                     placeholder="Uso o propósito de esta caja..."
                     class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-            </div>
-
-            <!-- Saldo inicial -->
-            <div>
-                <label
-                    for="initialBalance"
-                    class="block text-sm font-medium text-slate-700 mb-1"
-                >
-                    Saldo Inicial (Bs)
-                </label>
-                <div class="relative">
-                    <span
-                        class="absolute left-3 top-2.5 text-slate-500 text-sm pointer-events-none"
-                        >Bs</span
-                    >
-                    <input
-                        type="number"
-                        bind:value={initialBalance}
-                        min="0"
-                        step="0.01"
-                        placeholder="0.00"
-                        class="w-full rounded-lg border border-slate-200 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-                <p class="mt-1 text-xs text-slate-400">
-                    Dejar en 0 si la caja comienza vacía.
-                </p>
             </div>
 
             <!-- Footer -->

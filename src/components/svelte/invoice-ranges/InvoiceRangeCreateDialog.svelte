@@ -51,12 +51,6 @@
         validateMode: "onChange",
     });
 
-    // Sync current to rangeStart whenever start changes
-    function syncCurrentToStart(val: number) {
-        form.setValue("rangeStart", val || 1);
-        form.setValue("current" as any, val || 1);
-    }
-
     let isOpen = $state(false);
     let isSaving = $state(false);
 
@@ -80,7 +74,6 @@
                         ...values,
                         code: values.code.trim().toUpperCase(),
                         prefix: values.prefix?.trim() || null,
-                        current: values.rangeStart,
                     }),
                 },
             );
@@ -146,36 +139,40 @@
             >
                 <!-- Code + Prefix side by side -->
                 <div class="grid grid-cols-2 gap-4">
+                    <!-- Expiration date -->
                     <div>
-                        <label for="ir-create-code" class="text-sm font-medium">
-                            Código
-                            <span class="text-muted-foreground text-xs ml-1"
-                                >— clave interna</span
+                            <label
+                                for="ir-create-expiry"
+                                class="text-sm font-medium"
                             >
-                        </label>
-                        <input
-                            id="ir-create-code"
-                            data-testid="ir-create-code-input"
-                            type="text"
-                            class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono uppercase"
-                            value={form.values.code}
-                            oninput={(e) =>
-                                form.setValue(
-                                    "code",
-                                    (
-                                        e.currentTarget as HTMLInputElement
-                                    ).value.toUpperCase(),
-                                )}
-                            onblur={() => form.onBlur("code")}
-                            placeholder="AFI, TRO, ITEM"
-                            maxlength={10}
-                        />
-                        {#if form.errors.code}
+                                Fecha de Expiración
+                            </label>
+
+                        <div class="relative">
+                            <input
+                                id="ir-create-expiry"
+                                data-testid="ir-create-expiry-input"
+                                type="date"
+                                class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm appearance-none date-input-icon"
+                                value={form.values.expirationDate}
+                                oninput={(e) =>
+                                    form.setValue(
+                                        "expirationDate",
+                                        (e.currentTarget as HTMLInputElement).value,
+                                    )}
+                                onblur={() => form.onBlur("expirationDate")}
+                            />
+                            <Calendar
+                                class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
+                            />
+                        </div>
+                        {#if form.errors.expirationDate}
                             <p class="mt-1 text-sm text-red-500">
-                                {form.errors.code}
+                                {form.errors.expirationDate}
                             </p>
                         {/if}
                     </div>
+
                     <div>
                         <label
                             for="ir-create-prefix"
@@ -244,13 +241,7 @@
                             min="1"
                             class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
                             value={form.values.rangeStart}
-                            oninput={(e) =>
-                                syncCurrentToStart(
-                                    Number.parseInt(
-                                        (e.currentTarget as HTMLInputElement)
-                                            .value,
-                                    ),
-                                )}
+                            oninput={(e) => form.setValue("rangeStart", Number.parseInt((e.currentTarget as HTMLInputElement).value) || 1)}
                             onblur={() => form.onBlur("rangeStart")}
                         />
                         {#if form.errors.rangeStart}
@@ -291,9 +282,43 @@
 
                 <!-- Authorization number -->
                 <div>
+                    <div class="flex items-center justify-between mb-1">
                     <label for="ir-create-auth" class="text-sm font-medium">
                         Nro. de Autorización
                     </label>
+                    <button
+                        type="button"
+                        onclick={() =>
+                            form.reset({
+                                code: "",
+                                category: "",
+                                prefix: "",
+                                rangeStart: 1,
+                                rangeEnd: 99999,
+                                authorizationNumber: "",
+                                expirationDate: "",
+                            })}
+                        class="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 rounded border border-input px-2 py-0.5 hover:bg-accent transition-colors"
+                        title="Limpiar formulario"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="11"
+                            height="11"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            ><path
+                                d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
+                            /><path d="M3 3v5h5" /></svg
+                        >
+                        Limpiar
+                    </button>
+
+                    </div>
                     <input
                         id="ir-create-auth"
                         data-testid="ir-create-auth-input"
@@ -312,72 +337,6 @@
                     {#if form.errors.authorizationNumber}
                         <p class="mt-1 text-sm text-red-500">
                             {form.errors.authorizationNumber}
-                        </p>
-                    {/if}
-                </div>
-
-                <!-- Expiration date -->
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label
-                            for="ir-create-expiry"
-                            class="text-sm font-medium"
-                        >
-                            Fecha de Expiración
-                        </label>
-                        <button
-                            type="button"
-                            onclick={() =>
-                                form.reset({
-                                    code: "",
-                                    category: "",
-                                    prefix: "",
-                                    rangeStart: 1,
-                                    rangeEnd: 99999,
-                                    authorizationNumber: "",
-                                    expirationDate: "",
-                                })}
-                            class="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 rounded border border-input px-2 py-0.5 hover:bg-accent transition-colors"
-                            title="Limpiar formulario"
-                        >
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="11"
-                                height="11"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                ><path
-                                    d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"
-                                /><path d="M3 3v5h5" /></svg
-                            >
-                            Limpiar
-                        </button>
-                    </div>
-                    <div class="relative">
-                        <input
-                            id="ir-create-expiry"
-                            data-testid="ir-create-expiry-input"
-                            type="date"
-                            class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm appearance-none date-input-icon"
-                            value={form.values.expirationDate}
-                            oninput={(e) =>
-                                form.setValue(
-                                    "expirationDate",
-                                    (e.currentTarget as HTMLInputElement).value,
-                                )}
-                            onblur={() => form.onBlur("expirationDate")}
-                        />
-                        <Calendar
-                            class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
-                        />
-                    </div>
-                    {#if form.errors.expirationDate}
-                        <p class="mt-1 text-sm text-red-500">
-                            {form.errors.expirationDate}
                         </p>
                     {/if}
                 </div>

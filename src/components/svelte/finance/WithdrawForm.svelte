@@ -25,9 +25,9 @@
     }
 
     let { concepts, cashboxes }: Props = $props();
-    
+
     const w = createWithdrawStore(cashboxes, concepts);
-  
+
 </script>
 
 <svelte:window onclick={w.onClickOutside} />
@@ -199,12 +199,13 @@
             error={w.inputErrors.cashboxId}
         />
 
-        <!-- Concept -->
+        <!-- REPLACE the ConceptPicker block -->
         <ConceptPicker
             {concepts}
             quickConcepts={w.quickConcepts}
             filteredConcepts={w.filteredConcepts}
             selected={w.selectedConcept}
+            invoicePreview={w.invoicePreview}
             searchQuery={w.searchQuery}
             showDropdown={w.showDropdown}
             highlightedIndex={w.highlightedIndex}
