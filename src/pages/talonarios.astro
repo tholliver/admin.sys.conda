@@ -82,7 +82,7 @@ function getPct(r: typeof ranges[number]): number {
                         <thead>
                             <tr class="border-b border-slate-200 bg-slate-50">
                                 <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Categoría</th>
-                                <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">COD/Prefijo</th>
+                                <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Prefijo</th>
                                 <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Rango</th>
                                 <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Actual</th>
                                 <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Uso</th>
@@ -131,10 +131,7 @@ function getPct(r: typeof ranges[number]): number {
                                         <!-- Prefix -->
                                         <td class="px-4 py-3.5">
                                         <div class="flex items-center gap-1.5">
-                                            <span class="inline-block font-mono text-xs font-medium px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700">
-                                            {range.code}
-                                            </span>
-                                            {range.prefix && range.prefix !== range.code && (
+                                            {range.prefix && (
                                             <span class="inline-block font-mono text-xs px-2 py-0.5 rounded-md text-slate-400 border border-slate-200">
                                                 {range.prefix}
                                             </span>
