@@ -320,7 +320,6 @@
                 Sector *
             </label>
             <select
-                required
                 name="sectorId"
                 value={form.values.sectorId}
                 onchange={(e) =>

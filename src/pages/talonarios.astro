@@ -1,11 +1,12 @@
 ---
 import { db } from "@/db";
-import { invoiceRanges } from "@/db/schema";
+import { invoiceRanges, transactionCategories } from "@/db/schema";
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import InvoiceRangeCreateDialog from "@/components/svelte/invoice-ranges/InvoiceRangeCreateDialog.svelte";
 import InvoiceRangeEditDialog from "@/components/svelte/invoice-ranges/InvoiceRangeEditDialog.svelte";
 import InvoiceRangeDeleteButton from "@/components/svelte/invoice-ranges/InvoiceRangeDeleteButton.svelte";
-import { desc } from "drizzle-orm";
+import { desc, asc, eq } from "drizzle-orm";
+import InvoiceRangeAssignDialog from "@/components/svelte/invoice-ranges/InvoiceRangeAssignDialog.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -82,7 +83,6 @@ function getPct(r: typeof ranges[number]): number {
                         <thead>
                             <tr class="border-b border-slate-200 bg-slate-50">
                                 <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Categoría</th>
-                                <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Prefijo</th>
                                 <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Rango</th>
                                 <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Actual</th>
                                 <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Uso</th>
@@ -125,18 +125,14 @@ function getPct(r: typeof ranges[number]): number {
 
                                         <!-- Category -->
                                         <td class="px-4 py-3.5">
-                                            <p class="font-medium text-slate-900 capitalize">{range.category}</p>
-                                        </td>
+                                            <p class="font-medium text-slate-900 capitalize">{range.category}
 
-                                        <!-- Prefix -->
-                                        <td class="px-4 py-3.5">
-                                        <div class="flex items-center gap-1.5">
-                                            {range.prefix && (
-                                            <span class="inline-block font-mono text-xs px-2 py-0.5 rounded-md text-slate-400 border border-slate-200">
-                                                {range.prefix}
-                                            </span>
-                                            )}
-                                        </div>
+                                                {range.prefix && (
+                                                <span class="inline-block font-mono text-xs px-2 py-0.5 rounded-md text-slate-400 border border-slate-200">
+                                                    {range.prefix}
+                                                </span>
+                                                )}
+                                            </p>
                                         </td>
 
                                         <!-- Range -->
@@ -179,6 +175,14 @@ function getPct(r: typeof ranges[number]): number {
                                                 <InvoiceRangeDeleteButton
                                                     range={range}
                                                     client:only="svelte"
+                                                />
+                                                <InvoiceRangeAssignDialog
+                                                  rangeId={range.id}
+                                                  rangeLabel={`${range.category} (${range.prefix ?? '—'})`}
+                                                  prefix={range.prefix}
+                                                  current={range.current}
+                                                  rangeEnd={range.rangeEnd}
+                                                  client:load
                                                 />
                                             </div>
                                         </td>

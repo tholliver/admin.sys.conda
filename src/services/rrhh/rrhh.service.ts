@@ -101,7 +101,7 @@ export async function getEmployees(filters: EmployeeFilters = {} as EmployeeFilt
     data: rows.map((r) => ({
       ...r.employee,
       fullName: getEmployeeFullName(r.employee),
-      sectorName: r.sectorName ?? "Sin sector",
+      sectorName: r.sectorName ?? "---",
     })),
     total: Number(total),
     page,

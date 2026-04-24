@@ -12,6 +12,7 @@ import { voidTransaction } from "./void-transaction.action";
 import { transfer, payContractor, createContractor, updateContractorStatus } from "./transfer.action";
 import { toggleQuickCashbox } from "./toggle-quick-cashbox.action";
 import { toggleCashboxStatus } from "./toggle-cashbox-status.action";
+import { assignCategoryRange, unassignCategoryRange } from "./categories-assign.action";
 
 export const deposit = defineAction({
   accept: "form",
@@ -1118,4 +1119,7 @@ export const finance = {
   updateContractorStatus,
   toggleQuickCashbox,
   toggleCashboxStatus,
+  // Assign accounts to categories - concepts
+  assignCategoryRange,
+  unassignCategoryRange,
 };

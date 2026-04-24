@@ -76,10 +76,6 @@
         type: z.enum(["income", "outcome"]).or(z.literal("")),
         description: z.string().max(500, "Descripcion demasiado larga"),
         icon: z.string().max(50, "Icono demasiado largo"),
-        invoiceRangeId: z
-            .string()
-            .uuid("ID de talonario invalido")
-            .or(z.literal("")),
         parentId: z.string().uuid("Cuenta padre invalida").or(z.literal("")),
         requiresAuthorization: z.boolean(),
     });
@@ -171,7 +167,6 @@
             icon: (defaults.icon as IconKey | "") ?? "",
             requiresAuthorization: Boolean(defaults.requiresAuthorization),
             parentId: defaults.parentId ?? "",
-            invoiceRangeId: defaults.invoiceRangeId ?? "",
         };
     }
 
@@ -269,8 +264,6 @@
         if (values.icon.trim()) fd.append("icon", values.icon.trim());
         if (values.parentId.trim())
             fd.append("parentId", values.parentId.trim());
-        if (values.invoiceRangeId.trim())
-            fd.append("invoiceRangeId", values.invoiceRangeId);
 
         try {
             const action =
@@ -453,70 +446,6 @@
                     {fieldError("type")}
                 </p>{/if}
         </div>
-
-        <!-- Invoice range — only for income, shown before icon -->
-        {#if form.values.type === "income" && availableRanges.length > 0}
-            <div>
-                <label
-                    for="cat-range"
-                    class="mb-1 block text-sm font-medium text-slate-700"
-                >
-                    Talonario asociado
-                    <span class="ml-1 text-xs font-normal text-slate-500"
-                        >(opcional)</span
-                    >
-                </label>
-                <div class="relative">
-                    <select
-                        id="cat-range"
-                        value={form.values.invoiceRangeId}
-                        onchange={(e) =>
-                            form.setValue(
-                                "invoiceRangeId",
-                                e.currentTarget.value,
-                                { validate: false },
-                            )}
-                        onblur={() => form.onBlur("invoiceRangeId")}
-                        class="w-full appearance-none rounded-md border border-slate-300 px-3 py-2 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                    >
-                        <option value="">Sin talonario</option>
-                        {#each availableRanges as range}
-                            {@const exhausted =
-                                Number(range.current) >= Number(range.rangeEnd)}
-                            <option value={range.id} disabled={exhausted}>
-                                {range.category} ({range.code}){exhausted
-                                    ? " — Agotado"
-                                    : ""}
-                            </option>
-                        {/each}
-                    </select>
-                    <ChevronDown
-                        class="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                    />
-                </div>
-                {#if form.values.invoiceRangeId}
-                    {@const range = availableRanges.find(
-                        (r) => r.id === form.values.invoiceRangeId,
-                    )}
-                    {#if range}
-                        <p class="mt-1 text-xs text-slate-500">
-                            Siguiente numero: <span
-                                class="font-mono font-medium text-slate-700"
-                            >
-                                {range.prefix
-                                    ? `${range.prefix}-${Number(range.current) + 1}`
-                                    : Number(range.current) + 1}
-                            </span>
-                        </p>
-                    {/if}
-                {/if}
-                {#if fieldError("invoiceRangeId")}<p
-                        class="mt-1 text-xs text-red-600"
-                    >
-                        {fieldError("invoiceRangeId")}
-                    </p>{/if}
-            </div>
-        {/if}
 
         <!-- Icon picker — inline strip, type-aware color -->
         {#if form.values.type}

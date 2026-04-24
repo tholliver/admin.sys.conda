@@ -37,11 +37,6 @@
         successMsg = null;
     }
 
-    function normalizeSectorId(value: string | number | undefined) {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-    }
-
     async function handleSubmit(data: EmployeeFormData) {
         fieldErrors = {};
         serverError = null;
@@ -54,7 +49,8 @@
         if (data.phone) fd.set("phone", data.phone);
         if (data.address) fd.set("address", data.address);
         fd.set("chargeTitle", data.chargeTitle);
-        fd.set("sectorId", String(normalizeSectorId(data.sectorId as any)));
+        const sectorId = Number(data.sectorId);
+        if (Number.isFinite(sectorId) && sectorId > 0) fd.set("sectorId", String(sectorId));
         fd.set("hireDate", data.hireDate ?? "");
         fd.set("baseSalary", String(data.baseSalary));
         if (data.notes) fd.set("notes", data.notes);
@@ -190,6 +186,3 @@
         {/if}
     {/snippet}
 </Dialog>
-
-
-

@@ -99,13 +99,11 @@ const editCategory = editId ? categories.find((c) => c.id === editId) : null;
       />
 
       <section class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-
         <div class="flex items-center justify-between gap-3 mb-1">
           <h2 class="text-lg font-semibold text-slate-900">Cuentas existentes</h2>
           <span class="text-sm text-slate-500">{categories.length} total</span>
         </div>
 
-        <!-- Quick access counters -->
         <div class="mb-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
           <div class="flex items-center gap-1">
             <Zap class="h-3 w-3 text-amber-500" />
@@ -122,143 +120,169 @@ const editCategory = editId ? categories.find((c) => c.id === editId) : null;
         </div>
 
         {statusSuccess && <p class="mb-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{statusSuccess}</p>}
-        {statusError   && <p class="mb-3 rounded-md border border-red-200   bg-red-50   px-3 py-2 text-sm text-red-700"  >{statusError}</p>}
-        {sortSuccess   && <p class="mb-3 rounded-md border border-blue-200  bg-blue-50  px-3 py-2 text-sm text-blue-700" >{sortSuccess}</p>}
-        {sortError     && <p class="mb-3 rounded-md border border-red-200   bg-red-50   px-3 py-2 text-sm text-red-700"  >{sortError}</p>}
+        {statusError   && <p class="mb-3 rounded-md border border-red-200   bg-red-50   px-3 py-2 text-sm text-red-700">{statusError}</p>}
+        {sortSuccess   && <p class="mb-3 rounded-md border border-blue-200  bg-blue-50  px-3 py-2 text-sm text-blue-700">{sortSuccess}</p>}
+        {sortError     && <p class="mb-3 rounded-md border border-red-200   bg-red-50   px-3 py-2 text-sm text-red-700">{sortError}</p>}
 
-        <div class="max-h-[70vh] overflow-auto">
+        <!-- Tab buttons -->
+        <div class="flex gap-1 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <button type="button" id="tab-income" data-tab="income"
+              class="tab-btn flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all bg-white text-emerald-700 shadow-sm border border-emerald-200">
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+              Ingresos
+              <span class="ml-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
+                {categories.filter(c => c.type === "income").length}
+              </span>
+          </button>
+          <button type="button" id="tab-outcome" data-tab="outcome"
+            class="tab-btn flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all text-slate-500 hover:text-slate-700">
+            <span class="h-1.5 w-1.5 rounded-full bg-red-400"></span>
+            Egresos
+            <span class="ml-0.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">
+              {categories.filter(c => c.type === "outcome").length}
+            </span>
+          </button>
+        </div>
+
+        <!-- Income table -->
+        <div id="panel-income" class="max-h-[62vh] overflow-auto">
           <table class="w-full text-left">
             <thead class="sticky top-0 border-b border-slate-200 bg-white text-slate-500 text-xs">
               <tr>
-                <th class="px-2 py-2 font-medium w-9 text-center" title="Prioridad de acceso rapido">
-                  <Zap class="h-3 w-3 text-amber-400 mx-auto" />
-                </th>
+                <th class="px-2 py-2 font-medium w-9 text-center"><Zap class="h-3 w-3 text-amber-400 mx-auto" /></th>
                 <th class="px-3 py-2 font-medium">Nombre</th>
-                <th class="px-3 py-2 font-medium">Tipo</th>
-                <!-- <th class="px-2 py-2 font-medium text-center w-8" title="Estado">
-                  <span class="sr-only">Estado</span>
-                  <span class="inline-block h-2 w-2 rounded-full bg-slate-300"></span>
-                </th> -->
                 <th class="px-3 py-2 font-medium text-right">Acciones</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-              {categories.map((cat) => {
-                const Icon      = resolveIcon(cat.icon, cat.type as "income" | "outcome");
-                const isIncome  = cat.type === "income";
+              {categories.filter(c => c.type === "income").map((cat) => {
+                const Icon      = resolveIcon(cat.icon, "income");
                 const isQuick   = cat.sortOrder <= 6;
-                const typeCount = isIncome ? quickIncomeCount : quickOutcomeCount;
-                const canPromote = !isQuick && cat.status && typeCount < 6;
+                const canPromote = !isQuick && cat.status && quickIncomeCount < 6;
                 const canDemote  = isQuick  && cat.status;
-
                 return (
                   <tr class={`${cat.status ? '' : 'opacity-40'} hover:bg-slate-50/60 transition-colors`}>
-
-                    <!-- Priority cell -->
                     <td class="px-2 py-2.5 text-center">
                       {isQuick && cat.status ? (
                         <div class="flex flex-col items-center gap-0.5">
-                          <span class={`inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold ${isIncome ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                            {cat.sortOrder}
-                          </span>
-                          <Zap class={`h-2.5 w-2.5 ${isIncome ? 'text-emerald-400' : 'text-red-400'}`} />
+                          <span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">{cat.sortOrder}</span>
+                          <Zap class="h-2.5 w-2.5 text-emerald-400" />
                         </div>
                       ) : (
                         <span class="text-[10px] font-mono text-slate-300">{cat.sortOrder === 999 ? '—' : cat.sortOrder}</span>
                       )}
                     </td>
-
-                    <!-- Name + icon -->
                     <td class="px-3 py-2.5">
                       <div class="flex items-center gap-2">
-                        <span class={`shrink-0 flex h-6 w-6 items-center justify-center rounded ${isIncome ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                        <span class="shrink-0 flex h-6 w-6 items-center justify-center rounded bg-emerald-50 text-emerald-600">
                           <Icon class="h-3.5 w-3.5" />
                         </span>
                         <span class="text-slate-900 text-xs font-medium leading-tight">{cat.name}</span>
                       </div>
                     </td>
-
-                    <!-- Type badge -->
-                    <td class="px-3 py-2.5">
-                      {isIncome ? (
-                        <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700">Ingreso</span>
-                      ) : (
-                        <span class="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700">Egreso</span>
-                      )}
-                    </td>
-
-                    <!-- Status dot -->
-                    <!-- <td class="px-2 py-2.5 text-center">
-                      <span
-                        class={`inline-block h-2 w-2 rounded-full ${cat.status ? 'bg-emerald-500' : 'bg-slate-300'}`}
-                        title={cat.status ? 'Activa' : 'Inactiva'}
-                      ></span>
-                    </td> -->
-
-                    <!-- Actions -->
                     <td class="px-3 py-2.5">
                       <div class="flex items-center justify-end gap-1 flex-wrap">
-
                         {canPromote && (
                           <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
                             <input type="hidden" name="categoryId" value={cat.id} />
-                            <input type="hidden" name="sortOrder"  value="1" />
-                            <button
-                              type="submit"
-                              title="Agregar a acceso rapido"
-                              class="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition-colors"
-                            >
-                              <Zap class="h-2.5 w-2.5" />
-                              Fijar
+                            <input type="hidden" name="sortOrder" value="1" />
+                            <button type="submit" class="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition-colors">
+                              <Zap class="h-2.5 w-2.5" /> Fijar
                             </button>
                           </form>
                         )}
-
                         {canDemote && (
                           <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
                             <input type="hidden" name="categoryId" value={cat.id} />
-                            <input type="hidden" name="sortOrder"  value="999" />
-                            <button
-                              type="submit"
-                              title="Quitar de acceso rapido"
-                              class="flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-100 transition-colors"
-                            >
-                              <Zap class="h-2.5 w-2.5" />
-                              Quitar
+                            <input type="hidden" name="sortOrder" value="999" />
+                            <button type="submit" class="flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-100 transition-colors">
+                              <Zap class="h-2.5 w-2.5" /> Quitar
                             </button>
                           </form>
                         )}
-
-                        <a
-                          href={`/cuentas?edit=${cat.id}`}
-                          class="rounded border border-slate-200 px-2 py-1 text-[10px] font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                        >
-                          Editar
-                        </a>
-
-                        <form
-                          method="POST"
-                          action={cat.status
-                            ? actions.finance.disableTransactionCategory
-                            : actions.finance.activateTransactionCategory}
-                          class="inline"
-                        >
+                        <a href={`/cuentas?edit=${cat.id}`} class="rounded border border-slate-200 px-2 py-1 text-[10px] font-medium text-slate-700 hover:bg-slate-50 transition-colors">Editar</a>
+                        <form method="POST" action={cat.status ? actions.finance.disableTransactionCategory : actions.finance.activateTransactionCategory} class="inline">
                           <input type="hidden" name="categoryId" value={cat.id} />
-                          <button
-                            type="submit"
-                            disabled={cat.status && cat.isSystem}
-                            onclick={cat.status
-                              ? "return confirm('Desactivar esta cuenta?');"
-                              : "return confirm('Activar esta cuenta?');"}
-                            class:list={[
-                              "rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors",
-                              cat.status ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700",
-                            ]}
-                          >
+                          <button type="submit" disabled={cat.status && cat.isSystem}
+                            onclick={cat.status ? "return confirm('Desactivar esta cuenta?');" : "return confirm('Activar esta cuenta?');"}
+                            class:list={["rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors", cat.status ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"]}>
                             {cat.status ? "Desactivar" : "Activar"}
                           </button>
                         </form>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
+        <!-- Outcome table -->
+        <div id="panel-outcome" class="max-h-[62vh] overflow-auto hidden">
+          <table class="w-full text-left">
+            <thead class="sticky top-0 border-b border-slate-200 bg-white text-slate-500 text-xs">
+              <tr>
+                <th class="px-2 py-2 font-medium w-9 text-center"><Zap class="h-3 w-3 text-amber-400 mx-auto" /></th>
+                <th class="px-3 py-2 font-medium">Nombre</th>
+                <th class="px-3 py-2 font-medium text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {categories.filter(c => c.type === "outcome").map((cat) => {
+                const Icon      = resolveIcon(cat.icon, "outcome");
+                const isQuick   = cat.sortOrder <= 6;
+                const canPromote = !isQuick && cat.status && quickOutcomeCount < 6;
+                const canDemote  = isQuick  && cat.status;
+                return (
+                  <tr class={`${cat.status ? '' : 'opacity-40'} hover:bg-slate-50/60 transition-colors`}>
+                    <td class="px-2 py-2.5 text-center">
+                      {isQuick && cat.status ? (
+                        <div class="flex flex-col items-center gap-0.5">
+                          <span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold bg-red-100 text-red-700">{cat.sortOrder}</span>
+                          <Zap class="h-2.5 w-2.5 text-red-400" />
+                        </div>
+                      ) : (
+                        <span class="text-[10px] font-mono text-slate-300">{cat.sortOrder === 999 ? '—' : cat.sortOrder}</span>
+                      )}
+                    </td>
+                    <td class="px-3 py-2.5">
+                      <div class="flex items-center gap-2">
+                        <span class="shrink-0 flex h-6 w-6 items-center justify-center rounded bg-red-50 text-red-600">
+                          <Icon class="h-3.5 w-3.5" />
+                        </span>
+                        <span class="text-slate-900 text-xs font-medium leading-tight">{cat.name}</span>
+                      </div>
+                    </td>
+                    <td class="px-3 py-2.5">
+                      <div class="flex items-center justify-end gap-1 flex-wrap">
+                        {canPromote && (
+                          <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
+                            <input type="hidden" name="categoryId" value={cat.id} />
+                            <input type="hidden" name="sortOrder" value="1" />
+                            <button type="submit" class="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition-colors">
+                              <Zap class="h-2.5 w-2.5" /> Fijar
+                            </button>
+                          </form>
+                        )}
+                        {canDemote && (
+                          <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
+                            <input type="hidden" name="categoryId" value={cat.id} />
+                            <input type="hidden" name="sortOrder" value="999" />
+                            <button type="submit" class="flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-100 transition-colors">
+                              <Zap class="h-2.5 w-2.5" /> Quitar
+                            </button>
+                          </form>
+                        )}
+                        <a href={`/cuentas?edit=${cat.id}`} class="rounded border border-slate-200 px-2 py-1 text-[10px] font-medium text-slate-700 hover:bg-slate-50 transition-colors">Editar</a>
+                        <form method="POST" action={cat.status ? actions.finance.disableTransactionCategory : actions.finance.activateTransactionCategory} class="inline">
+                          <input type="hidden" name="categoryId" value={cat.id} />
+                          <button type="submit" disabled={cat.status && cat.isSystem}
+                            onclick={cat.status ? "return confirm('Desactivar esta cuenta?');" : "return confirm('Activar esta cuenta?');"}
+                            class:list={["rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors", cat.status ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"]}>
+                            {cat.status ? "Desactivar" : "Activar"}
+                          </button>
+                        </form>
                       </div>
                     </td>
                   </tr>
@@ -269,5 +293,29 @@ const editCategory = editId ? categories.find((c) => c.id === editId) : null;
         </div>
       </section>
 
+
     </div>
 </FinanceLayout>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab!;
+      (['income', 'outcome'] as const).forEach(t => {
+        const panel = document.getElementById(`panel-${t}`);
+        const b     = document.getElementById(`tab-${t}`);
+        if (!panel || !b) return;
+        const active = t === tab;
+        panel.classList.toggle('hidden', !active);
+        b.className = [
+          'tab-btn flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all',
+          active
+            ? t === 'income'
+              ? 'bg-white text-emerald-700 shadow-sm border border-emerald-200'
+              : 'bg-white text-red-700 shadow-sm border border-red-200'
+            : 'text-slate-500 hover:text-slate-700',
+        ].join(' ');
+      });
+    });
+  });
+</script>

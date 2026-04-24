@@ -47,10 +47,7 @@ export const createEmployeeSchema = z.object({
     .string()
     .min(2, "Cargo requerido")
     .max(120, "Cargo demasiado largo"),
-  sectorId: z.coerce
-    .number()
-    .int()
-    .min(0, "Sector inválido"),
+  sectorId: z.coerce.number().int().positive("Sector inválido").optional(),
   hireDate: z.coerce.date({ message: "Fecha de ingreso requerida" }),
   baseSalary: z.coerce.number().pipe(salarySchema),
   status: z
