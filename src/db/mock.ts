@@ -285,7 +285,7 @@ export const TRANSACTION_CATEGORIES = [
 ];
 
 export const SYS_USERS = [
-  { name: "ADMIN SISTEMA", email: "admin@carrasco.com", password: "camaleon54ruta", ci: "8888888", role: "ADMIN" },
+  { name: "ADMINISTRACION", email: "admin@carrasco.com", password: "camaleon54ruta", ci: "8888888", role: "ADMIN" },
 ];
 
 export const CASHBOXES_DATA = [

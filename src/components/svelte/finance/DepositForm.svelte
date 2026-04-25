@@ -6,16 +6,12 @@
      * mirroring the WithdrawForm pattern.
      */
     import { Plus, CircleAlert, CircleCheck, X } from "@lucide/svelte";
-    import { fade } from "svelte/transition";
-    import { noWheel } from "@/lib/form/utils";
-    import { formatBOB } from "@/utils/formatters";
     import type { SelectTransactionCategories } from "@/db/schema";
-
+    import AmountInput from "./AmountInput.svelte";
     import { createDepositStore } from "@/lib/stores/deposit.store.svelte";
     import ConceptPicker from "./withdraw/ConceptPicker.svelte";
     import InvoiceRangeField from "./InvoiceRangeField.svelte";
     import InvoiceBookBanner from "@/components/svelte/finance/InvoiceBookBanner.svelte";
-    import QuickAmountActions from "./QuickAmountActions.svelte";
     import TransactionSuccess from "./TransactionSuccess.svelte";
 
     interface Props {
@@ -100,49 +96,13 @@
 
         <!-- ── Amount ─────────────────────────────────────────────────────── -->
         <div>
-            <label for="amount" class="block text-sm font-medium text-slate-700 mb-2">
-                Monto (Bs.)
-            </label>
-            <div class="relative">
-                <span class="absolute left-4 top-2.5 text-slate-500 font-medium pointer-events-none">Bs</span>
-                <input
-                    id="amount"
-                    bind:value={d.amount}
-                    use:noWheel
-                    type="number"
-                    step="0.01"
-                    max="500000"
-                    placeholder="0.00"
-                    data-testid="deposit-amount-input"
-                    class="w-full rounded-lg border pl-10 pr-4 py-2.5 text-slate-900
-                           placeholder:text-slate-400 focus:outline-none transition-all duration-200
-                           {d.inputErrors.amount
-                        ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-100'
-                        : d.amount && parseFloat(d.amount) > 0
-                          ? 'border-green-400 focus:border-green-500 focus:ring-2 focus:ring-green-100'
-                          : 'border-slate-300 focus:border-green-500 focus:ring-2 focus:ring-green-100'}"
-                />
-            </div>
-
-            {#if d.amount && parseFloat(d.amount) > 0 && !d.inputErrors.amount}
-                <div
-                    in:fade={{ duration: 200 }}
-                    data-testid="amount-confirmation-badge"
-                    class="mt-2 w-full flex items-center justify-between px-4 py-2.5 bg-green-50 border border-green-200 rounded-lg"
-                >
-                    <div class="flex items-center gap-2">
-                        <CircleCheck class="w-4 h-4 text-green-600 shrink-0" />
-                        <span class="text-sm font-medium text-green-900">Monto ingresado</span>
-                    </div>
-                    <span class="text-base font-bold text-green-900">{formatBOB(String(d.amount))}</span>
-                </div>
-            {/if}
-
-            <QuickAmountActions
-                amount={d.amount}
-                onSelectAmount={(v) => (d.amount = v)}
-                activeClass="bg-green-600 border-green-600 text-white shadow-sm"
-                inactiveClass="bg-white border-slate-200 text-slate-600 hover:border-green-300 hover:text-green-700 hover:bg-green-50 active:bg-green-100"
+            <AmountInput
+                bind:value={d.amount}
+                accentColor="green"
+                id="amount"
+                name="amount"
+                error={d.inputErrors.amount}
+                testid="deposit-amount-input"
             />
 
             {#if d.inputErrors.amount}

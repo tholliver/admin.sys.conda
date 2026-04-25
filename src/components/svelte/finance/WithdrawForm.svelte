@@ -8,13 +8,12 @@
         TriangleAlert,
         X,
     } from "@lucide/svelte";
-    import { noWheel } from "@/lib/form/utils";
+    import AmountInput from "./AmountInput.svelte";
     import { formatBOB } from "@/utils/formatters";
     import type { SelectTransactionCategories } from "@/db/schema";
     import {
         createWithdrawStore,
     } from "@/lib/stores/withdraw.store.svelte";
-    import QuickAmountActions from "./QuickAmountActions.svelte";
     import TransactionSuccess from "./TransactionSuccess.svelte";
     import CashboxPicker from "./withdraw/CashboxPicker.svelte";
     import ConceptPicker from "./withdraw/ConceptPicker.svelte";
@@ -222,35 +221,13 @@
 
         <!-- Amount -->
         <div>
-            <label
-                for="amount"
-                class="block text-sm font-medium text-slate-700 mb-2"
-            >
-                Monto (Bs.)
-            </label>
-            <div class="relative">
-                <span class="absolute left-4 top-2 text-slate-500 font-medium"
-                    >Bs</span
-                >
-                <input
-                    id="amount"
-                    bind:value={w.amount}
-                    use:noWheel
-                    type="number"
-                    data-testid="withdraw-amount-input"
-                    placeholder="0.00"
-                    class="w-full rounded-lg border border-slate-300 pl-10 pr-4 py-2 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-100 transition
-                    {w.inputErrors.amount
-                        ? 'border-red-500 ring-2 ring-red-100'
-                        : ''}"
-                />
-            </div>
-
-            <QuickAmountActions
-                amount={w.amount}
-                onSelectAmount={(v) => (w.amount = v)}
-                activeClass="bg-red-600 border-red-600 text-white shadow-sm"
-                inactiveClass="bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600 hover:bg-red-50 active:bg-red-100"
+            <AmountInput
+                bind:value={w.amount}
+                accentColor="red"
+                id="amount"
+                name="amount"
+                error={w.inputErrors.amount}
+                testid="withdraw-amount-input"
             />
 
             {#if w.amount && parseFloat(w.amount) > 0 && !w.inputErrors.amount}
