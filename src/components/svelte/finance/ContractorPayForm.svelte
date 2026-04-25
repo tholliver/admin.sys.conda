@@ -13,7 +13,6 @@
     import { noWheel } from "@/lib/form/utils";
     import { formatBOB } from "@/utils/formatters";
     import TransactionSuccess from "./TransactionSuccess.svelte";
-    import QuickAmountActions from "./QuickAmountActions.svelte";
 
     interface Cashbox {
         id: string;

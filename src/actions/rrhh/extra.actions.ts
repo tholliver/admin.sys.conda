@@ -52,9 +52,7 @@ const createTenantSchema = z.object({
   fullName: z.string().min(2, "Nombre requerido"),
   ci: z.string().optional(),
   phone: z.string().optional(),
-  email: z.email("Correo inválido").optional().or(z.literal("")),
-  roomNumber: z.string().min(1, "N° de ambiente requerido"),
-  floor: z.string().optional(),
+  email: z.union([z.literal(""), z.email("Correo inválido")]).optional(),
   description: z.string().optional(),
   monthlyRent: z.coerce.number().min(1, "Monto debe ser mayor a 0"),
   startDate: z.coerce.date(),
@@ -70,19 +68,6 @@ export const createTenant = defineAction({
     if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
     requireAdmin(user.role);
 
-    // Check room not already occupied by active tenant
-    const [existing] = await db
-      .select({ id: tenants.id, status: tenants.status })
-      .from(tenants)
-      .where(eq(tenants.roomNumber, input.roomNumber));
-
-    if (existing && existing.status === "activo") {
-      throw new ActionError({
-        code: "CONFLICT",
-        message: `El ambiente ${input.roomNumber} ya está ocupado por un inquilino activo.`,
-      });
-    }
-
     const [tenant] = await db
       .insert(tenants)
       .values({
@@ -90,8 +75,6 @@ export const createTenant = defineAction({
         ci: input.ci || null,
         phone: input.phone || null,
         email: input.email || null,
-        roomNumber: input.roomNumber,
-        floor: input.floor || null,
         description: input.description || null,
         monthlyRent: input.monthlyRent,
         startDate: input.startDate,
@@ -184,7 +167,7 @@ export const registerRentPayment = defineAction({
           type: "deposit",
           amount: amountStr,
           concept: `Alquiler ${input.period} — ${input.tenantName}`,
-          description: `Pago de alquiler período ${input.period}`,
+          notes: `Pago de alquiler período ${input.period}`,
           createdByUserId: user.id,
           status: "completado",
           balanceAfter: newBalance,
@@ -368,9 +351,7 @@ export const updateTenant = defineAction({
     fullName: z.string().min(2, "Nombre requerido"),
     ci: z.string().optional(),
     phone: z.string().optional(),
-    email: z.string().email("Correo inválido").optional().or(z.literal("")),
-    roomNumber: z.string().min(1, "N° de ambiente requerido"),
-    floor: z.string().optional(),
+    email: z.email("Correo inválido").optional().or(z.literal("")),
     description: z.string().optional(),
     monthlyRent: z.coerce.number().min(1, "Monto debe ser mayor a 0"),
     startDate: z.coerce.date(),
@@ -398,9 +379,6 @@ export const updateTenant = defineAction({
         ci: input.ci || null,
         phone: input.phone || null,
         email: input.email || null,
-        roomNumber: input.roomNumber,
-        floor: input.floor || null,
-        description: input.description || null,
         monthlyRent: input.monthlyRent,
         startDate: input.startDate,
         endDate: input.endDate ?? null,

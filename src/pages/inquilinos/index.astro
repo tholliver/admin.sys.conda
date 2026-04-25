@@ -7,9 +7,9 @@ import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { actions } from "astro:actions";
 import { db } from "@/db";
 import { tenants, tenantPayments } from "@/db/schema";
-import { desc, eq, and, sql } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { Building, CheckCircle, AlertCircle, Clock } from "@lucide/astro";
-import CreateTenantDialog from "@/components/svelte/dialogs/CreateTenantDialog.svelte";
+import CreateTenantDialog from "@/components/svelte/tenants/CreateTenantDialog.svelte";
 import DeleteConfirmDialog from "@/components/svelte/dialogs/DeleteConfirmDialog.svelte";
 
 const { user } = Astro.locals;
@@ -25,15 +25,13 @@ const allTenants = await db
         id: tenants.id,
         uuid: tenants.uuid,
         fullName: tenants.fullName,
-        roomNumber: tenants.roomNumber,
-        floor: tenants.floor,
         phone: tenants.phone,
         monthlyRent: tenants.monthlyRent,
         status: tenants.status,
         startDate: tenants.startDate,
     })
     .from(tenants)
-    .orderBy(tenants.roomNumber);
+    .orderBy(tenants.fullName);
 
 // Load current period payments for all tenants
 const currentPayments = await db
@@ -243,9 +241,6 @@ const monthName = now.toLocaleDateString("es-BO", {
                     class="bg-slate-50 text-xs text-slate-500 border-b border-slate-100"
                 >
                     <tr>
-                        <th class="py-3 px-5 text-left font-medium"
-                            >Ambiente / Piso</th
-                        >
                         <th class="py-3 px-4 text-left font-medium"
                             >Inquilino</th
                         >
@@ -309,18 +304,6 @@ const monthName = now.toLocaleDateString("es-BO", {
                                             )}
                                         </a>
                                     </td>
-                                        <td class="py-3.5 px-5">
-                                            <div>
-                                                <p class="font-bold text-slate-900 font-mono">
-                                                    Amb. {tenant.roomNumber}
-                                                </p>
-                                                {tenant.floor && (
-                                                    <p class="text-xs text-slate-400">
-                                                        Piso {tenant.floor}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </td>
                                         <td class="py-3.5 px-4 text-sm text-slate-500">
                                             {tenant.phone ?? "—"}
                                         </td>

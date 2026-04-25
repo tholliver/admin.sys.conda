@@ -258,24 +258,26 @@
             {/if}
         </div>
 
-        <!-- Reference -->
-        <div>
-            <label
-                for="reference"
-                class="block text-sm font-medium text-slate-700 mb-2"
-            >
-                Referencia <span class="text-slate-500 text-xs">(Opcional)</span
+        <!-- Reference — shown for system transfers always, for normal categories only when no active range -->
+        {#if !w.showInvoiceField || !w.invoicePreview}
+            <div>
+                <label
+                    for="reference"
+                    class="block text-sm font-medium text-slate-700 mb-2"
                 >
-            </label>
-            <input
-                id="reference"
-                bind:value={w.reference}
-                type="text"
-                data-testid="withdraw-reference-input"
-                placeholder="Ej: Número de comprobante, talonario"
-                class="w-full rounded-lg border border-slate-300 px-4 py-2 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-100 transition"
-            />
-        </div>
+                    Referencia <span class="text-slate-500 text-xs">(Opcional)</span
+                    >
+                </label>
+                <input
+                    id="reference"
+                    bind:value={w.reference}
+                    type="text"
+                    data-testid="withdraw-reference-input"
+                    placeholder="Ej: Número de comprobante, talonario"
+                    class="w-full rounded-lg border border-slate-300 px-4 py-2 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-100 transition"
+                />
+            </div>
+        {/if}
 
         <button
             type="submit"

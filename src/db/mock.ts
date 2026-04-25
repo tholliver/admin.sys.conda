@@ -59,7 +59,6 @@ export async function deleteUsers() {
 export async function seedCategories() {
   log.section("TRANSACTION CATEGORIES");
   try {
-    // Insert categories without invoiceRangeId first (column may not exist yet if migration pending)
     const categoriesBase = TRANSACTION_CATEGORIES.map(({ invoiceRangeCode: _omit, ...rest }) => rest);
     await db.insert(schema.transactionCategories).values(categoriesBase);
     log.ok(`${TRANSACTION_CATEGORIES.length} categories inserted`);

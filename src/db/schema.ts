@@ -347,8 +347,6 @@ export const tenants = pgTable("tenants", {
   ci:          varchar("ci",          { length: 20  }),
   phone:       varchar("phone",       { length: 20  }),
   email:       varchar("email",       { length: 150 }),
-  roomNumber:  varchar("room_number", { length: 20  }).notNull(),
-  floor:       varchar("floor",       { length: 10  }),
   description: text("description"),
   monthlyRent: numeric("monthly_rent", { mode: "number", precision: 12, scale: 2 }).notNull(),
   startDate:   date("start_date", { mode: "date" }).notNull(),
@@ -362,7 +360,6 @@ export const tenants = pgTable("tenants", {
   updatedAt:       timestamp("updated_at",       { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
   index("idx_tenants_status").on(t.status),
-  index("idx_tenants_room").on(t.roomNumber),
   index("idx_tenants_uuid").on(t.uuid),
 ]);
 

@@ -60,7 +60,7 @@
     {/if}
 
     <!-- ── Talonario server error banner ─────────────────────────────────── -->
-    {#if d.talonarioError}
+    {#if d.talonarioError && d.showInvoiceField}
         <div class="mb-4">
             <InvoiceBookBanner
                 type={d.talonarioError.type === "TALONARIO_EXHAUSTED" ? "exhausted" : "missing"}
@@ -113,14 +113,16 @@
         </div>
 
         <!-- ── Reference / Talonario field ───────────────────────────────── -->
-        <InvoiceRangeField
-            value={d.reference}
-            onInput={(v) => (d.reference = v)}
-            invoicePreview={d.invoicePreview}
-            selectedConcept={d.selectedConcept}
-            error={d.inputErrors.reference}
-            accentColor="green"
-        />
+        {#if d.showInvoiceField}
+            <InvoiceRangeField
+                value={d.reference}
+                onInput={(v) => (d.reference = v)}
+                invoicePreview={d.invoicePreview}
+                selectedConcept={d.selectedConcept}
+                error={d.inputErrors.reference}
+                accentColor="green"
+            />
+        {/if}
 
         <!-- ── Submit ─────────────────────────────────────────────────────── -->
         <button

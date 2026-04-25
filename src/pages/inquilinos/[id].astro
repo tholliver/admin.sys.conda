@@ -19,7 +19,7 @@ import {
 } from "@lucide/astro";
 import { formatCurrencyNoDecimals } from "@/utils/formatters";
 import { formatDate } from "@/utils/timex";
-import EditTenantDialog from "@/components/svelte/dialogs/EditTenantDialog.svelte";
+import EditTenantDialog from "@/components/svelte/tenants/EditTenantDialog.svelte";
 import { auditTenantPayments } from "@/services/audit.service";
 import { currentPeriod } from "@/services/rrhh/rrhh.service";
 
@@ -92,8 +92,6 @@ const fmtPeriod = (p: string) => {
 ---
 
 <FinanceLayout title={`Inquilino - ${tenant.fullName}`} user={user}>
-
-    <!-- Flash -->
     {successMsg && (
         <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">✓ {successMsg}</div>
     )}
@@ -112,9 +110,6 @@ const fmtPeriod = (p: string) => {
                 <span class:list={["rounded-full px-2.5 py-0.5 text-xs font-semibold", STATUS_COLORS[tenant.status] ?? "bg-slate-100 text-slate-500"]}>
                     {STATUS_LABELS[tenant.status] ?? tenant.status}
                 </span>
-                <span class="text-xs text-slate-400">
-                    Amb. {tenant.roomNumber}{tenant.floor ? ` / Piso ${tenant.floor}` : ""}
-                </span>
             </div>
         </div>
         <div class="flex items-center gap-3">
@@ -126,8 +121,6 @@ const fmtPeriod = (p: string) => {
                     ci: tenant.ci,
                     phone: tenant.phone,
                     email: tenant.email,
-                    roomNumber: tenant.roomNumber,
-                    floor: tenant.floor,
                     description: tenant.description,
                     monthlyRent: tenant.monthlyRent,
                     startDate: tenant.startDate?.toISOString() ?? "",
@@ -177,7 +170,7 @@ const fmtPeriod = (p: string) => {
                     <Building class="h-4 w-4 text-slate-400 mt-0.5" />
                     <div>
                         <p class="text-xs text-slate-500">Ambiente</p>
-                        <p class="font-medium text-slate-900">{tenant.roomNumber}{tenant.floor ? ` / Piso ${tenant.floor}` : ""}</p>
+                        <p class="font-medium text-slate-900">{tenant.description ?? "-"}</p>
                     </div>
                 </div>
                 <div class="flex items-start gap-3">
@@ -262,7 +255,7 @@ const fmtPeriod = (p: string) => {
                                     <input type="hidden" name="amount"   value={gap.expectedAmount} />
                                     <button
                                         type="submit"
-                                        onclick={`return confirm('Registrar deuda\\n\\n${tenant.fullName} — Amb. ${tenant.roomNumber}\\nPeríodo: ${fmtPeriod(gap.period)}\\nMonto: Bs ${gap.expectedAmount}\\n\\nQuedará como PENDIENTE.')`}
+                                        onclick={`return confirm('Registrar deuda\\n\\n${tenant.fullName} — ${tenant.description ?? "-"}\\nPeríodo: ${fmtPeriod(gap.period)}\\nMonto: Bs ${gap.expectedAmount}\\n\\nQuedará como PENDIENTE.')`}
                                         class="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 transition-colors"
                                     >
                                         <PlusCircle class="size-3 shrink-0" />
@@ -291,7 +284,7 @@ const fmtPeriod = (p: string) => {
                                     <input type="hidden" name="amount"     value={gap.amount} />
                                     <button
                                         type="submit"
-                                        onclick={`return confirm('Cobrar alquiler\\n\\n${tenant.fullName} — Amb. ${tenant.roomNumber}\\nPeríodo: ${fmtPeriod(gap.period)}\\nMonto: Bs ${gap.amount}\\n\\nSe registrará el pago en caja GEN.')`}
+                                        onclick={`return confirm('Cobrar alquiler\\n\\n${tenant.fullName} — ${tenant.description ?? "-"}\\nPeríodo: ${fmtPeriod(gap.period)}\\nMonto: Bs ${gap.amount}\\n\\nSe registrará el pago en caja GEN.')`}
                                         class="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 transition-colors"
                                     >
                                         <CreditCard class="size-3 shrink-0" />

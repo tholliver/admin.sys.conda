@@ -8,6 +8,7 @@ import { DecimalService } from "@/services/finances/decimal.service";
 import { formatter } from "@/utils/timex";
 import { ENV } from "@/config/env";
 import { formatBOB } from "@/utils/formatters";
+import { resolveInvoiceReference } from "@/lib/finance/resolve-invoice";
 import { voidTransaction } from "./void-transaction.action";
 import { transfer, payContractor, createContractor, updateContractorStatus } from "./transfer.action";
 import { toggleQuickCashbox } from "./toggle-quick-cashbox.action";
@@ -60,18 +61,6 @@ export const deposit = defineAction({
         throw new ActionError({ code: "NOT_FOUND", message: "La cuenta seleccionada no existe o esta inactiva." });
       }
 
-      // All Categories should have an invoice range assigned
-      if (!category.invoiceRangeId) {
-        throw new ActionError({
-          code: "BAD_REQUEST",
-          message: JSON.stringify({
-            type: "TALONARIO_MISSING",
-            categoryName: category.name,
-            talonarioHref: "/talonarios",
-          }),
-        });
-      }
-
       // Get cashbox
       const [cashAccount] = await db
         .select()
@@ -86,73 +75,9 @@ export const deposit = defineAction({
         throw new ActionError({ code: "BAD_REQUEST", message: "La caja principal esta inactiva. Contacta al administrador." });
       }
 
-      // Resolve invoice number from range if provided.
-      // Bug 3 fix: verify that the submitted invoiceRangeId actually belongs
-      // to the selected category so no range can be burned against a foreign account.
-      let resolvedReference: string | null = reference?.trim() || null;
-      if (invoiceRangeId) {
-        if (category.invoiceRangeId !== invoiceRangeId) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: "El talonario no corresponde a la cuenta seleccionada.",
-          });
-        }
-
-        const [range] = await db
-          .select()
-          .from(invoiceRanges)
-          .where(and(eq(invoiceRanges.id, invoiceRangeId), eq(invoiceRanges.isActive, true)));
-
-        if (!range) {
-          throw new ActionError({
-            code: "NOT_FOUND",
-            message: "El talonario seleccionado no existe o está inactivo.",
-          });
-        }
-
-        const next = range.current + 1;
-        if (next > range.rangeEnd) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: JSON.stringify({
-              type: "TALONARIO_EXHAUSTED",
-              categoryName: category.name,
-              rangeEnd: range.rangeEnd,
-              talonarioHref: "/talonarios",
-            }),
-          });
-        }
-
-        resolvedReference = range.prefix ? `${range.prefix}-${next}` : String(next);
-      } else {
-        // No invoiceRangeId submitted — auto-resolve from the category's assigned range
-        const [range] = await db
-          .select()
-          .from(invoiceRanges)
-          .where(and(eq(invoiceRanges.id, category.invoiceRangeId), eq(invoiceRanges.isActive, true)));
-
-        if (!range) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: `El talonario asignado a "${category.name}" no está activo. Active el talonario o asigne uno nuevo.`,
-          });
-        }
-
-        const next = range.current + 1;
-        if (next > range.rangeEnd) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: JSON.stringify({
-              type: "TALONARIO_EXHAUSTED",
-              categoryName: category.name,
-              rangeEnd: range.rangeEnd,
-              talonarioHref: "/talonarios",
-            }),
-          });
-        }
-
-        resolvedReference = range.prefix ? `${range.prefix}-${next}` : String(next);
-      }
+      // Resolve invoice number (skipped automatically for system categories)
+      const { reference: resolvedReference, rangeIdToIncrement } =
+        await resolveInvoiceReference(category, { manualReference: reference, invoiceRangeId });
 
       // Wrap balance update + insert + range bump in one transaction
       const { transaction, newBalance } = await db.transaction(async (tx) => {
@@ -180,11 +105,11 @@ export const deposit = defineAction({
           })
           .returning();
 
-        if (invoiceRangeId && resolvedReference) {
+        if (rangeIdToIncrement && resolvedReference) {
           await tx
             .update(invoiceRanges)
             .set({ current: sql`${invoiceRanges.current} + 1` })
-            .where(and(eq(invoiceRanges.id, invoiceRangeId), eq(invoiceRanges.isSystem, false)));
+            .where(and(eq(invoiceRanges.id, rangeIdToIncrement), eq(invoiceRanges.isSystem, false)));
         }
 
         return { transaction: txn, newBalance: nb };
@@ -303,17 +228,8 @@ export const withdraw = defineAction({
       //   });
       // }
 
-      if (!category.invoiceRangeId) {
-        throw new ActionError({
-          code: "BAD_REQUEST",
-          message: JSON.stringify({
-            type: "TALONARIO_MISSING",
-            categoryName: category.name,
-            talonarioHref: "/talonarios",
-          }),
-        });
-      }
-
+      // Note: resolveInvoiceReference handles this — this guard is redundant but kept
+      // as defense-in-depth and removed on next cleanup pass.
       const [cashbox] = await db.select().from(cashboxes).where(eq(cashboxes.id, input.cashboxId));
 
       if (!cashbox) {
@@ -342,68 +258,9 @@ export const withdraw = defineAction({
       // Calculate new balance
       const newBalance = DecimalService.subtract(currentBalance, normalizedAmount);
 
-      // Resolve invoice number from range if provided.
-      // Bug 3 fix: verify that the submitted invoiceRangeId actually belongs
-      // to the selected category so no range can be burned against a foreign account.
-      let resolvedReference = reference?.trim() || null;
-      if (invoiceRangeId) {
-        if (category.invoiceRangeId !== invoiceRangeId) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: "El talonario no corresponde a la cuenta seleccionada.",
-          });
-        }
-
-        const [range] = await db
-          .select()
-          .from(invoiceRanges)
-          .where(and(eq(invoiceRanges.id, invoiceRangeId), eq(invoiceRanges.isActive, true)));
-
-        if (!range) {
-          throw new ActionError({
-            code: "NOT_FOUND",
-            message: "El talonario seleccionado no existe o está inactivo.",
-          });
-        }
-
-        const next = range.current + 1;
-        if (next > range.rangeEnd) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: JSON.stringify({
-              type: "TALONARIO_EXHAUSTED",
-              categoryName: category.name,
-              rangeEnd: range.rangeEnd,
-              talonarioHref: "/talonarios",
-            }),
-          });
-        }
-
-        resolvedReference = range.prefix ? `${range.prefix}-${next}` : String(next);
-      } else {
-        // No invoiceRangeId submitted — auto-resolve from the category's assigned range
-        const [range] = await db
-          .select()
-          .from(invoiceRanges)
-          .where(and(eq(invoiceRanges.id, category.invoiceRangeId), eq(invoiceRanges.isActive, true)));
-
-        if (!range) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: `El talonario asignado a "${category.name}" no está activo. Active el talonario o asigne uno nuevo.`,
-          });
-        }
-
-        const next = range.current + 1;
-        if (next > range.rangeEnd) {
-          throw new ActionError({
-            code: "BAD_REQUEST",
-            message: `El talonario de "${category.name}" está agotado (hasta ${range.rangeEnd}). Amplíe el rango o asigne uno nuevo antes de continuar.`,
-          });
-        }
-
-        resolvedReference = range.prefix ? `${range.prefix}-${next}` : String(next);
-      }
+      // Resolve invoice number (skipped automatically for system categories)
+      const { reference: resolvedReference, rangeIdToIncrement } =
+        await resolveInvoiceReference(category, { manualReference: reference, invoiceRangeId });
 
       // Wrap insert + balance update + range bump in one transaction
       const transaction = await db.transaction(async (tx) => {
@@ -429,11 +286,11 @@ export const withdraw = defineAction({
           .set({ balance: newBalance, updatedAt: new Date() })
           .where(eq(cashboxes.id, cashbox.id));
 
-        if (invoiceRangeId && resolvedReference) {
+        if (rangeIdToIncrement && resolvedReference) {
           await tx
             .update(invoiceRanges)
             .set({ current: sql`${invoiceRanges.current} + 1` })
-            .where(and(eq(invoiceRanges.id, invoiceRangeId), eq(invoiceRanges.isSystem, false)));
+            .where(and(eq(invoiceRanges.id, rangeIdToIncrement), eq(invoiceRanges.isSystem, false)));
         }
 
         return txn;

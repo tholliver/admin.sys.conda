@@ -12,6 +12,7 @@ import { actions, isInputError } from "astro:actions";
 import type { SelectTransactionCategories } from "@/db/schema";
 import {
     getInvoicePreview,
+    needsInvoice,
     parseTalonarioError,
     type ConceptWithRange,
     type InvoicePreview,
@@ -73,6 +74,8 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
     let invoicePreview = $derived<InvoicePreview | null>(
         getInvoicePreview(selectedConcept),
     );
+
+    let showInvoiceField = $derived(needsInvoice(selectedConcept));
 
     let canSubmit = $derived(
         !!selectedConcept && !!amount && parseFloat(amount) > 0 && !isSubmitting,
@@ -151,7 +154,7 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         fd.append("categoryId", selectedConcept.id);
         fd.append("amount", amount);
 
-        if (invoicePreview) {
+        if (invoicePreview && needsInvoice(selectedConcept)) {
             // Active range — server resolves atomically, do NOT also send reference
             fd.append("invoiceRangeId", invoicePreview.rangeId);
         } else if (reference.trim()) {
@@ -227,6 +230,7 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         get filteredConcepts() { return filteredConcepts; },
         get quickConcepts() { return quickConcepts; },
         get invoicePreview() { return invoicePreview; },
+        get showInvoiceField() { return showInvoiceField; },
         get canSubmit() { return canSubmit; },
         // actions
         selectConcept,

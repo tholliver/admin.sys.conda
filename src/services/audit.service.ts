@@ -65,7 +65,6 @@ export type EmployeeGap = MissingFeeRow | PendingFeeRow;
 export interface MissingRentRow {
   tenantId: number;
   fullName: string;
-  roomNumber: string;
   period: string;
   expectedAmount: number;
   kind: "missing";
@@ -75,7 +74,6 @@ export interface PendingRentRow {
   paymentId: number;
   tenantId: number;
   fullName: string;
-  roomNumber: string;
   period: string;
   amount: number;
   status: "pendiente" | "parcial";
@@ -206,7 +204,6 @@ export async function auditTenantPayments(upToPeriod: string): Promise<TenantGap
     .select({
       id: tenants.id,
       fullName: tenants.fullName,
-      roomNumber: tenants.roomNumber,
       monthlyRent: tenants.monthlyRent,
       startDate: tenants.startDate,
       endDate: tenants.endDate,
@@ -274,7 +271,6 @@ export async function auditTenantPayments(upToPeriod: string): Promise<TenantGap
         gaps.push({
           tenantId: tenant.id,
           fullName: tenant.fullName,
-          roomNumber: tenant.roomNumber,
           period,
           expectedAmount: Number(tenant.monthlyRent),
           kind: "missing",
@@ -284,7 +280,6 @@ export async function auditTenantPayments(upToPeriod: string): Promise<TenantGap
           paymentId: pay.id,
           tenantId: tenant.id,
           fullName: tenant.fullName,
-          roomNumber: tenant.roomNumber,
           period,
           amount: Number(pay.amount),
           status: pay.status,

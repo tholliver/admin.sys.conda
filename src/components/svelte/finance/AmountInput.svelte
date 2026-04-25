@@ -404,8 +404,7 @@
         <button
             type="button"
             onmousedown={handleDecimalsPointerDown}
-            class="flex items-end pl-1 pr-4 pb-3 pt-6 min-w-[4rem]
-                   rounded-none transition-colors duration-100 {C.segHover}"
+            class="flex items-end pl-1 pr-4 pb-3 pt-6 min-w-16 rounded-none transition-colors duration-100 {C.segHover}"
             aria-label="Editar centavos"
             tabindex="-1"
         >

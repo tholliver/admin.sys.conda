@@ -12,8 +12,7 @@
     import { actions, isInputError } from "astro:actions";
     import { noWheel } from "@/lib/form/utils";
     import { formatBOB } from "@/utils/formatters";
-    import TransactionSuccess from "./TransactionSuccess.svelte";
-    import QuickAmountActions from "./QuickAmountActions.svelte";
+    // import TransactionSuccess from "./TransactionSuccess.svelte";
 
     interface Cashbox {
         id: string;
@@ -440,12 +439,12 @@
                 />
             </div>
 
-            <QuickAmountActions
+            <!-- <QuickAmountActions
                 {amount}
                 onSelectAmount={(v) => (amount = v)}
                 activeClass="bg-violet-600 border-violet-600 text-white shadow-sm"
                 inactiveClass="bg-white border-slate-200 text-slate-600 hover:border-violet-300 hover:text-violet-600 hover:bg-violet-50 active:bg-violet-100"
-            />
+            /> -->
 
             {#if amount && parseFloat(amount) > 0 && hasEnough && !inputErrors.amount}
                 <div

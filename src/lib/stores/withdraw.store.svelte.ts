@@ -1,5 +1,6 @@
 import { actions, isInputError } from "astro:actions";
 import type { SelectCashbox, SelectTransactionCategories } from "@/db/schema";
+import { needsInvoice, getInvoicePreview, type ConceptWithRange } from "@/lib/finance/invoice-range.utils.ts";
 
 export interface WithdrawResponse {
     success: boolean;
@@ -14,16 +15,6 @@ export interface WithdrawResponse {
     };
     newBalance: string;
 }
-
-// Extended type that includes the joined invoice-range fields that the
-// page query selects alongside the category columns.
-type ConceptWithRange = SelectTransactionCategories & {
-    invoiceRangeId?: string | null;
-    invoiceRangePrefix?: string | null;
-    invoiceRangeCurrent?: number | null;
-    invoiceRangeEnd?: number | null;
-    invoiceRangeIsActive?: boolean | null;
-};
 
 export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: SelectTransactionCategories[], defaultCategoryCode = "TRANSFER") {
     // ── State ────────────────────────────────────────────────────────────────
@@ -74,21 +65,13 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
     );
 
     /**
-     * Derives the next invoice number that will be used when the selected
-     * concept has an active, non-exhausted talonario range attached to it.
-     * Returns null when no range applies (manual reference entry).
+     * Derives the next invoice number from the selected concept's active range.
+     * Returns null for system categories or when no range applies.
      */
-    let invoicePreview = $derived.by(() => {
-        if (!selectedConcept) return null;
-        const c = selectedConcept as ConceptWithRange;
-        if (!c.invoiceRangeId || !c.invoiceRangeIsActive) return null;
-        const next = Number(c.invoiceRangeCurrent) + 1;
-        if (next > Number(c.invoiceRangeEnd)) return null; // exhausted
-        const label = c.invoiceRangePrefix
-            ? `${c.invoiceRangePrefix}-${next}`
-            : String(next);
-        return { rangeId: c.invoiceRangeId, nextNumber: next, label };
-    });
+    let invoicePreview = $derived(getInvoicePreview(selectedConcept as ConceptWithRange));
+
+    /** True when the selected concept requires invoice/talonario handling. */
+    let showInvoiceField = $derived(needsInvoice(selectedConcept as ConceptWithRange));
 
     let canSubmit = $derived(
         !!selectedConcept && !!amount && parseFloat(amount) > 0 && !isSubmitting,
@@ -185,7 +168,7 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
         // If the concept has an active range, delegate numbering to the
         // server action (which increments atomically within a DB transaction).
         // Only fall back to manual reference when there is no active range.
-        if (invoicePreview) {
+        if (invoicePreview && showInvoiceField) {
             fd.append("invoiceRangeId", invoicePreview.rangeId);
             // Do NOT append reference — the server resolves it from the range.
         } else if (trimmedReference) {
@@ -257,6 +240,7 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
         get quickConcepts() { return quickConcepts; },
         get selectedCashbox() { return selectedCashbox; },
         get invoicePreview() { return invoicePreview; },
+        get showInvoiceField() { return showInvoiceField; },
         get canSubmit() { return canSubmit; },
         // actions
         selectConcept,
