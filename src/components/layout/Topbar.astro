@@ -145,7 +145,7 @@ const showWidget = canSeeAlerts && (
     }
 
     .mobile-menu-btn {
-        display: flex;
+        display: none;
         align-items: center;
         justify-content: center;
         width: 2rem;
@@ -163,6 +163,12 @@ const showWidget = canSeeAlerts && (
     }
 
     .mobile-menu-btn:hover { background: var(--secondary); }
+
+    @media (max-width: 1024px) {
+        .mobile-menu-btn {
+            display: flex;
+        }
+    }
 
     .topbar-breadcrumb {
         display: flex;

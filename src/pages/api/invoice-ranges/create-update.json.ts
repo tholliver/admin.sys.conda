@@ -7,7 +7,6 @@ import { z } from "zod/v4";
 const createSchema = z
   .object({
     category:            z.string().min(1, "La categoría es obligatoria").max(50).trim(),
-    code:                z.string().min(2).max(10).trim().toUpperCase().regex(/^[A-Z0-9-]+$/, "Solo letras mayúsculas, números y guiones"),
     prefix:              z.string().max(10).optional().nullable(),
     rangeStart:          z.number().int().min(1, "El inicio debe ser mayor a 0"),
     rangeEnd:            z.number().int().min(1, "El fin debe ser mayor a 0"),
@@ -19,7 +18,6 @@ const createSchema = z
 const updateSchema = z
   .object({
     id:                  z.uuid("ID inválido"),
-    code:                z.string().min(2).max(10).trim().toUpperCase().regex(/^[A-Z0-9-]+$/).optional(),
     category:            z.string().min(1).max(50).trim().optional(),
     prefix:              z.string().max(10).optional().nullable(),
     rangeStart:          z.number().int().min(1).optional(),

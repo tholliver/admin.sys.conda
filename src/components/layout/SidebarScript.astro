@@ -14,25 +14,35 @@
 
         function initSidebar() {
             const sidebar = document.getElementById("app-sidebar");
-            const toggleBtn = document.getElementById("sidebar-mobile-btn");
+            const mobileToggleBtn = document.getElementById("sidebar-mobile-btn");
+            const desktopToggleBtns = document.querySelectorAll(
+                "[data-sidebar-desktop-toggle]",
+            );
             const mobileOverlay = document.getElementById("sidebar-overlay");
             const media = window.matchMedia(MOBILE_QUERY);
 
             if (!sidebar) return;
+
+            const setToggleExpanded = (expanded) => {
+                const value = String(expanded);
+                mobileToggleBtn?.setAttribute("aria-expanded", value);
+                desktopToggleBtns.forEach((btn) =>
+                    btn.setAttribute("aria-expanded", value),
+                );
+            };
 
             // --- Restore persisted state ---
             const stored = localStorage.getItem(STORAGE_KEY);
             const restoreDesktopState = () => {
                 if (stored === "true" || stored === "false") {
                     applyCollapsed(stored);
-                    const expanded = stored === "false";
-                    toggleBtn?.setAttribute("aria-expanded", String(expanded));
+                    setToggleExpanded(stored === "false");
                 }
             };
 
             const applyMobileDefaults = () => {
                 applyCollapsed("false");
-                toggleBtn?.setAttribute("aria-expanded", "false");
+                setToggleExpanded(false);
             };
 
             const syncViewport = () => {
@@ -53,7 +63,7 @@
                 const isOpen = sidebar.classList.contains(
                     "sidebar-mobile-open",
                 );
-                toggleBtn?.setAttribute("aria-expanded", String(isOpen));
+                setToggleExpanded(isOpen);
             };
 
             const toggleDesktop = () => {
@@ -62,18 +72,22 @@
                 const next = String(!isCollapsed);
                 applyCollapsed(next);
                 localStorage.setItem(STORAGE_KEY, next);
-                toggleBtn?.setAttribute(
-                    "aria-expanded",
-                    String(next === "false"),
-                );
+                setToggleExpanded(next === "false");
             };
 
-            toggleBtn?.addEventListener("click", () => {
+            mobileToggleBtn?.addEventListener("click", () => {
                 if (media.matches) {
                     toggleMobile();
                 } else {
                     toggleDesktop();
                 }
+            });
+            desktopToggleBtns.forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    if (!media.matches) {
+                        toggleDesktop();
+                    }
+                });
             });
             mobileOverlay?.addEventListener("click", () => {
                 if (media.matches) toggleMobile();

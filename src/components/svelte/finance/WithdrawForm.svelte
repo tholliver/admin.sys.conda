@@ -237,7 +237,6 @@
                     bind:value={w.amount}
                     use:noWheel
                     type="number"
-                    step="0.01"
                     data-testid="withdraw-amount-input"
                     placeholder="0.00"
                     class="w-full rounded-lg border border-slate-300 pl-10 pr-4 py-2 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-100 transition

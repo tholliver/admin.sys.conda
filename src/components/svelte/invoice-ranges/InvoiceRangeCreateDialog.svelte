@@ -9,12 +9,6 @@
 
     const schema = z
         .object({
-            code: z
-                .string()
-                .min(1, "El código es obligatorio")
-                .max(10)
-                .trim()
-                .toUpperCase(),
             category: z
                 .string()
                 .min(1, "La cuenta es obligatoria")
@@ -40,7 +34,6 @@
     const form = new ZodForm({
         schema,
         initialValues: {
-            code: "",
             category: "",
             prefix: "",
             rangeStart: 1,
@@ -72,7 +65,6 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         ...values,
-                        code: values.code.trim().toUpperCase(),
                         prefix: values.prefix?.trim() || null,
                     }),
                 },
@@ -100,7 +92,6 @@
     class="ml-auto inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 text-sm font-medium"
     onclick={() => {
         form.reset({
-            code: "",
             category: "",
             prefix: "",
             rangeStart: 1,
@@ -112,7 +103,7 @@
     }}
 >
     <FilePlus class="h-4 w-4" />
-    Nuevo Rango
+    Nuevo Talonario
 </button>
 
 <Dialog
@@ -137,7 +128,7 @@
                 class="space-y-4"
                 onsubmit={submit}
             >
-                <!-- Code + Prefix side by side -->
+                <!-- Prefix side by side -->
                 <div class="grid grid-cols-2 gap-4">
                     <!-- Expiration date -->
                     <div>
@@ -290,7 +281,6 @@
                         type="button"
                         onclick={() =>
                             form.reset({
-                                code: "",
                                 category: "",
                                 prefix: "",
                                 rangeStart: 1,

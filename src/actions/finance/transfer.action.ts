@@ -29,6 +29,12 @@ const SYSTEM_CATEGORIES = {
     description: "Cuenta de sistema para transferencias entre cajas.",
     icon: "arrow-right-left",
   },
+  TRANSFER_IN: {
+    name: "Ingresos internos",
+    type: "income" as const,
+    description: "Ingreso de fondos recolectados por sectores.",
+    icon: "arrow-right-left",
+  },
   CONTRATISTA: {
     name: "Pago a contratistas",
     type: "outcome" as const,

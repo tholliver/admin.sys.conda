@@ -132,6 +132,8 @@
 <Dialog
   bind:isOpen
   size="md"
+  preventCloseOnEscapeKeyDown={true}
+  preventCloseOnInteractOutside={true}
   title="Cuentas: {rangeLabel}"
   description="Asigna o desvincula cuentas a este talonario."
   onClose={reset}

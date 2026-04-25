@@ -13,7 +13,7 @@ const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
 if (!["ADMIN", "ADMON"].includes(user.role ?? "")) return Astro.redirect("/");
 
-const [allCashboxes, sectorStats, employeeStats, incomeCategories] = await Promise.all([
+const [allCashboxes, sectorStats, employeeStats, incomeCategories, outcomeCategories] = await Promise.all([
   db.select({
       id: cashboxes.id,
       name: cashboxes.name,
@@ -60,6 +60,11 @@ const [allCashboxes, sectorStats, employeeStats, incomeCategories] = await Promi
         eq(transactionCategories.status, true),
       )
     )
+    .orderBy(asc(transactionCategories.sortOrder)),
+
+  db.select({ id: transactionCategories.id, name: transactionCategories.name, code: transactionCategories.code })
+    .from(transactionCategories)
+    .where(and(eq(transactionCategories.type, "outcome"), eq(transactionCategories.status, true)))
     .orderBy(asc(transactionCategories.sortOrder)),
 ]);
 
@@ -183,12 +188,13 @@ const cashboxOptions = allCashboxes.map((c) => ({ id: c.id, name: c.name }));
                     </button>
                   </form>
                   <CashboxDepositDialog
-                    cashboxId={box.id} cashboxName={box.name}
-                    currentBalance={balance} monthlySalary={emp?.salary ?? 0}
-                    categories={incomeCategories as any}
-                    triggerLabel="Depositar"
-                    triggerClass="px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 rounded transition-colors"
-                    client:load
+                      cashboxId={box.id}
+                      cashboxName={box.name}
+                      currentBalance={balance}
+                      monthlySalary={emp?.salary ?? 0}
+                      incomeCategories={incomeCategories as any}
+                      outcomeCategories={outcomeCategories as any}
+                      client:load
                   />
                   <CashboxManager
                     cashboxId={box.id}
