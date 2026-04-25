@@ -1,7 +1,4 @@
 // src/actions/finance/transfer.action.ts
-// Add this to the `finance` export object in src/actions/finance/index.ts:
-//   transfer,
-//   payContractor,
 
 import { ActionError, defineAction } from "astro:actions";
 import { z } from "astro/zod";
@@ -21,62 +18,6 @@ async function getActiveCashbox(id: string) {
   return box ?? null;
 }
 
-// Fetch the system TRANSFER category id once per request (cheap — indexed by code)
-const SYSTEM_CATEGORIES = {
-  TRANSFER: {
-    name: "Transferencias internas",
-    type: "outcome" as const,
-    description: "Cuenta de sistema para transferencias entre cajas.",
-    icon: "arrow-right-left",
-  },
-  TRANSFER_IN: {
-    name: "Ingresos internos",
-    type: "income" as const,
-    description: "Ingreso de fondos recolectados por sectores.",
-    icon: "arrow-right-left",
-  },
-  CONTRATISTA: {
-    name: "Pago a contratistas",
-    type: "outcome" as const,
-    description: "Cuenta de sistema para pagos a contratistas.",
-    icon: "handshake",
-  },
-} as const;
-
-async function getSystemCategory(code: "TRANSFER" | "CONTRATISTA") {
-  const [existing] = await db
-    .select({ id: transactionCategories.id, name: transactionCategories.name })
-    .from(transactionCategories)
-    .where(and(eq(transactionCategories.code, code), eq(transactionCategories.isSystem, true)))
-    .limit(1);
-  if (existing) return existing;
-
-  const defaults = SYSTEM_CATEGORIES[code];
-
-  await db
-    .insert(transactionCategories)
-    .values({
-      code,
-      name: defaults.name,
-      type: defaults.type,
-      description: defaults.description,
-      icon: defaults.icon,
-      sortOrder: 0,
-      isSystem: true,
-      status: true,
-      createdByUserId: "system",
-    })
-    .onConflictDoNothing();
-
-  const [createdOrExisting] = await db
-    .select({ id: transactionCategories.id, name: transactionCategories.name })
-    .from(transactionCategories)
-    .where(and(eq(transactionCategories.code, code), eq(transactionCategories.isSystem, true)))
-    .limit(1);
-
-  return createdOrExisting ?? null;
-}
-
 // ============================================================================
 // TRANSFER — move funds between two cashboxes atomically
 // ============================================================================
@@ -90,7 +31,6 @@ export const transfer = defineAction({
       .string()
       .regex(/^\d+(\.\d{1,2})?$/, "Monto debe ser un número válido")
       .refine((v) => parseFloat(v) > 0, "El monto debe ser mayor a 0"),
-    concept: z.string().max(255).optional(),
     notes: z.string().max(1000).optional(),
   }),
   async handler(input, { locals }) {
@@ -123,14 +63,20 @@ export const transfer = defineAction({
       });
     }
 
-    const concept = input.concept?.trim() || "Transferencia interna";
+    // Replace the single category fetch with both:
+    const [[transferCategory], [transferInCategory]] = await Promise.all([
+      db.select({ id: transactionCategories.id, name: transactionCategories.name })
+        .from(transactionCategories)
+        .where(and(eq(transactionCategories.code, "TRANSFER"), eq(transactionCategories.isSystem, true)))
+        .limit(1),
+      db.select({ id: transactionCategories.id, name: transactionCategories.name })
+        .from(transactionCategories)
+        .where(and(eq(transactionCategories.code, "TRANSFER_IN"), eq(transactionCategories.isSystem, true)))
+        .limit(1),
+    ]);
 
-    const transferCategory = await getSystemCategory("TRANSFER");
-    if (!transferCategory) {
-      throw new ActionError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: 'No se pudo crear/obtener la cuenta de sistema "TRANSFER".',
-      });
+    if (!transferCategory || !transferInCategory) {
+      throw new ActionError({ code: "INTERNAL_SERVER_ERROR", message: "Categorías TRANSFER/TRANSFER_IN no encontradas. Ejecuta el seed." });
     }
 
     const newFromBalance = DecimalService.subtract(String(from.balance ?? "0"), amount);
@@ -138,8 +84,8 @@ export const transfer = defineAction({
 
     const notes = input.notes?.trim() || null;
     const outConcept = `Transferencia → ${to.name}`;
-    const inConcept  = `Transferencia ← ${from.name}`;
-    const outDesc    = [concept, notes].filter(Boolean).join(" · ");
+    const inConcept = `Transferencia ← ${from.name}`;
+    const outDesc = notes || null;
 
     const { outTx } = await db.transaction(async (tx) => {
       // Generate a shared pair ID so both legs are traceable together
@@ -166,15 +112,15 @@ export const transfer = defineAction({
       await tx.insert(transactions).values({
         type: "deposit",
         amount,
-        categoryId: transferCategory.id,
+        categoryId: transferInCategory.id, // ← was transferCategory.id
         concept: inConcept,
         notes: outDesc || null,
         cashboxId: to.id,
         createdByUserId: user.id,
         status: "completado",
         balanceAfter: newToBalance,
-        transferToCashboxId: from.id,  // ← origin (for traceability)
-        transferPairId: pairId,         // ← same pair
+        transferToCashboxId: from.id,
+        transferPairId: pairId,
       });
 
       await tx.update(cashboxes).set({ balance: newFromBalance, updatedAt: new Date() }).where(eq(cashboxes.id, from.id));
@@ -189,7 +135,6 @@ export const transfer = defineAction({
       transaction: {
         id: outTx.id,
         amount: formatBOB(amount),
-        concept,
         reference: null,
         timestamp: outTx.createdAt.toISOString(),
       },
@@ -242,11 +187,16 @@ export const payContractor = defineAction({
       });
     }
 
-    const contractorCategory = await getSystemCategory("CONTRATISTA");
+    const [contractorCategory] = await db
+      .select({ id: transactionCategories.id, name: transactionCategories.name })
+      .from(transactionCategories)
+      .where(and(eq(transactionCategories.code, "CONTRATISTA"), eq(transactionCategories.isSystem, true)))
+      .limit(1);
+
     if (!contractorCategory) {
       throw new ActionError({
         code: "INTERNAL_SERVER_ERROR",
-        message: 'Categoría de sistema "CONTRATISTA" no encontrada. Contacta al administrador.',
+        message: 'Categoría CONTRATISTA no encontrada. Ejecuta el seed.',
       });
     }
 

@@ -31,8 +31,7 @@ export interface DepositResponse {
     newBalance: string;
 }
 
-export function createDepositStore(concepts: SelectTransactionCategories[]) {
-    // ── State ────────────────────────────────────────────────────────────────
+export function createDepositStore(concepts: SelectTransactionCategories[], defaultCategoryCode = "TRANSFER_IN") {
     let selectedConcept = $state<ConceptWithRange | null>(null);
     let amount = $state("");
     let reference = $state("");

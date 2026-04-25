@@ -1,6 +1,8 @@
 <script lang="ts">
     import Dialog from "@/components/svelte/Dialog.svelte";
     import { actions, isInputError } from "astro:actions";
+    import { ZodForm } from "@/lib/form/create-zod-form.svelte";
+    import { z } from "zod";
     import {
         ArrowDownToLine,
         ArrowUpFromLine,
@@ -23,10 +25,8 @@
         cashboxName: string;
         currentBalance: number;
         monthlySalary?: number;
-        /** income categories for deposit, outcome categories for withdraw */
         incomeCategories: CategoryOption[];
         outcomeCategories: CategoryOption[];
-        /** Controls which tab opens by default when trigger is clicked */
         defaultMode?: "deposit" | "withdraw";
         triggerDepositClass?: string;
         triggerWithdrawClass?: string;
@@ -44,31 +44,75 @@
         triggerWithdrawClass = "inline-flex items-center justify-center w-7 h-7 rounded border border-transparent text-slate-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors",
     }: Props = $props();
 
+    // ── Schemas ──────────────────────────────────────────────────────────────
+    const depositSchema = z.object({
+        categoryId: z.string().min(1, "Selecciona una categoría"),
+        amount: z
+            .string()
+            .min(1, "Monto requerido")
+            .refine((v) => parseFloat(v) > 0, "El monto debe ser mayor a 0"),
+        notes: z.string().max(500).optional().or(z.literal("")),
+        reference: z.string().max(100).optional().or(z.literal("")),
+    });
+
+    const withdrawSchema = z.object({
+        categoryId: z.string().min(1, "Selecciona una categoría"),
+        amount: z
+            .string()
+            .min(1, "Monto requerido")
+            .refine((v) => parseFloat(v) > 0, "El monto debe ser mayor a 0"),
+        notes: z.string().min(1, "Justificación requerida").max(500),
+        reference: z.string().max(100).optional().or(z.literal("")),
+        authorizedBy: z.string().max(255).optional().or(z.literal("")),
+    });
+
     // ── State ────────────────────────────────────────────────────────────────
     let isOpen = $state(false);
     let mode = $state<"deposit" | "withdraw">(defaultMode);
-    let isSubmitting = $state(false);
-    let inputErrors = $state<Record<string, string | string[]>>({});
     let serverError = $state<string | null>(null);
     let successMsg = $state<string | null>(null);
 
-    // Form fields
-    let amount = $state("");
-    let categoryId = $state("");
-    let concept = $state("");
-    let reference = $state("");
-    let notes = $state("");
-    let authorizedBy = $state("");
-
-    // ── Derived ──────────────────────────────────────────────────────────────
     const isDeposit = $derived(mode === "deposit");
     const categories = $derived(isDeposit ? incomeCategories : outcomeCategories);
 
+    // Default categoryId to TRANSFER_IN (deposit) or TRANSFER (withdraw)
+    function defaultCategoryId(m: "deposit" | "withdraw") {
+        const code = m === "deposit" ? "TRANSFER_IN" : "TRANSFER";
+        const list = m === "deposit" ? incomeCategories : outcomeCategories;
+        return list.find((c) => c.code === code)?.id ?? list[0]?.id ?? "";
+    }
+
+    const depositForm = new ZodForm({
+        schema: depositSchema,
+        initialValues: {
+            categoryId: defaultCategoryId("deposit"),
+            amount: "",
+            notes: "",
+            reference: "",
+        },
+        validateMode: "onBlur",
+    });
+
+    const withdrawForm = new ZodForm({
+        schema: withdrawSchema,
+        initialValues: {
+            categoryId: defaultCategoryId("withdraw"),
+            amount: "",
+            notes: "",
+            reference: "",
+            authorizedBy: "",
+        },
+        validateMode: "onBlur",
+    });
+
+    const form = $derived(isDeposit ? depositForm : withdrawForm);
+
+    // ── Derived helpers ───────────────────────────────────────────────────────
+    const amountNum = $derived(parseFloat(form.values.amount) || 0);
     const gap = $derived(Math.max(0, monthlySalary - currentBalance));
     const coveragePct = $derived(
         monthlySalary > 0 ? Math.min((currentBalance / monthlySalary) * 100, 100) : 100,
     );
-    const amountNum = $derived(parseFloat(amount) || 0);
     const balanceAfter = $derived(
         isDeposit ? currentBalance + amountNum : currentBalance - amountNum,
     );
@@ -76,18 +120,21 @@
 
     const formId = `cashbox-txn-form-${cashboxId}`;
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-    function fieldError(key: string) {
-        const e = inputErrors[key];
-        return Array.isArray(e) ? e[0] : e;
-    }
-
+    // ── Helpers ───────────────────────────────────────────────────────────────
     function reset() {
-        amount = "";
-        categoryId = categories[0]?.id ?? "";
-        concept = isDeposit ? `Depósito ${cashboxName}` : `Egreso ${cashboxName}`;
-        reference = notes = authorizedBy = "";
-        inputErrors = {};
+        depositForm.reset({
+            categoryId: defaultCategoryId("deposit"),
+            amount: "",
+            notes: "",
+            reference: "",
+        });
+        withdrawForm.reset({
+            categoryId: defaultCategoryId("withdraw"),
+            amount: "",
+            notes: "",
+            reference: "",
+            authorizedBy: "",
+        });
         serverError = null;
         successMsg = null;
     }
@@ -99,99 +146,85 @@
     }
 
     function fillGap() {
-        if (gap > 0) amount = gap.toFixed(2);
+        if (gap > 0) depositForm.setValue("amount", gap.toFixed(2));
     }
 
-    // ── Submit ───────────────────────────────────────────────────────────────
-    async function handleSubmit(e: SubmitEvent) {
-        e.preventDefault();
-        inputErrors = {};
+    // ── Submit ────────────────────────────────────────────────────────────────
+    const onSubmitDeposit = depositForm.handleSubmit(async (values) => {
         serverError = null;
-
         const fd = new FormData();
+        fd.set("cashboxId", cashboxId);
+        fd.set("categoryId", values.categoryId);
+        fd.set("amount", values.amount);
+        if (values.notes?.trim()) fd.set("notes", values.notes.trim());
+        if (values.reference?.trim()) fd.set("reference", values.reference.trim());
 
-        isSubmitting = true;
-        try {
-            if (isDeposit) {
-                fd.set("cashboxId", cashboxId);
-                fd.set("categoryId", categoryId);
-                fd.set("amount", amount);
-                fd.set("concept", concept.trim());
-                if (reference.trim()) fd.set("reference", reference.trim());
-                if (notes.trim()) fd.set("notes", notes.trim());
+        const result = await actions.sector.depositToCashbox(fd);
 
-                const result = await actions.sector.depositToCashbox(fd);
-
-                if (isInputError(result?.error)) {
-                    inputErrors = result.error.fields as any;
-                    return;
-                }
-                if (result?.error) {
-                    serverError = result.error.message ?? "Error al depositar.";
-                    return;
-                }
-                if (result?.data?.success) {
-                    successMsg = result.data.message ?? "Depósito registrado.";
-                }
-            } else {
-                fd.set("cashboxId", cashboxId);
-                fd.set("categoryId", categoryId);
-                fd.set("amount", amount);
-                fd.set("notes", notes.trim() || concept.trim()); // withdraw requires notes
-                if (reference.trim()) fd.set("reference", reference.trim());
-                if (authorizedBy.trim()) fd.set("authorizedBy", authorizedBy.trim());
-
-                const result = await actions.finance.withdraw(fd);
-
-                if (isInputError(result?.error)) {
-                    inputErrors = result.error.fields as any;
-                    return;
-                }
-                if (result?.error) {
-                    serverError = result.error.message ?? "Error al retirar.";
-                    return;
-                }
-                if (result?.data?.success) {
-                    successMsg = result.data.message ?? "Egreso registrado.";
-                }
-            }
-
-            if (successMsg) {
-                setTimeout(() => {
-                    isOpen = false;
-                    reset();
-                    window.location.reload();
-                }, 1400);
-            }
-        } catch (err: any) {
-            serverError = err?.message ?? "Error inesperado.";
-        } finally {
-            isSubmitting = false;
+        if (isInputError(result?.error)) {
+            depositForm.setErrors(result.error.fields as any);
+            return;
         }
+        if (result?.error) {
+            serverError = result.error.message ?? "Error al depositar.";
+            return;
+        }
+        if (result?.data?.success) {
+            successMsg = result.data.message ?? "Depósito registrado.";
+            setTimeout(() => { isOpen = false; reset(); window.location.reload(); }, 1400);
+        }
+    });
+
+    const onSubmitWithdraw = withdrawForm.handleSubmit(async (values) => {
+        serverError = null;
+        const fd = new FormData();
+        fd.set("cashboxId", cashboxId);
+        fd.set("categoryId", values.categoryId);
+        fd.set("amount", values.amount);
+        fd.set("notes", values.notes.trim());
+        if (values.reference?.trim()) fd.set("reference", values.reference.trim());
+        if (values.authorizedBy?.trim()) fd.set("authorizedBy", values.authorizedBy.trim());
+
+        const result = await actions.finance.withdraw(fd);
+
+        if (isInputError(result?.error)) {
+            withdrawForm.setErrors(result.error.fields as any);
+            return;
+        }
+        if (result?.error) {
+            serverError = result.error.message ?? "Error al retirar.";
+            return;
+        }
+        if (result?.data?.success) {
+            successMsg = result.data.message ?? "Egreso registrado.";
+            setTimeout(() => { isOpen = false; reset(); window.location.reload(); }, 1400);
+        }
+    });
+
+    function handleSubmit(e: SubmitEvent) {
+        if (isDeposit) onSubmitDeposit(e);
+        else onSubmitWithdraw(e);
     }
+
+    const canSubmit = $derived(
+        !form.isSubmitting &&
+        !wouldOverdraw &&
+        parseFloat(form.values.amount) > 0 &&
+        !!form.values.categoryId,
+    );
 </script>
 
-<!-- ── Deposit trigger ──────────────────────────────────────────────────────── -->
-<button
-    type="button"
-    title="Depositar en caja"
-    onclick={() => open("deposit")}
-    class={triggerDepositClass}
->
+<!-- ── Deposit trigger ────────────────────────────────────────────────────── -->
+<button type="button" title="Depositar en caja" onclick={() => open("deposit")} class={triggerDepositClass}>
     <ArrowDownToLine class="h-4 w-4" />
 </button>
 
-<!-- ── Withdraw trigger ─────────────────────────────────────────────────────── -->
-<button
-    type="button"
-    title="Retirar de caja"
-    onclick={() => open("withdraw")}
-    class={triggerWithdrawClass}
->
+<!-- ── Withdraw trigger ───────────────────────────────────────────────────── -->
+<button type="button" title="Retirar de caja" onclick={() => open("withdraw")} class={triggerWithdrawClass}>
     <ArrowUpFromLine class="h-4 w-4" />
 </button>
 
-<!-- ── Dialog ───────────────────────────────────────────────────────────────── -->
+<!-- ── Dialog ─────────────────────────────────────────────────────────────── -->
 <Dialog
     bind:isOpen
     size="md"
@@ -214,27 +247,21 @@
                     type="button"
                     onclick={() => { mode = "deposit"; reset(); }}
                     class="flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all
-                        {isDeposit
-                            ? 'bg-white shadow-sm text-emerald-700 border border-emerald-100'
-                            : 'text-slate-500 hover:text-slate-700'}"
+                        {isDeposit ? 'bg-white shadow-sm text-emerald-700 border border-emerald-100' : 'text-slate-500 hover:text-slate-700'}"
                 >
-                    <ArrowDownToLine class="h-3.5 w-3.5" />
-                    Depositar
+                    <ArrowDownToLine class="h-3.5 w-3.5" /> Depositar
                 </button>
                 <button
                     type="button"
                     onclick={() => { mode = "withdraw"; reset(); }}
                     class="flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all
-                        {!isDeposit
-                            ? 'bg-white shadow-sm text-red-700 border border-red-100'
-                            : 'text-slate-500 hover:text-slate-700'}"
+                        {!isDeposit ? 'bg-white shadow-sm text-red-700 border border-red-100' : 'text-slate-500 hover:text-slate-700'}"
                 >
-                    <ArrowUpFromLine class="h-3.5 w-3.5" />
-                    Retirar
+                    <ArrowUpFromLine class="h-3.5 w-3.5" /> Retirar
                 </button>
             </div>
 
-            <!-- Balance summary card -->
+            <!-- Balance summary -->
             <div class="mb-4 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 space-y-2">
                 <div class="flex justify-between text-xs">
                     <span class="text-slate-500">Caja</span>
@@ -270,9 +297,7 @@
                     </div>
                 {/if}
                 {#if wouldOverdraw}
-                    <p class="text-[11px] text-red-600 font-medium pt-1">
-                        ⚠ Monto supera el saldo disponible
-                    </p>
+                    <p class="text-[11px] text-red-600 font-medium pt-1">⚠ Monto supera el saldo disponible</p>
                 {/if}
             </div>
 
@@ -313,15 +338,17 @@
                             id="amount-{cashboxId}"
                             type="number"
                             use:noWheel
-                            bind:value={amount}
+                            value={form.values.amount}
+                            oninput={(e) => form.setValue("amount", (e.target as HTMLInputElement).value)}
+                            onblur={() => form.onBlur("amount")}
                             required
                             placeholder="0.00"
                             class="w-full rounded-lg border pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2
-                                {wouldOverdraw ? 'border-red-400 focus:ring-red-400' : fieldError('amount') ? 'border-red-400 focus:ring-red-400' : isDeposit ? 'border-slate-200 focus:ring-emerald-500' : 'border-slate-200 focus:ring-red-400'}"
+                                {wouldOverdraw || form.errors.amount ? 'border-red-400 focus:ring-red-400' : isDeposit ? 'border-slate-200 focus:ring-emerald-500' : 'border-slate-200 focus:ring-red-400'}"
                         />
                     </div>
-                    {#if fieldError("amount")}
-                        <p class="mt-1 text-xs text-red-600">{fieldError("amount")}</p>
+                    {#if form.errors.amount}
+                        <p class="mt-1 text-xs text-red-600">{form.errors.amount}</p>
                     {/if}
                 </div>
 
@@ -332,58 +359,47 @@
                     </label>
                     <select
                         id="category-{cashboxId}"
-                        bind:value={categoryId}
+                        value={form.values.categoryId}
+                        onchange={(e) => form.setValue("categoryId", (e.target as HTMLSelectElement).value)}
+                        onblur={() => form.onBlur("categoryId")}
                         required
                         class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2
-                            {fieldError('categoryId') ? 'border-red-400' : isDeposit ? 'focus:ring-emerald-500' : 'focus:ring-red-400'}"
+                            {form.errors.categoryId ? 'border-red-400' : isDeposit ? 'focus:ring-emerald-500' : 'focus:ring-red-400'}"
                     >
                         <option value="">-- Seleccionar --</option>
                         {#each categories as cat}
                             <option value={cat.id}>{cat.name} ({cat.code})</option>
                         {/each}
                     </select>
-                    {#if fieldError("categoryId")}
-                        <p class="mt-1 text-xs text-red-600">{fieldError("categoryId")}</p>
+                    {#if form.errors.categoryId}
+                        <p class="mt-1 text-xs text-red-600">{form.errors.categoryId}</p>
                     {/if}
                 </div>
 
-                <!-- Concept -->
-                <div>
-                    <label for="concept-{cashboxId}" class="block text-xs font-medium text-slate-600 mb-1">
-                        Concepto <span class="text-red-500">*</span>
-                    </label>
-                    <input
-                        id="concept-{cashboxId}"
-                        type="text"
-                        bind:value={concept}
-                        required
-                        maxlength="255"
-                        class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2
-                            {fieldError('concept') ? 'border-red-400' : isDeposit ? 'focus:ring-emerald-500' : 'focus:ring-red-400'}"
-                    />
-                    {#if fieldError("concept")}
-                        <p class="mt-1 text-xs text-red-600">{fieldError("concept")}</p>
-                    {/if}
-                </div>
-
-                <!-- Notes (required for withdraw, optional for deposit) -->
+                <!-- Notes -->
                 <div>
                     <label for="notes-{cashboxId}" class="block text-xs font-medium text-slate-600 mb-1">
                         {isDeposit ? "Notas" : "Justificación"}
-                        {#if !isDeposit}<span class="text-red-500">*</span>{:else}<span class="text-slate-400 font-normal">(opcional)</span>{/if}
+                        {#if !isDeposit}
+                            <span class="text-red-500">*</span>
+                        {:else}
+                            <span class="text-slate-400 font-normal">(opcional)</span>
+                        {/if}
                     </label>
                     <textarea
                         id="notes-{cashboxId}"
-                        bind:value={notes}
+                        value={form.values.notes}
+                        oninput={(e) => form.setValue("notes", (e.target as HTMLTextAreaElement).value)}
+                        onblur={() => form.onBlur("notes")}
                         maxlength="500"
                         rows="2"
                         required={!isDeposit}
                         placeholder={isDeposit ? "Observaciones adicionales..." : "Motivo del retiro..."}
                         class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 resize-none
-                            {fieldError('notes') ? 'border-red-400' : isDeposit ? 'focus:ring-emerald-500' : 'focus:ring-red-400'}"
+                            {form.errors.notes ? 'border-red-400' : isDeposit ? 'focus:ring-emerald-500' : 'focus:ring-red-400'}"
                     ></textarea>
-                    {#if fieldError("notes")}
-                        <p class="mt-1 text-xs text-red-600">{fieldError("notes")}</p>
+                    {#if form.errors.notes}
+                        <p class="mt-1 text-xs text-red-600">{form.errors.notes}</p>
                     {/if}
                 </div>
 
@@ -395,7 +411,8 @@
                     <input
                         id="reference-{cashboxId}"
                         type="text"
-                        bind:value={reference}
+                        value={form.values.reference}
+                        oninput={(e) => form.setValue("reference", (e.target as HTMLInputElement).value)}
                         maxlength="100"
                         placeholder="Nro. recibo, cheque..."
                         class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2
@@ -412,7 +429,8 @@
                         <input
                             id="auth-{cashboxId}"
                             type="text"
-                            bind:value={authorizedBy}
+                            value={(form.values as any).authorizedBy ?? ""}
+                            oninput={(e) => (form as any).setValue("authorizedBy", (e.target as HTMLInputElement).value)}
                             maxlength="255"
                             placeholder="Nombre del autorizante..."
                             class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
@@ -435,19 +453,17 @@
             <button
                 type="submit"
                 form={formId}
-                disabled={isSubmitting || !amount || !categoryId || !concept.trim() || wouldOverdraw || (!isDeposit && !notes.trim())}
+                disabled={!canSubmit}
                 class="rounded-lg px-5 py-2 text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2
                     {isDeposit ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}"
             >
-                {#if isSubmitting}
+                {#if form.isSubmitting}
                     <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     {isDeposit ? "Depositando..." : "Retirando..."}
                 {:else if isDeposit}
-                    <ArrowDownToLine class="h-4 w-4" />
-                    Depositar
+                    <ArrowDownToLine class="h-4 w-4" /> Depositar
                 {:else}
-                    <ArrowUpFromLine class="h-4 w-4" />
-                    Retirar
+                    <ArrowUpFromLine class="h-4 w-4" /> Retirar
                 {/if}
             </button>
         {:else}

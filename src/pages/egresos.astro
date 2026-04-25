@@ -97,18 +97,6 @@ const summary = todaysSummary[0] || {
     withdrawalCount: 0,
 };
 
-// add this query alongside the existing ones
-const activeSectors = await db
-    .select({
-        id: sectors.id,
-        name: sectors.name,
-        cashboxId: sectors.cashboxId,
-        cashboxName: cashboxes.name,
-    })
-    .from(sectors)
-    .innerJoin(cashboxes, eq(sectors.cashboxId, cashboxes.id))
-    .where(eq(sectors.isActive, true))
-    .orderBy(asc(sectors.name));
 ---
 
 <FinanceLayout title="Registro de Egresos" user={user}>
@@ -262,7 +250,7 @@ const activeSectors = await db
                     </ul>
                 </div>
 
-                {/* Active Cashboxes */}
+                <!-- {/* Active Cashboxes */}
                 <div
                     class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
                 >
@@ -324,7 +312,7 @@ const activeSectors = await db
                             })
                         }
                     </div>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>

@@ -280,7 +280,8 @@ export const TRANSACTION_CATEGORIES = [
   { code: "OUT-020", name: "Ayudas Sociales",                                      type: "outcome", icon: "handshake",         description: "Ayudas y aportes sociales",                           sortOrder: 6,   isSystem: true, invoiceRangeCode: null   },
   { code: "OUT-021", name: "Otros Gastos", type: "outcome", icon: "credit-card", description: "Egresos no clasificados", sortOrder: 21, isSystem: true, invoiceRangeCode: null },
   { code: "TRANSFER",    name: "Transferencias internas",  type: "outcome", icon: "arrow-right-left", description: "Cuenta de sistema para transferencias entre cajas.",   sortOrder: 0, isSystem: true, invoiceRangeCode: null },
-  { code: "CONTRATISTA", name: "Pago a contratistas",      type: "outcome", icon: "handshake",        description: "Cuenta de sistema para pagos a contratistas.",       sortOrder: 0, isSystem: true, invoiceRangeCode: null },
+  { code: "TRANSFER_IN", name: "Ingreso por Transferencia Interna", type: "income", icon: "arrow-right-left", description: "Fondos recibidos desde otra caja o sector.", sortOrder: 0, isSystem: true, invoiceRangeCode: null },
+  { code: "CONTRATISTA", name: "Pago a contratistas", type: "outcome", icon: "handshake", description: "Cuenta de sistema para pagos a contratistas.", sortOrder: 0, isSystem: true, invoiceRangeCode: null },
 ];
 
 export const SYS_USERS = [

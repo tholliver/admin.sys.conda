@@ -25,15 +25,12 @@ type ConceptWithRange = SelectTransactionCategories & {
     invoiceRangeIsActive?: boolean | null;
 };
 
-export function createWithdrawStore(
-    cashboxes: SelectCashbox[],
-    concepts: SelectTransactionCategories[],
-) {
+export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: SelectTransactionCategories[], defaultCategoryCode = "TRANSFER") {
     // ── State ────────────────────────────────────────────────────────────────
+    let selectedConcept = $state<ConceptWithRange | null>(null);
     let cashboxId = $state<string>(
         cashboxes.find((c) => c.code === "GEN")?.id ?? cashboxes[0]?.id ?? "",
     );
-    let selectedConcept = $state<ConceptWithRange | null>(null);
     let amount = $state("");
     let authorizedBy = $state("");
     let reference = $state("");
