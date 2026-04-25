@@ -12,11 +12,10 @@ import { actions, isInputError } from "astro:actions";
 import type { SelectTransactionCategories } from "@/db/schema";
 import {
     getInvoicePreview,
+    isTalonarioExhausted,
     needsInvoice,
-    parseTalonarioError,
     type ConceptWithRange,
     type InvoicePreview,
-    type TalonarioError,
 } from "@/lib/finance/invoice-range.utils.ts";
 
 export interface DepositResponse {
@@ -32,6 +31,12 @@ export interface DepositResponse {
     newBalance: string;
 }
 
+export interface TalonarioBannerState {
+    type: "exhausted" | "missing";
+    categoryName: string;
+    rangeEnd?: number;
+}
+
 export function createDepositStore(concepts: SelectTransactionCategories[], defaultCategoryCode = "TRANSFER_IN") {
     let selectedConcept = $state<ConceptWithRange | null>(null);
     let amount = $state("");
@@ -41,7 +46,6 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
     let highlightedIndex = $state(0);
     let inputErrors = $state<Record<string, string>>({});
     let serverError = $state<string | null>(null);
-    let talonarioError = $state<TalonarioError | null>(null);
     let successMessage = $state<DepositResponse | null>(null);
     let isSubmitting = $state(false);
 
@@ -77,6 +81,28 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
 
     let showInvoiceField = $derived(needsInvoice(selectedConcept));
 
+    /**
+     * Proactive banner: shown immediately after concept selection
+     * when the concept needs a talonario but it is missing or exhausted.
+     * Does NOT wait for submit — surfaces the issue right away.
+     */
+    let talonarioBanner = $derived.by((): TalonarioBannerState | null => {
+        if (!selectedConcept || !needsInvoice(selectedConcept)) return null;
+        // Missing: no range assigned at all
+        if (!selectedConcept.invoiceRangeId) {
+            return { type: "missing", categoryName: selectedConcept.name };
+        }
+        // Exhausted: range exists but is used up
+        if (isTalonarioExhausted(selectedConcept)) {
+            return {
+                type: "exhausted",
+                categoryName: selectedConcept.name,
+                rangeEnd: selectedConcept.invoiceRangeEnd ?? undefined,
+            };
+        }
+        return null;
+    });
+
     let canSubmit = $derived(
         !!selectedConcept && !!amount && parseFloat(amount) > 0 && !isSubmitting,
     );
@@ -85,7 +111,6 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
     function selectConcept(option: SelectTransactionCategories) {
         selectedConcept = option as ConceptWithRange;
         reference = "";
-        talonarioError = null;
         searchQuery = "";
         showDropdown = false;
         highlightedIndex = 0;
@@ -94,7 +119,6 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
     function clearConcept() {
         selectedConcept = null;
         reference = "";
-        talonarioError = null;
         searchQuery = "";
         highlightedIndex = 0;
     }
@@ -143,7 +167,6 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         e.preventDefault();
         inputErrors = {};
         serverError = null;
-        talonarioError = null;
 
         if (!selectedConcept) {
             inputErrors.concept = "Debe seleccionar una cuenta";
@@ -176,12 +199,6 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
             }
 
             if (result?.error) {
-                // Try to parse a structured talonario error first
-                const tErr = parseTalonarioError(result.error.message);
-                if (tErr) {
-                    talonarioError = tErr;
-                    return;
-                }
                 serverError = result.error.message || "Error al procesar el depósito";
                 return;
             }
@@ -204,7 +221,6 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         highlightedIndex = 0;
         inputErrors = {};
         serverError = null;
-        talonarioError = null;
     }
 
     return {
@@ -222,8 +238,6 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         get inputErrors() { return inputErrors; },
         get serverError() { return serverError; },
         set serverError(v) { serverError = v; },
-        get talonarioError() { return talonarioError; },
-        set talonarioError(v) { talonarioError = v; },
         get successMessage() { return successMessage; },
         get isSubmitting() { return isSubmitting; },
         // derived
@@ -231,6 +245,7 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         get quickConcepts() { return quickConcepts; },
         get invoicePreview() { return invoicePreview; },
         get showInvoiceField() { return showInvoiceField; },
+        get talonarioBanner() { return talonarioBanner; },
         get canSubmit() { return canSubmit; },
         // actions
         selectConcept,

@@ -8,13 +8,13 @@
  *
  * This correctly handles:
  *   INC-* with range assigned  → validates + increments range
- *   INC-* with no range        → throws TALONARIO_MISSING
+ *   INC-* with no range        → throws plain BAD_REQUEST (banner handles UX proactively)
  *   OUT-*, TRANSFER*, CONT...  → invoiceRangeId always null → passes through
  */
 
-import { ActionError } from "astro:actions";
 import { db } from "@/db";
 import { invoiceRanges } from "@/db/schema";
+import { ActionError } from "astro:actions";
 import { eq, and } from "drizzle-orm";
 
 interface Category {
@@ -53,16 +53,9 @@ export async function resolveInvoiceReference(
         return { reference: manualReference?.trim() || null, rangeIdToIncrement: null };
     }
 
-    // ── Income category with no range assigned ───────────────────────────────
+    // ── Income category with no range assigned — allow, just skip invoice ───
     if (!category.invoiceRangeId) {
-        throw new ActionError({
-            code: "BAD_REQUEST",
-            message: JSON.stringify({
-                type: "TALONARIO_MISSING",
-                categoryName: category.name,
-                talonarioHref: "/talonarios",
-            }),
-        });
+        return { reference: manualReference?.trim() || null, rangeIdToIncrement: null };
     }
 
     // ── Validate client-supplied rangeId matches the category ────────────────
@@ -91,15 +84,8 @@ export async function resolveInvoiceReference(
 
     const next = range.current + 1;
     if (next > range.rangeEnd) {
-        throw new ActionError({
-            code: "BAD_REQUEST",
-            message: JSON.stringify({
-                type: "TALONARIO_EXHAUSTED",
-                categoryName: category.name,
-                rangeEnd: range.rangeEnd,
-                talonarioHref: "/talonarios",
-            }),
-        });
+        // Range exhausted — allow transaction without invoice reference
+        return { reference: manualReference?.trim() || null, rangeIdToIncrement: null };
     }
 
     const reference = range.prefix ? `${range.prefix}-${next}` : String(next);

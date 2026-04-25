@@ -17,6 +17,7 @@
     import TransactionSuccess from "./TransactionSuccess.svelte";
     import CashboxPicker from "./withdraw/CashboxPicker.svelte";
     import ConceptPicker from "./withdraw/ConceptPicker.svelte";
+    import InvoiceBookBanner from "@/components/svelte/finance/InvoiceBookBanner.svelte";
 
     interface Props {
         concepts: SelectTransactionCategories[];
@@ -198,7 +199,7 @@
             error={w.inputErrors.cashboxId}
         />
 
-        <!-- REPLACE the ConceptPicker block -->
+        <!-- Concept picker -->
         <ConceptPicker
             {concepts}
             quickConcepts={w.quickConcepts}
@@ -218,6 +219,15 @@
             onFocus={() => (w.showDropdown = true)}
             onKeyDown={w.handleKeyDown}
         />
+
+        <!-- ── Talonario warning banner (proactive, on concept select) ────── -->
+        {#if w.talonarioBanner}
+            <InvoiceBookBanner
+                type={w.talonarioBanner.type}
+                categoryName={w.talonarioBanner.categoryName}
+                rangeEnd={w.talonarioBanner.rangeEnd}
+            />
+        {/if}
 
         <!-- Amount -->
         <div>
@@ -258,7 +268,7 @@
             {/if}
         </div>
 
-        <!-- Reference — shown for system transfers always, for normal categories only when no active range -->
+        <!-- Reference -->
         {#if !w.showInvoiceField || !w.invoicePreview}
             <div>
                 <label

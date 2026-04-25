@@ -59,18 +59,6 @@
         </div>
     {/if}
 
-    <!-- ── Talonario server error banner ─────────────────────────────────── -->
-    {#if d.talonarioError && d.showInvoiceField}
-        <div class="mb-4">
-            <InvoiceBookBanner
-                type={d.talonarioError.type === "TALONARIO_EXHAUSTED" ? "exhausted" : "missing"}
-                categoryName={d.talonarioError.categoryName}
-                rangeEnd={d.talonarioError.rangeEnd}
-                onDismiss={() => (d.talonarioError = null)}
-            />
-        </div>
-    {/if}
-
     <form onsubmit={d.handleSubmit} data-testid="deposit-form" class="space-y-5">
         <!-- ── Concept picker ─────────────────────────────────────────────── -->
         <ConceptPicker
@@ -93,6 +81,15 @@
             onFocus={() => (d.showDropdown = true)}
             onKeyDown={d.handleKeyDown}
         />
+
+        <!-- ── Talonario warning banner (proactive, on concept select) ────── -->
+        {#if d.talonarioBanner}
+            <InvoiceBookBanner
+                type={d.talonarioBanner.type}
+                categoryName={d.talonarioBanner.categoryName}
+                rangeEnd={d.talonarioBanner.rangeEnd}
+            />
+        {/if}
 
         <!-- ── Amount ─────────────────────────────────────────────────────── -->
         <div>

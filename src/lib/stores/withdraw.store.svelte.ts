@@ -1,6 +1,11 @@
 import { actions, isInputError } from "astro:actions";
 import type { SelectCashbox, SelectTransactionCategories } from "@/db/schema";
-import { needsInvoice, getInvoicePreview, type ConceptWithRange } from "@/lib/finance/invoice-range.utils.ts";
+import {
+    needsInvoice,
+    getInvoicePreview,
+    isTalonarioExhausted,
+    type ConceptWithRange,
+} from "@/lib/finance/invoice-range.utils.ts";
 
 export interface WithdrawResponse {
     success: boolean;
@@ -14,6 +19,12 @@ export interface WithdrawResponse {
         timestamp: string;
     };
     newBalance: string;
+}
+
+export interface TalonarioBannerState {
+    type: "exhausted" | "missing";
+    categoryName: string;
+    rangeEnd?: number;
 }
 
 export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: SelectTransactionCategories[], defaultCategoryCode = "TRANSFER") {
@@ -64,14 +75,29 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
         cashboxes.find((c) => c.id === cashboxId) ?? null,
     );
 
-    /**
-     * Derives the next invoice number from the selected concept's active range.
-     * Returns null for system categories or when no range applies.
-     */
     let invoicePreview = $derived(getInvoicePreview(selectedConcept as ConceptWithRange));
 
-    /** True when the selected concept requires invoice/talonario handling. */
     let showInvoiceField = $derived(needsInvoice(selectedConcept as ConceptWithRange));
+
+    /**
+     * Proactive banner: shown immediately after concept selection
+     * when the concept needs a talonario but it is missing or exhausted.
+     * Does NOT wait for submit — surfaces the issue right away.
+     */
+    let talonarioBanner = $derived.by((): TalonarioBannerState | null => {
+        if (!selectedConcept || !needsInvoice(selectedConcept as ConceptWithRange)) return null;
+        if (!selectedConcept.invoiceRangeId) {
+            return { type: "missing", categoryName: selectedConcept.name };
+        }
+        if (isTalonarioExhausted(selectedConcept as ConceptWithRange)) {
+            return {
+                type: "exhausted",
+                categoryName: selectedConcept.name,
+                rangeEnd: selectedConcept.invoiceRangeEnd ?? undefined,
+            };
+        }
+        return null;
+    });
 
     let canSubmit = $derived(
         !!selectedConcept && !!amount && parseFloat(amount) > 0 && !isSubmitting,
@@ -80,8 +106,6 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
     // ── Concept actions ──────────────────────────────────────────────────────
     function selectConcept(option: SelectTransactionCategories) {
         selectedConcept = option as ConceptWithRange;
-        // Reset manual reference whenever the concept changes so it does not
-        // carry over a stale value from the previous selection.
         reference = "";
         searchQuery = "";
         showDropdown = false;
@@ -155,7 +179,6 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
         fd.append("categoryId", selectedConcept!.id);
         fd.append("amount", amount);
 
-        // Build notes from concept name and optional reference.
         const trimmedReference = reference.trim();
         const generatedNotes = selectedConcept
             ? `Egreso: ${selectedConcept.name}${trimmedReference ? ` (${trimmedReference})` : ""}`
@@ -164,13 +187,8 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
 
         if (authorizedBy.trim()) fd.append("authorizedBy", authorizedBy.trim());
 
-        // ── Invoice range handling ────────────────────────────────────────
-        // If the concept has an active range, delegate numbering to the
-        // server action (which increments atomically within a DB transaction).
-        // Only fall back to manual reference when there is no active range.
         if (invoicePreview && showInvoiceField) {
             fd.append("invoiceRangeId", invoicePreview.rangeId);
-            // Do NOT append reference — the server resolves it from the range.
         } else if (trimmedReference) {
             fd.append("reference", trimmedReference);
         }
@@ -214,7 +232,6 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
     }
 
     return {
-        // state (getters + setters via $state ref passthrough)
         get cashboxId() { return cashboxId; },
         set cashboxId(v) { cashboxId = v; },
         get selectedConcept() { return selectedConcept; },
@@ -241,6 +258,7 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
         get selectedCashbox() { return selectedCashbox; },
         get invoicePreview() { return invoicePreview; },
         get showInvoiceField() { return showInvoiceField; },
+        get talonarioBanner() { return talonarioBanner; },
         get canSubmit() { return canSubmit; },
         // actions
         selectConcept,
