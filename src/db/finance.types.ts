@@ -1,5 +1,7 @@
 import type { cashBoxStatusEnum, categoryTypeEnum, transactionStatusEnum, transactionTypeEnum } from "./schema";
 
+export const GEN_CASHBOX_CODE = "GEN" as const;
+
 export const TRANSACTION_TYPE = {
   DEPOSIT: "deposit",
   WITHDRAW: "withdraw",

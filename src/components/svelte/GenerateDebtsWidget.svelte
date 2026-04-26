@@ -142,6 +142,7 @@
   <!-- ── Quick nav: Ingresos ── -->
     <a
       href="/ingresos"
+      aria-label="Ir a Ingresos"
       class="nav-link nav-link--ingreso"
       use:tooltip={{ content: `Ir a Ingresos` }}
     >
