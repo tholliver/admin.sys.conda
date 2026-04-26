@@ -11,7 +11,8 @@ import {
 } from "@/db/schema";
 import { eq, desc, and, sql, asc } from "drizzle-orm";
 import { formatter } from "@/utils/timex";
-import WithdrawForm from "@/components/svelte/finance/WithdrawForm.svelte";
+// import WithdrawForm from "@/components/svelte/finance/WithdrawForm.svelte";
+import WithdrawOverdraftForm from "@/components/svelte/finance/WithdrawOverdraftForm.svelte";
 import { formatBOB } from "@/utils/formatters";
 import { CASHBOX_STATUS, TRANSACTION_TYPE } from "@/db/finance.types";
 import SectorServiceWithdrawDialog from "@/components/svelte/dialogs/SectorServiceWithdrawDialog.svelte";
@@ -128,7 +129,12 @@ const summary = todaysSummary[0] || {
                             client:load
                         /> -->
                     </div>
-                    <WithdrawForm
+                    <!-- <WithdrawForm
+                        concepts={activeWithdrawalTransactionCategories as any}
+                        cashboxes={activeCashboxes}
+                        client:load
+                    /> -->
+                    <WithdrawOverdraftForm
                         concepts={activeWithdrawalTransactionCategories as any}
                         cashboxes={activeCashboxes}
                         client:load

@@ -56,7 +56,7 @@ export const navGroups: NavGroup[] = [
         baseHref: "/inquilinos",
         links: [
             { label: "Inquilinos", href: "/inquilinos", icon: Building },
-            { label: "Contratistas", href: "/contratistas", icon: Handshake },
+            // { label: "Contratistas", href: "/contratistas", icon: Handshake },
         ],
     },
     {

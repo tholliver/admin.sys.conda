@@ -14,6 +14,7 @@ import { transfer, payContractor, createContractor, updateContractorStatus } fro
 import { toggleQuickCashbox } from "./toggle-quick-cashbox.action";
 import { toggleCashboxStatus } from "./toggle-cashbox-status.action";
 import { assignCategoryRange, unassignCategoryRange } from "./categories-assign.action";
+import { withdrawOverdraft } from "./withdrawOverdraft.action";
 
 export const deposit = defineAction({
   accept: "form",
@@ -979,4 +980,5 @@ export const finance = {
   // Assign accounts to categories - concepts
   assignCategoryRange,
   unassignCategoryRange,
+  withdrawOverdraft,
 };

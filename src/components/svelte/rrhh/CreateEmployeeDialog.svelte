@@ -1,10 +1,10 @@
 ﻿<script lang="ts">
     import Dialog from "@/components/svelte/Dialog.svelte";
     import { actions, isInputError } from "astro:actions";
-    import { CircleAlert, CircleCheck, X } from "@lucide/svelte";
-    import EmployeeForm from "@/components/svelte/forms/EmployeeForm.svelte";
+    import { UserPlus, CircleAlert, CircleCheck, X } from "@lucide/svelte";
+    import EmployeeForm from "@/components/svelte/rrhh/EmployeeForm.svelte";
     import type { SelectSector } from "@/db/schema";
-    import type { EmployeeFormData } from "@/components/svelte/forms/employeeFormTypes";
+    import type { EmployeeFormData } from "@/components/svelte/rrhh/employeeFormTypes";
 
     interface Props {
         sectors: Pick<SelectSector, "id" | "name">[];
@@ -12,9 +12,6 @@
         plantaCount: number;
         maxDirectorio: number;
         maxPlanta: number;
-        employee: EmployeeFormData;
-        triggerLabel?: string;
-        triggerClass?: string;
     }
 
     let {
@@ -23,9 +20,6 @@
         plantaCount,
         maxDirectorio,
         maxPlanta,
-        employee,
-        triggerLabel = "Editar",
-        triggerClass = "rounded border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors",
     }: Props = $props();
 
     let isOpen = $state(false);
@@ -35,7 +29,7 @@
     let successMsg = $state<string | null>(null);
     let formKey = $state(0);
 
-    let formId = $derived(`edit-employee-form-${employee.id}`);
+    const formId = "create-employee-form";
 
     function resetState() {
         fieldErrors = {};
@@ -43,17 +37,11 @@
         successMsg = null;
     }
 
-    function normalizeSectorId(value: string | number | undefined) {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-    }
-
     async function handleSubmit(data: EmployeeFormData) {
         fieldErrors = {};
         serverError = null;
 
         const fd = new FormData();
-        fd.set("id", String(employee.id));
         fd.set("employeeType", data.employeeType);
         fd.set("ci", data.ci);
         fd.set("ciCity", data.ciCity ?? "CB");
@@ -61,14 +49,15 @@
         if (data.phone) fd.set("phone", data.phone);
         if (data.address) fd.set("address", data.address);
         fd.set("chargeTitle", data.chargeTitle);
-        fd.set("sectorId", String(normalizeSectorId(data.sectorId as any)));
+        const sectorId = Number(data.sectorId);
+        if (Number.isFinite(sectorId) && sectorId > 0) fd.set("sectorId", String(sectorId));
         fd.set("hireDate", data.hireDate ?? "");
         fd.set("baseSalary", String(data.baseSalary));
         if (data.notes) fd.set("notes", data.notes);
 
         isSubmitting = true;
         try {
-            const result = await actions.rrhh.updateEmployee(fd);
+            const result = await actions.rrhh.createEmployee(fd);
 
             if (isInputError(result?.error)) {
                 fieldErrors = result.error.fields as any;
@@ -77,12 +66,12 @@
             if (result?.error) {
                 serverError =
                     result.error.message ??
-                    "Error al actualizar al miembro del personal.";
+                    "Error al registrar al miembro del personal.";
                 return;
             }
             if (result?.data?.success) {
                 successMsg =
-                    result.data.message ?? "Miembro del personal actualizado.";
+                    result.data.message ?? "Miembro del personal registrado.";
                 setTimeout(() => {
                     isOpen = false;
                     resetState();
@@ -102,8 +91,8 @@
     size="lg"
     preventCloseOnInteractOutside={true}
     preventCloseOnEscapeKeyDown={true}
-    title="Editar miembro del personal"
-    description="Actualice los datos del miembro del personal"
+    title="Registrar miembro del personal"
+    description="Complete los datos del nuevo miembro del personal"
     onClose={resetState}
 >
     {#snippet trigger({ open })}
@@ -113,9 +102,10 @@
                 formKey += 1;
                 open();
             }}
-            class={triggerClass}
+            class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm"
         >
-            {triggerLabel}
+            <UserPlus class="h-4 w-4" />
+            Agregar personal
         </button>
     {/snippet}
 
@@ -150,7 +140,6 @@
                     {plantaCount}
                     {maxDirectorio}
                     {maxPlanta}
-                    initial={employee}
                     {fieldErrors}
                     onSubmit={handleSubmit}
                 />
@@ -174,15 +163,16 @@
                 type="submit"
                 form={formId}
                 disabled={isSubmitting}
-                class="rounded-lg bg-blue-600 px-6 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                class="rounded-lg bg-emerald-600 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
                 {#if isSubmitting}
                     <div
                         class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"
                     ></div>
-                    Guardando...
+                    Registrando...
                 {:else}
-                    Guardar cambios
+                    <UserPlus class="h-4 w-4" />
+                    Registrar miembro del personal
                 {/if}
             </button>
         {:else}

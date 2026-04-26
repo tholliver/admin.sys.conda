@@ -406,7 +406,3 @@ export const inquilinos = {
 export const rrhhExtra = {
   deleteEmployee,
 };
-
-// Add createCashbox to your finance actions namespace:
-// export const finance = { ...existingFinanceActions, createCashbox }
-// export { createCashbox };

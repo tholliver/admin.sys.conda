@@ -1,0 +1,195 @@
+---
+/**
+ * SectoresSection.astro
+ * Drop this below the cashboxes table on /cajas/index.astro
+ *
+ * Required imports in the parent page (already available in cajas/index.astro):
+ *   import { db } from "@/db";
+ *   import { sectors, employees, cashboxes } from "@/db/schema";
+ *   import { eq, asc, count, and } from "drizzle-orm";
+ *
+ * Pass the pre-fetched data as props — no extra DB calls needed.
+ */
+
+import { db } from "@/db";
+import { sectors, employees, cashboxes } from "@/db/schema";
+import { eq, asc, count } from "drizzle-orm";
+import { Building2, Users, Wallet } from "@lucide/astro";
+import CreateSectorDialog from "@/components/svelte/sectors/CreateSectorDialog.svelte";
+import EditSectorDialog   from "@/components/svelte/sectors/EditSectorDialog.svelte";
+
+interface CashboxOption {
+    id: string;
+    name: string;
+    code: string;
+    balance: string | null;
+}
+
+interface Props {
+    /** All active cashboxes — forwarded from the parent page query */
+    allCashboxes: CashboxOption[];
+}
+
+const { allCashboxes } = Astro.props;
+
+// Fetch all sectors with employee count + cashbox info
+const allSectors = await db
+    .select({
+        id:           sectors.id,
+        name:         sectors.name,
+        description:  sectors.description,
+        isActive:     sectors.isActive,
+        cashboxId:    sectors.cashboxId,
+        cashboxName:  cashboxes.name,
+        cashboxCode:  cashboxes.code,
+        cashboxBalance: cashboxes.balance,
+        empCount:     count(employees.id),
+    })
+    .from(sectors)
+    .leftJoin(cashboxes,   eq(sectors.cashboxId, cashboxes.id))
+    .leftJoin(employees,   eq(employees.sectorId, sectors.id))
+    .groupBy(
+        sectors.id,
+        sectors.name,
+        sectors.description,
+        sectors.isActive,
+        sectors.cashboxId,
+        cashboxes.name,
+        cashboxes.code,
+        cashboxes.balance,
+    )
+    .orderBy(asc(sectors.name));
+
+const activeSectors   = allSectors.filter((s) => s.isActive);
+const inactiveSectors = allSectors.filter((s) => !s.isActive);
+---
+
+<section class="space-y-4">
+    <!-- Section header -->
+    <div class="flex items-center justify-between gap-4">
+        <div>
+            <h2 class="text-lg font-bold text-slate-900">Sectores</h2>
+            <p class="text-sm text-slate-500 mt-0.5">
+                Todos los sectores del sistema y su caja vinculada.
+            </p>
+        </div>
+        <CreateSectorDialog
+            allCashboxes={allCashboxes}
+            triggerLabel="Nuevo sector"
+            client:load
+        />
+    </div>
+
+    <!-- Active sectors table -->
+    <div class="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+        {activeSectors.length === 0 ? (
+            <div class="py-16 text-center text-slate-400 text-sm">
+                <Building2 class="h-8 w-8 mx-auto mb-2 opacity-30" />
+                No hay sectores activos.
+            </div>
+        ) : (
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-slate-100 bg-slate-50">
+                        <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Sector</th>
+                        <th class="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Caja</th>
+                        <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Personal</th>
+                        <th class="px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {activeSectors.map((sector) => (
+                        <tr class="hover:bg-slate-50/70 transition-colors group">
+
+                            {/* Sector name + description */}
+                            <td class="px-5 py-3.5">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="shrink-0 w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                                        <Building2 class="w-3.5 h-3.5 text-slate-500" />
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-slate-800 leading-tight">{sector.name}</p>
+                                        {sector.description && (
+                                            <p class="text-[11px] text-slate-400 truncate max-w-xs">{sector.description}</p>
+                                        )}
+                                    </div>
+                                </div>
+                            </td>
+
+                            {/* Cashbox chip */}
+                            <td class="px-4 py-3.5 hidden sm:table-cell">
+                                {sector.cashboxName ? (
+                                    <span class="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                                        <Wallet class="h-3 w-3" />
+                                        {sector.cashboxName}
+                                        <span class="text-blue-400 font-mono text-[10px]">({sector.cashboxCode})</span>
+                                    </span>
+                                ) : (
+                                    <span class="text-xs text-slate-300 italic">Sin caja</span>
+                                )}
+                            </td>
+
+                            {/* Employee count */}
+                            <td class="px-4 py-3.5 text-center hidden sm:table-cell">
+                                <span class="inline-flex items-center gap-1 text-xs text-slate-500">
+                                    <Users class="h-3.5 w-3.5 text-slate-400" />
+                                    {sector.empCount ?? 0}
+                                </span>
+                            </td>
+
+                            {/* Actions */}
+                            <td class="px-4 py-3.5">
+                                <div class="flex items-center gap-1 justify-end">
+                                    <EditSectorDialog
+                                        sectorId={sector.id}
+                                        initialName={sector.name}
+                                        initialDescription={sector.description}
+                                        initialCashboxId={sector.cashboxId ?? ""}
+                                        empCount={sector.empCount ?? 0}
+                                        allCashboxes={allCashboxes}
+                                        client:load
+                                    />
+                                </div>
+                            </td>
+
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        )}
+    </div>
+
+    <!-- Inactive sectors (collapsible) -->
+    {inactiveSectors.length > 0 && (
+        <details class="group rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <summary class="flex cursor-pointer items-center justify-between px-5 py-3 select-none hover:bg-slate-50 transition-colors">
+                <span class="text-xs font-semibold text-slate-400">
+                    Sectores inactivos ({inactiveSectors.length})
+                </span>
+                <svg
+                    class="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                >
+                    <polyline points="6 9 12 15 18 9"/>
+                </svg>
+            </summary>
+            <div class="divide-y divide-slate-100 border-t border-slate-100">
+                {inactiveSectors.map((sector) => (
+                    <div class="flex items-center gap-3 px-5 py-2.5 opacity-55">
+                        <Building2 class="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <p class="text-sm text-slate-500 flex-1 truncate">{sector.name}</p>
+                        {sector.cashboxName && (
+                            <span class="hidden sm:inline-flex items-center gap-1 text-[10px] text-slate-400">
+                                <Wallet class="h-3 w-3" />
+                                {sector.cashboxName}
+                            </span>
+                        )}
+                        <span class="text-[10px] bg-slate-100 text-slate-400 rounded-full px-2 py-0.5 font-medium">
+                            Inactivo
+                        </span>
+                    </div>
+                ))}
+            </div>
+        </details>
+    )}
+</section>

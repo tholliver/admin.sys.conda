@@ -246,7 +246,9 @@ export const transactions = financeSchema.table("transactions", {
   concept:             varchar("concept",      { length: 255 }).notNull(),
   notes:               text("notes"),
   reference:           varchar("reference",    { length: 255 }),   // receipt / invoice number
-  authorizedBy:        varchar("authorized_by",{ length: 255 }),
+  authorizedBy: varchar("authorized_by", { length: 255 }),
+  // on transactions table
+  overdraftAmount:     numeric("overdraft_amount", { precision: 12, scale: 2 }).default("0"), // null/0 = normal transaction, > 0 = how much exceeded the balance
   createdByUserId:     varchar("created_by_user_id", { length: 255 }).notNull(),
   status:              transactionStatusEnum("status").notNull().default("pendiente"),
   balanceAfter:        numeric("balance_after", { mode: "string", precision: 15, scale: 2 }),

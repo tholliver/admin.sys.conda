@@ -1,34 +1,26 @@
 ---
 import { db } from "@/db";
-import { actions, isActionError, isInputError } from "astro:actions";
+import { actions, isActionError } from "astro:actions";
 import { transactionCategories, invoiceRanges } from "@/db/schema";
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
-import TransactionCategoryForm from "@/components/svelte/finance/TransactionCategoryForm.svelte";
 import { eq, asc, and, desc } from "drizzle-orm";
 import {
   CircleDollarSign, HandCoins, Receipt, Wallet, Banknote, PiggyBank,
   CreditCard, BadgeDollarSign, ShoppingBag, Wrench, Bus, CarFront, Route,
   Map, Landmark, Ticket, Users, IdCard, Fuel, Shield, BadgeCheck, FileText,
   ClipboardList, CalendarCheck, Hammer, TriangleAlert, Building2, Handshake,
-  Zap,
+  Zap, Plus,
 } from "@lucide/astro";
+import CreateCategoryDialog from "@/components/categories/CreateCategoryDialog.svelte";
+import EditCategoryDialog   from "@/components/categories/EditCategoryDialog.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
 
-const createResult   = Astro.getActionResult(actions.finance.createTransactionCategory);
-const updateResult   = Astro.getActionResult(actions.finance.updateTransactionCategory);
+// Action results (status toggle + sort only — create/edit now handled client-side)
 const disableResult  = Astro.getActionResult(actions.finance.disableTransactionCategory);
 const activateResult = Astro.getActionResult(actions.finance.activateTransactionCategory);
 const sortResult     = Astro.getActionResult(actions.finance.setCategorySortOrder);
-
-const createInputErrors = isInputError(createResult?.error)  ? createResult.error.fields  : {};
-const createError   = isActionError(createResult?.error)   ? createResult.error.message : null;
-const createSuccess = !createResult?.error  && createResult?.data?.message  ? createResult.data.message  : null;
-
-const updateInputErrors = isInputError(updateResult?.error)  ? updateResult.error.fields  : {};
-const updateError   = isActionError(updateResult?.error)   ? updateResult.error.message : null;
-const updateSuccess = !updateResult?.error  && updateResult?.data?.message  ? updateResult.data.message  : null;
 
 const statusError =
   isActionError(disableResult?.error)  ? disableResult.error.message :
@@ -50,10 +42,15 @@ const categories = await db
     asc(transactionCategories.name),
   );
 
-const activeParents = categories.filter((c) => c.status);
-
+const activeParents     = categories.filter((c) => c.status);
 const quickIncomeCount  = categories.filter(c => c.type === "income"  && c.status && c.sortOrder <= 6).length;
 const quickOutcomeCount = categories.filter(c => c.type === "outcome" && c.status && c.sortOrder <= 6).length;
+
+const availableRanges = await db
+  .select({ id: invoiceRanges.id, category: invoiceRanges.category, prefix: invoiceRanges.prefix, current: invoiceRanges.current, rangeEnd: invoiceRanges.rangeEnd })
+  .from(invoiceRanges)
+  .where(and(eq(invoiceRanges.isSystem, false), eq(invoiceRanges.isActive, true)))
+  .orderBy(asc(invoiceRanges.category));
 
 const ICON_COMPONENTS = {
   "circle-dollar-sign": CircleDollarSign, "hand-coins": HandCoins,
@@ -68,233 +65,236 @@ const ICON_COMPONENTS = {
 } as const;
 
 const DEFAULT_ICON = { income: CircleDollarSign, outcome: HandCoins } as const;
-
-const resolveIcon = (icon: string | null, type: "income" | "outcome") => {
-  if (!icon) return DEFAULT_ICON[type];
-  return ICON_COMPONENTS[icon as keyof typeof ICON_COMPONENTS] ?? DEFAULT_ICON[type];
-};
-
-const availableRanges = await db
-  .select({ id: invoiceRanges.id, category: invoiceRanges.category, prefix: invoiceRanges.prefix, current: invoiceRanges.current, rangeEnd: invoiceRanges.rangeEnd })
-  .from(invoiceRanges)
-  .where(and(eq(invoiceRanges.isSystem, false), eq(invoiceRanges.isActive, true)))
-  .orderBy(asc(invoiceRanges.category));
-
-const editId       = Astro.url.searchParams.get("edit");
-const editCategory = editId ? categories.find((c) => c.id === editId) : null;
+const resolveIcon  = (icon: string | null, type: "income" | "outcome") =>
+  ICON_COMPONENTS[icon as keyof typeof ICON_COMPONENTS] ?? DEFAULT_ICON[type];
 ---
 
 <FinanceLayout title="Cuentas de transacciones" user={user}>
-    <div class="grid gap-6 lg:grid-cols-2">
 
-      <TransactionCategoryForm
-        mode={editCategory ? "edit" : "create"}
-        activeParents={activeParents}
-        availableRanges={availableRanges}
-        inputErrors={editCategory ? updateInputErrors : createInputErrors}
-        successMessage={editCategory ? updateSuccess : createSuccess}
-        errorMessage={editCategory ? updateError : createError}
-        defaults={editCategory ? { ...editCategory, invoiceRangeId: editCategory.invoiceRangeId ?? undefined } : undefined}
-        client:load
-      />
-
-      <section class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <div class="flex items-center justify-between gap-3 mb-1">
-          <h2 class="text-lg font-semibold text-slate-900">Cuentas existentes</h2>
-          <span class="text-sm text-slate-500">{categories.length} total</span>
-        </div>
-
-        <div class="mb-4 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-          <div class="flex items-center gap-1">
-            <Zap class="h-3 w-3 text-amber-500" />
-            <span>Acceso rapido — max 6 por tipo</span>
-          </div>
-          <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-medium text-emerald-700">
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block"></span>
-            Ingresos {quickIncomeCount}/6
-          </span>
-          <span class="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 font-medium text-red-700">
-            <span class="h-1.5 w-1.5 rounded-full bg-red-500 inline-block"></span>
-            Egresos {quickOutcomeCount}/6
-          </span>
-        </div>
-
-        {statusSuccess && <p class="mb-3 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{statusSuccess}</p>}
-        {statusError   && <p class="mb-3 rounded-md border border-red-200   bg-red-50   px-3 py-2 text-sm text-red-700">{statusError}</p>}
-        {sortSuccess   && <p class="mb-3 rounded-md border border-blue-200  bg-blue-50  px-3 py-2 text-sm text-blue-700">{sortSuccess}</p>}
-        {sortError     && <p class="mb-3 rounded-md border border-red-200   bg-red-50   px-3 py-2 text-sm text-red-700">{sortError}</p>}
-
-        <!-- Tab buttons -->
-        <div class="flex gap-1 mb-4 rounded-lg border border-slate-200 bg-slate-50 p-1">
-            <button type="button" id="tab-income" data-tab="income"
-              class="tab-btn flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all bg-white text-emerald-700 shadow-sm border border-emerald-200">
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-              Ingresos
-              <span class="ml-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
-                {categories.filter(c => c.type === "income").length}
-              </span>
-          </button>
-          <button type="button" id="tab-outcome" data-tab="outcome"
-            class="tab-btn flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all text-slate-500 hover:text-slate-700">
-            <span class="h-1.5 w-1.5 rounded-full bg-red-400"></span>
-            Egresos
-            <span class="ml-0.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">
-              {categories.filter(c => c.type === "outcome").length}
-            </span>
-          </button>
-        </div>
-
-        <!-- Income table -->
-        <div id="panel-income" class="max-h-[62vh] overflow-auto">
-          <table class="w-full text-left">
-            <thead class="sticky top-0 border-b border-slate-200 bg-white text-slate-500 text-xs">
-              <tr>
-                <th class="px-2 py-2 font-medium w-9 text-center"><Zap class="h-3 w-3 text-amber-400 mx-auto" /></th>
-                <th class="px-3 py-2 font-medium">Nombre</th>
-                <th class="px-3 py-2 font-medium text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              {categories.filter(c => c.type === "income").map((cat) => {
-                const Icon      = resolveIcon(cat.icon, "income");
-                const isQuick   = cat.sortOrder <= 6;
-                const canPromote = !isQuick && cat.status && quickIncomeCount < 6;
-                const canDemote  = isQuick  && cat.status;
-                return (
-                  <tr class={`${cat.status ? '' : 'opacity-40'} hover:bg-slate-50/60 transition-colors`}>
-                    <td class="px-2 py-2.5 text-center">
-                      {isQuick && cat.status ? (
-                        <div class="flex flex-col items-center gap-0.5">
-                          <span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">{cat.sortOrder}</span>
-                          <Zap class="h-2.5 w-2.5 text-emerald-400" />
-                        </div>
-                      ) : (
-                        <span class="text-[10px] font-mono text-slate-300">{cat.sortOrder === 999 ? '—' : cat.sortOrder}</span>
-                      )}
-                    </td>
-                    <td class="px-3 py-2.5">
-                      <div class="flex items-center gap-2">
-                        <span class="shrink-0 flex h-6 w-6 items-center justify-center rounded bg-emerald-50 text-emerald-600">
-                          <Icon class="h-3.5 w-3.5" />
-                        </span>
-                        <span class="text-slate-900 text-xs font-medium leading-tight">{cat.name}</span>
-                      </div>
-                    </td>
-                    <td class="px-3 py-2.5">
-                      <div class="flex items-center justify-end gap-1 flex-wrap">
-                        {canPromote && (
-                          <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
-                            <input type="hidden" name="categoryId" value={cat.id} />
-                            <input type="hidden" name="sortOrder" value="1" />
-                            <button type="submit" class="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition-colors">
-                              <Zap class="h-2.5 w-2.5" /> Fijar
-                            </button>
-                          </form>
-                        )}
-                        {canDemote && (
-                          <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
-                            <input type="hidden" name="categoryId" value={cat.id} />
-                            <input type="hidden" name="sortOrder" value="999" />
-                            <button type="submit" class="flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-100 transition-colors">
-                              <Zap class="h-2.5 w-2.5" /> Quitar
-                            </button>
-                          </form>
-                        )}
-                        <a href={`/cuentas?edit=${cat.id}`} class="rounded border border-slate-200 px-2 py-1 text-[10px] font-medium text-slate-700 hover:bg-slate-50 transition-colors">Editar</a>
-                        <form method="POST" action={cat.status ? actions.finance.disableTransactionCategory : actions.finance.activateTransactionCategory} class="inline">
-                          <input type="hidden" name="categoryId" value={cat.id} />
-                          <button type="submit" disabled={cat.status && cat.isSystem}
-                            onclick={cat.status ? "return confirm('Desactivar esta cuenta?');" : "return confirm('Activar esta cuenta?');"}
-                            class:list={["rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors", cat.status ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"]}>
-                            {cat.status ? "Desactivar" : "Activar"}
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Outcome table -->
-        <div id="panel-outcome" class="max-h-[62vh] overflow-auto hidden">
-          <table class="w-full text-left">
-            <thead class="sticky top-0 border-b border-slate-200 bg-white text-slate-500 text-xs">
-              <tr>
-                <th class="px-2 py-2 font-medium w-9 text-center"><Zap class="h-3 w-3 text-amber-400 mx-auto" /></th>
-                <th class="px-3 py-2 font-medium">Nombre</th>
-                <th class="px-3 py-2 font-medium text-right">Acciones</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100">
-              {categories.filter(c => c.type === "outcome").map((cat) => {
-                const Icon      = resolveIcon(cat.icon, "outcome");
-                const isQuick   = cat.sortOrder <= 6;
-                const canPromote = !isQuick && cat.status && quickOutcomeCount < 6;
-                const canDemote  = isQuick  && cat.status;
-                return (
-                  <tr class={`${cat.status ? '' : 'opacity-40'} hover:bg-slate-50/60 transition-colors`}>
-                    <td class="px-2 py-2.5 text-center">
-                      {isQuick && cat.status ? (
-                        <div class="flex flex-col items-center gap-0.5">
-                          <span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold bg-red-100 text-red-700">{cat.sortOrder}</span>
-                          <Zap class="h-2.5 w-2.5 text-red-400" />
-                        </div>
-                      ) : (
-                        <span class="text-[10px] font-mono text-slate-300">{cat.sortOrder === 999 ? '—' : cat.sortOrder}</span>
-                      )}
-                    </td>
-                    <td class="px-3 py-2.5">
-                      <div class="flex items-center gap-2">
-                        <span class="shrink-0 flex h-6 w-6 items-center justify-center rounded bg-red-50 text-red-600">
-                          <Icon class="h-3.5 w-3.5" />
-                        </span>
-                        <span class="text-slate-900 text-xs font-medium leading-tight">{cat.name}</span>
-                      </div>
-                    </td>
-                    <td class="px-3 py-2.5">
-                      <div class="flex items-center justify-end gap-1 flex-wrap">
-                        {canPromote && (
-                          <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
-                            <input type="hidden" name="categoryId" value={cat.id} />
-                            <input type="hidden" name="sortOrder" value="1" />
-                            <button type="submit" class="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition-colors">
-                              <Zap class="h-2.5 w-2.5" /> Fijar
-                            </button>
-                          </form>
-                        )}
-                        {canDemote && (
-                          <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
-                            <input type="hidden" name="categoryId" value={cat.id} />
-                            <input type="hidden" name="sortOrder" value="999" />
-                            <button type="submit" class="flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-100 transition-colors">
-                              <Zap class="h-2.5 w-2.5" /> Quitar
-                            </button>
-                          </form>
-                        )}
-                        <a href={`/cuentas?edit=${cat.id}`} class="rounded border border-slate-200 px-2 py-1 text-[10px] font-medium text-slate-700 hover:bg-slate-50 transition-colors">Editar</a>
-                        <form method="POST" action={cat.status ? actions.finance.disableTransactionCategory : actions.finance.activateTransactionCategory} class="inline">
-                          <input type="hidden" name="categoryId" value={cat.id} />
-                          <button type="submit" disabled={cat.status && cat.isSystem}
-                            onclick={cat.status ? "return confirm('Desactivar esta cuenta?');" : "return confirm('Activar esta cuenta?');"}
-                            class:list={["rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors", cat.status ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"]}>
-                            {cat.status ? "Desactivar" : "Activar"}
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-
+  <!-- Page header -->
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-xl font-bold text-slate-900">Cuentas de transacciones</h1>
+      <p class="text-sm text-slate-500 mt-0.5">
+        Define las cuentas que clasifican ingresos y egresos.
+      </p>
     </div>
+    <CreateCategoryDialog
+      activeParents={activeParents as any}
+      availableRanges={availableRanges as any}
+      client:load
+    />
+  </div>
+
+  <!-- Feedback banners (status toggle + sort — server actions) -->
+  {statusSuccess && <p class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{statusSuccess}</p>}
+  {statusError   && <p class="rounded-md border border-red-200   bg-red-50   px-3 py-2 text-sm text-red-700">{statusError}</p>}
+  {sortSuccess   && <p class="rounded-md border border-blue-200  bg-blue-50  px-3 py-2 text-sm text-blue-700">{sortSuccess}</p>}
+  {sortError     && <p class="rounded-md border border-red-200   bg-red-50   px-3 py-2 text-sm text-red-700">{sortError}</p>}
+
+  <!-- Accounts panel -->
+  <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
+    <!-- Panel header -->
+    <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
+      <div class="flex items-center gap-3 flex-wrap text-xs text-slate-500">
+        <div class="flex items-center gap-1">
+          <Zap class="h-3 w-3 text-amber-500" />
+          <span>Acceso rapido — max 6 por tipo</span>
+        </div>
+        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 font-medium text-emerald-700">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block"></span>
+          Ingresos {quickIncomeCount}/6
+        </span>
+        <span class="inline-flex items-center gap-1 rounded-full bg-red-50 border border-red-200 px-2 py-0.5 font-medium text-red-700">
+          <span class="h-1.5 w-1.5 rounded-full bg-red-500 inline-block"></span>
+          Egresos {quickOutcomeCount}/6
+        </span>
+      </div>
+      <span class="text-sm text-slate-400 shrink-0">{categories.length} total</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-1 px-4 pt-4 pb-0">
+      <div class="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 w-full max-w-xs">
+        <button type="button" id="tab-income" data-tab="income"
+          class="tab-btn flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all bg-white text-emerald-700 shadow-sm border border-emerald-200">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
+          Ingresos
+          <span class="ml-0.5 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
+            {categories.filter(c => c.type === "income").length}
+          </span>
+        </button>
+        <button type="button" id="tab-outcome" data-tab="outcome"
+          class="tab-btn flex-1 flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all text-slate-500 hover:text-slate-700">
+          <span class="h-1.5 w-1.5 rounded-full bg-red-400"></span>
+          Egresos
+          <span class="ml-0.5 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-600">
+            {categories.filter(c => c.type === "outcome").length}
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Income table -->
+    <div id="panel-income" class="max-h-[70vh] overflow-auto">
+      <table class="w-full text-left">
+        <thead class="sticky top-0 border-b border-slate-200 bg-white text-slate-500 text-xs">
+          <tr>
+            <th class="px-2 py-2.5 font-medium w-9 text-center"><Zap class="h-3 w-3 text-amber-400 mx-auto" /></th>
+            <th class="px-3 py-2.5 font-medium">Nombre</th>
+            <th class="px-3 py-2.5 font-medium text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {categories.filter(c => c.type === "income").map((cat) => {
+            const Icon       = resolveIcon(cat.icon, "income");
+            const isQuick    = cat.sortOrder <= 6;
+            const canPromote = !isQuick && cat.status && quickIncomeCount < 6;
+            const canDemote  = isQuick  && cat.status;
+            return (
+              <tr class={`${cat.status ? '' : 'opacity-40'} hover:bg-slate-50/60 transition-colors`}>
+                <td class="px-2 py-2.5 text-center">
+                  {isQuick && cat.status ? (
+                    <div class="flex flex-col items-center gap-0.5">
+                      <span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">{cat.sortOrder}</span>
+                      <Zap class="h-2.5 w-2.5 text-emerald-400" />
+                    </div>
+                  ) : (
+                    <span class="text-[10px] font-mono text-slate-300">{cat.sortOrder === 999 ? '—' : cat.sortOrder}</span>
+                  )}
+                </td>
+                <td class="px-3 py-2.5">
+                  <div class="flex items-center gap-2">
+                    <span class="shrink-0 flex h-6 w-6 items-center justify-center rounded bg-emerald-50 text-emerald-600">
+                      <Icon class="h-3.5 w-3.5" />
+                    </span>
+                    <span class="text-slate-900 text-xs font-medium leading-tight">{cat.name}</span>
+                  </div>
+                </td>
+                <td class="px-3 py-2.5">
+                  <div class="flex items-center justify-end gap-1 flex-wrap">
+                    {canPromote && (
+                      <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
+                        <input type="hidden" name="categoryId" value={cat.id} />
+                        <input type="hidden" name="sortOrder" value="1" />
+                        <button type="submit" class="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition-colors">
+                          <Zap class="h-2.5 w-2.5" /> Fijar
+                        </button>
+                      </form>
+                    )}
+                    {canDemote && (
+                      <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
+                        <input type="hidden" name="categoryId" value={cat.id} />
+                        <input type="hidden" name="sortOrder" value="999" />
+                        <button type="submit" class="flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-100 transition-colors">
+                          <Zap class="h-2.5 w-2.5" /> Quitar
+                        </button>
+                      </form>
+                    )}
+                    <!-- Edit dialog per row -->
+                    <EditCategoryDialog
+                      category={cat as any}
+                      activeParents={activeParents as any}
+                      availableRanges={availableRanges as any}
+                      client:load
+                    />
+                    <form method="POST" action={cat.status ? actions.finance.disableTransactionCategory : actions.finance.activateTransactionCategory} class="inline">
+                      <input type="hidden" name="categoryId" value={cat.id} />
+                      <button type="submit" disabled={cat.status && cat.isSystem}
+                        onclick={cat.status ? "return confirm('Desactivar esta cuenta?');" : "return confirm('Activar esta cuenta?');"}
+                        class:list={["rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors", cat.status ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"]}>
+                        {cat.status ? "Desactivar" : "Activar"}
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Outcome table -->
+    <div id="panel-outcome" class="max-h-[70vh] overflow-auto hidden">
+      <table class="w-full text-left">
+        <thead class="sticky top-0 border-b border-slate-200 bg-white text-slate-500 text-xs">
+          <tr>
+            <th class="px-2 py-2.5 font-medium w-9 text-center"><Zap class="h-3 w-3 text-amber-400 mx-auto" /></th>
+            <th class="px-3 py-2.5 font-medium">Nombre</th>
+            <th class="px-3 py-2.5 font-medium text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {categories.filter(c => c.type === "outcome").map((cat) => {
+            const Icon       = resolveIcon(cat.icon, "outcome");
+            const isQuick    = cat.sortOrder <= 6;
+            const canPromote = !isQuick && cat.status && quickOutcomeCount < 6;
+            const canDemote  = isQuick  && cat.status;
+            return (
+              <tr class={`${cat.status ? '' : 'opacity-40'} hover:bg-slate-50/60 transition-colors`}>
+                <td class="px-2 py-2.5 text-center">
+                  {isQuick && cat.status ? (
+                    <div class="flex flex-col items-center gap-0.5">
+                      <span class="inline-flex h-5 w-5 items-center justify-center rounded text-[10px] font-bold bg-red-100 text-red-700">{cat.sortOrder}</span>
+                      <Zap class="h-2.5 w-2.5 text-red-400" />
+                    </div>
+                  ) : (
+                    <span class="text-[10px] font-mono text-slate-300">{cat.sortOrder === 999 ? '—' : cat.sortOrder}</span>
+                  )}
+                </td>
+                <td class="px-3 py-2.5">
+                  <div class="flex items-center gap-2">
+                    <span class="shrink-0 flex h-6 w-6 items-center justify-center rounded bg-red-50 text-red-600">
+                      <Icon class="h-3.5 w-3.5" />
+                    </span>
+                    <span class="text-slate-900 text-xs font-medium leading-tight">{cat.name}</span>
+                  </div>
+                </td>
+                <td class="px-3 py-2.5">
+                  <div class="flex items-center justify-end gap-1 flex-wrap">
+                    {canPromote && (
+                      <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
+                        <input type="hidden" name="categoryId" value={cat.id} />
+                        <input type="hidden" name="sortOrder" value="1" />
+                        <button type="submit" class="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition-colors">
+                          <Zap class="h-2.5 w-2.5" /> Fijar
+                        </button>
+                      </form>
+                    )}
+                    {canDemote && (
+                      <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
+                        <input type="hidden" name="categoryId" value={cat.id} />
+                        <input type="hidden" name="sortOrder" value="999" />
+                        <button type="submit" class="flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-100 transition-colors">
+                          <Zap class="h-2.5 w-2.5" /> Quitar
+                        </button>
+                      </form>
+                    )}
+                    <EditCategoryDialog
+                      category={cat as any}
+                      activeParents={activeParents as any}
+                      availableRanges={availableRanges as any}
+                      client:load
+                    />
+                    <form method="POST" action={cat.status ? actions.finance.disableTransactionCategory : actions.finance.activateTransactionCategory} class="inline">
+                      <input type="hidden" name="categoryId" value={cat.id} />
+                      <button type="submit" disabled={cat.status && cat.isSystem}
+                        onclick={cat.status ? "return confirm('Desactivar esta cuenta?');" : "return confirm('Activar esta cuenta?');"}
+                        class:list={["rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors", cat.status ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"]}>
+                        {cat.status ? "Desactivar" : "Activar"}
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
 </FinanceLayout>
 
 <script>

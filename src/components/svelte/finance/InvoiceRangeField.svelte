@@ -88,7 +88,6 @@
             type="exhausted"
             categoryName={selectedConcept.name}
             rangeEnd={selectedConcept.invoiceRangeEnd ?? undefined}
-            compact
         />
     {/if}
 
