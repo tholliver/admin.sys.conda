@@ -2,6 +2,7 @@
   import Dialog from "@/components/svelte/Dialog.svelte";
   import { actions, isInputError } from "astro:actions";
   import { BookOpen, X, CircleAlert, CircleCheck, Link2, RefreshCw } from "@lucide/svelte";
+    import { tooltip } from "@/lib/actions/tooltip";
 
   interface CategoryItem {
     id:             string;
@@ -214,6 +215,7 @@
                 {cat.name}
                 <button
                   type="button"
+                  title="Desvincular {cat.name}"
                   onclick={() => handleUnassign(cat.id)}
                   disabled={isBusy}
                   aria-label="Desvincular {cat.name}"
@@ -275,6 +277,7 @@
           {#each availableTab as cat (cat.id)}
             <button
               type="button"
+              use:tooltip={{ content: `Vincular ${cat.name}` }}
               onclick={() => handleAssign(cat.id)}
               disabled={isBusy || exhausted}
               class="group flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed

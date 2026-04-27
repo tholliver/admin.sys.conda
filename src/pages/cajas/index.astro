@@ -16,51 +16,36 @@ if (!["ADMIN", "ADMON"].includes(user.role ?? "")) return Astro.redirect("/");
 
 const [allCashboxes, sectorStats, employeeStats, incomeCategories, outcomeCategories] = await Promise.all([
   db.select({
-      id: cashboxes.id,
-      name: cashboxes.name,
-      code: cashboxes.code,
-      balance: cashboxes.balance,
-      status: cashboxes.status,
-      description: cashboxes.description,
-      isQuick: cashboxes.isQuick,
+    id: cashboxes.id,
+    name: cashboxes.name,
+    code: cashboxes.code,
+    balance: cashboxes.balance,
+    status: cashboxes.status,
+    description: cashboxes.description,
+    isQuick: cashboxes.isQuick,
   })
     .from(cashboxes)
     .where(eq(cashboxes.status, "activo"))
     .orderBy(asc(cashboxes.name)),
 
-  db
-    .select({
-      cashboxId: sectors.cashboxId,
-      sectorCount: count(sectors.id),
-    })
+  db.select({ cashboxId: sectors.cashboxId, sectorCount: count(sectors.id) })
     .from(sectors)
     .where(eq(sectors.isActive, true))
     .groupBy(sectors.cashboxId),
 
-  db
-    .select({
-      cashboxId: sectors.cashboxId,
-      employeeCount: count(employees.id),
-      totalSalary: sum(employees.baseSalary),
-    })
+  db.select({
+    cashboxId: sectors.cashboxId,
+    employeeCount: count(employees.id),
+    totalSalary: sum(employees.baseSalary),
+  })
     .from(sectors)
     .innerJoin(employees, eq(employees.sectorId, sectors.id))
     .where(eq(sectors.isActive, true))
     .groupBy(sectors.cashboxId),
 
-  db
-    .select({
-      id: transactionCategories.id,
-      name: transactionCategories.name,
-      code: transactionCategories.code,
-    })
+  db.select({ id: transactionCategories.id, name: transactionCategories.name, code: transactionCategories.code })
     .from(transactionCategories)
-    .where(
-      and(
-        eq(transactionCategories.type, "income"),
-        eq(transactionCategories.status, true),
-      )
-    )
+    .where(and(eq(transactionCategories.type, "income"), eq(transactionCategories.status, true)))
     .orderBy(asc(transactionCategories.sortOrder)),
 
   db.select({ id: transactionCategories.id, name: transactionCategories.name, code: transactionCategories.code })
@@ -71,17 +56,17 @@ const [allCashboxes, sectorStats, employeeStats, incomeCategories, outcomeCatego
 
 const sectorMap = new Map(sectorStats.map((s) => [s.cashboxId, s.sectorCount]));
 const employeeMap = new Map(
-  employeeStats.map((e) => [
-    e.cashboxId,
-    { count: e.employeeCount, salary: Number(e.totalSalary ?? 0) },
-  ]),
+  employeeStats.map((e) => [e.cashboxId, { count: e.employeeCount, salary: Number(e.totalSalary ?? 0) }]),
 );
 
-// allCashboxes shaped for ManageSectorsDialog: { id, name }
-const cashboxOptions = allCashboxes.map((c) => ({ id: c.id, name: c.name }));
+const totalBalance = allCashboxes.reduce((s, b) => s + Number(b.balance ?? 0), 0);
+const totalSalary  = [...employeeMap.values()].reduce((s, e) => s + e.salary, 0);
+const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocaleString("es-BO", { minimumFractionDigits: 2 });
 ---
 
 <FinanceLayout title="Cajas" user={user}>
+
+  {/* ── Header ── */}
   <div class="flex items-start justify-between gap-4">
     <div>
       <h1 class="text-xl font-bold text-slate-900">Cajas</h1>
@@ -90,6 +75,25 @@ const cashboxOptions = allCashboxes.map((c) => ({ id: c.id, name: c.name }));
     <CreateCashboxDialog client:load />
   </div>
 
+  {/* ── Summary strip ── */}
+  <div class="grid grid-cols-3 gap-3">
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-xs text-slate-500">Cajas activas</p>
+      <p class="text-2xl font-bold text-slate-900 mt-0.5">{allCashboxes.length}</p>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-xs text-slate-500">Saldo total</p>
+      <p class:list={["text-lg font-bold tabular-nums mt-0.5", totalBalance >= totalSalary ? "text-emerald-600" : "text-red-600"]}>
+        Bs {fmtK(totalBalance)}
+      </p>
+    </div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <p class="text-xs text-slate-500">Planilla total</p>
+      <p class="text-lg font-bold tabular-nums text-slate-900 mt-0.5">Bs {fmtK(totalSalary)}</p>
+    </div>
+  </div>
+
+  {/* ── Table ── */}
   <div class="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
     <table class="w-full text-sm">
       <thead>
@@ -98,24 +102,23 @@ const cashboxOptions = allCashboxes.map((c) => ({ id: c.id, name: c.name }));
           <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Saldo</th>
           <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Sectores</th>
           <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Personal</th>
-          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Planilla</th>
           <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cobertura</th>
           <th class="px-4 py-3"></th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
         {allCashboxes.map((box) => {
-          const balance = Number(box.balance ?? 0);
-          const emp = employeeMap.get(box.id);
+          const balance     = Number(box.balance ?? 0);
+          const emp         = employeeMap.get(box.id);
           const sectorCount = sectorMap.get(box.id) ?? 0;
-          const canCover = emp ? balance >= emp.salary : true;
-          const salary = emp?.salary ?? 0;
-          const coveragePct = salary > 0 ? Math.min((balance / salary) * 100, 999) : 100;
+          const salary      = emp?.salary ?? 0;
+          const canCover    = emp ? balance >= salary : true;
+          const coveragePct = salary > 0 ? Math.min((balance / salary) * 100, 100) : 100;
 
           return (
-            <tr class="hover:bg-slate-50/70 transition-colors group">
+            <tr class="hover:bg-slate-50/70 transition-colors">
 
-              {/* Cashbox name + code */}
+              {/* Name + code */}
               <td class="px-5 py-3.5">
                 <a href={`/cajas/${box.id}`} class="flex items-center gap-2.5 group/link">
                   <div class:list={["shrink-0 w-1.5 h-8 rounded-full", canCover ? "bg-emerald-400" : "bg-red-400"]} />
@@ -132,39 +135,40 @@ const cashboxOptions = allCashboxes.map((c) => ({ id: c.id, name: c.name }));
               {/* Balance */}
               <td class="px-4 py-3.5 text-right tabular-nums">
                 <span class:list={["font-bold", canCover ? "text-slate-800" : "text-red-600"]}>
-                  Bs {balance >= 1000 ? `${(balance / 1000).toFixed(1)}K` : balance.toLocaleString("es-BO", { minimumFractionDigits: 2 })}
+                  Bs {fmtK(balance)}
                 </span>
+                {!canCover && salary > 0 && (
+                  <p class="text-[10px] text-red-400 tabular-nums">
+                    −Bs {fmtK(salary - balance)}
+                  </p>
+                )}
               </td>
 
               {/* Sectors */}
               <td class="px-4 py-3.5 text-center">
-                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">{sectorCount}</span>
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">
+                  {sectorCount}
+                </span>
               </td>
 
               {/* Staff */}
               <td class="px-4 py-3.5 text-center">
-                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">{emp?.count ?? 0}</span>
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">
+                  {emp?.count ?? 0}
+                </span>
               </td>
 
-              {/* Monthly salary */}
-              <td class="px-4 py-3.5 text-right tabular-nums text-slate-600">
-                {salary > 0
-                  ? `Bs ${salary >= 1000 ? `${(salary / 1000).toFixed(1)}K` : salary.toLocaleString("es-BO", { minimumFractionDigits: 2 })}`
-                  : <span class="text-slate-300">—</span>
-                }
-              </td>
-
-              {/* Coverage bar */}
+              {/* Coverage bar — no planilla column, bar speaks for itself */}
               <td class="px-4 py-3.5">
                 <div class="flex items-center gap-2 justify-center">
-                  <div class="w-20 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                  <div class="w-24 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                     <div
                       class:list={["h-full rounded-full transition-all", canCover ? "bg-emerald-400" : "bg-red-400"]}
-                      style={`width: ${Math.min(coveragePct, 100)}%`}
+                      style={`width:${Math.round(coveragePct)}%`}
                     />
                   </div>
                   <span class:list={["text-[11px] font-semibold tabular-nums w-9 text-right", canCover ? "text-emerald-600" : "text-red-500"]}>
-                    {salary > 0 ? `${Math.round(coveragePct)}%` : "—"}
+                    {salary > 0 ? `${Math.round(coveragePct)}%` : <span class="text-slate-300">—</span>}
                   </span>
                 </div>
               </td>
@@ -172,31 +176,52 @@ const cashboxOptions = allCashboxes.map((c) => ({ id: c.id, name: c.name }));
               {/* Actions */}
               <td class="px-4 py-3.5">
                 <div class="flex items-center gap-1 justify-end">
+                  {/* Quick toggle */}
                   <form method="POST" action={actions.finance.toggleQuickCashbox}>
                     <input type="hidden" name="cashboxId" value={box.id} />
                     <input type="hidden" name="isQuick" value={String(!box.isQuick)} />
-                    <button title={box.isQuick ? "Desactivar rápido" : "Activar rápido"} type="submit"
+                    <button
+                      title={box.isQuick ? "Desactivar acceso rápido" : "Activar acceso rápido"}
+                      type="submit"
                       class:list={[
                         "inline-flex items-center rounded border px-1.5 py-1 text-[11px] font-medium transition-colors",
                         box.isQuick
                           ? "border-amber-200 bg-amber-50 text-amber-700"
                           : "border-transparent text-slate-300 hover:text-slate-400",
-                      ]}>
+                      ]}
+                    >
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24"
                         fill={box.isQuick ? "currentColor" : "none"} stroke="currentColor" stroke-width="2">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                       </svg>
                     </button>
                   </form>
+
+                  {/* Deposit / egreso */}
                   <CashboxDepositDialog
-                      cashboxId={box.id}
-                      cashboxName={box.name}
-                      currentBalance={balance}
-                      monthlySalary={emp?.salary ?? 0}
-                      incomeCategories={incomeCategories as any}
-                      outcomeCategories={outcomeCategories as any}
-                      client:load
+                    cashboxId={box.id}
+                    cashboxName={box.name}
+                    currentBalance={balance}
+                    monthlySalary={emp?.salary ?? 0}
+                    incomeCategories={incomeCategories as any}
+                    outcomeCategories={outcomeCategories as any}
+                    client:load
                   />
+
+                  <!-- {/* Detail link */}
+                  <a
+                    href={`/cajas/${box.id}`}
+                    title="Ver detalle"
+                    class="inline-flex items-center rounded border border-transparent px-1.5 py-1 text-slate-400 hover:text-blue-600 hover:border-blue-100 hover:bg-blue-50 transition-colors"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </a> -->
+
+                  {/* Manage (transfer, edit, etc.) */}
                   <CashboxManager
                     cashboxId={box.id}
                     cashboxName={box.name}
@@ -217,6 +242,6 @@ const cashboxOptions = allCashboxes.map((c) => ({ id: c.id, name: c.name }));
     )}
   </div>
 
-
   <SectoresSection allCashboxes={allCashboxes} />
+
 </FinanceLayout>

@@ -6,6 +6,7 @@
     import { fade } from "svelte/transition";
     import type { SelectCashbox, SelectTransactionCategories } from "@/db/schema";
     import { CircleAlert, CircleCheck, Minus, TriangleAlert, X } from "@lucide/svelte";
+    import Dialog from "@/components/svelte/Dialog.svelte";
     import AmountInput from "./AmountInput.svelte";
     import { formatBOB } from "@/utils/formatters";
     import { createWithdrawOverdraftStore } from "@/lib/stores/withdrawOverdraft.store.svelte";
@@ -56,28 +57,26 @@
 
     <!-- ── Normal confirm dialog (unchanged) ──────────────────────────────── -->
     {#if w.showConfirmDialog}
-        <div
-            class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-            onclick={(e) => e.stopPropagation()}
-            onkeydown={(e) => e.key === "Escape" && w.cancelConfirm()}
-            role="dialog"
-            aria-modal="true"
-            tabindex="0"
+        <Dialog
+            isOpen={true}
+            onClose={w.cancelConfirm}
+            size="md"
+            showCloseButton={false}
+            testId="withdraw-confirm-dialog"
         >
-            <div
-                class="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-4"
-                onclick={(e) => e.stopPropagation()}
-            >
+            {#snippet header()}
                 <div class="flex items-start gap-3">
                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100">
                         <TriangleAlert class="h-5 w-5 text-red-600" />
                     </div>
                     <div>
-                        <h3 class="text-lg font-semibold text-slate-900">Confirmar Egreso</h3>
+                        <h2 class="text-lg font-semibold text-slate-900">Confirmar Egreso</h2>
                         <p class="text-sm text-slate-600 mt-1">Revise los detalles antes de confirmar</p>
                     </div>
                 </div>
+            {/snippet}
 
+            <div class="space-y-4">
                 <div class="bg-slate-50 rounded-lg p-4 space-y-2.5">
                     <div class="flex justify-between items-start">
                         <span class="text-sm text-slate-600">Caja:</span>
@@ -109,32 +108,32 @@
                         </div>
                     {/if}
                 </div>
-
-                <div class="flex gap-3 pt-2">
-                    <button
-                        type="button"
-                        onclick={w.cancelConfirm}
-                        disabled={w.isSubmitting}
-                        class="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        type="button"
-                        onclick={w.confirmWithdraw}
-                        disabled={w.isSubmitting}
-                        class="flex-1 rounded-lg bg-red-600 px-4 py-2.5 font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                        {#if w.isSubmitting}
-                            <div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                            Procesando...
-                        {:else}
-                            Confirmar Egreso
-                        {/if}
-                    </button>
-                </div>
             </div>
-        </div>
+
+            {#snippet footer()}
+                <button
+                    type="button"
+                    onclick={w.cancelConfirm}
+                    disabled={w.isSubmitting}
+                    class="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="button"
+                    onclick={w.confirmWithdraw}
+                    disabled={w.isSubmitting}
+                    class="flex-1 rounded-lg bg-red-600 px-4 py-2.5 font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                    {#if w.isSubmitting}
+                        <div class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                        Procesando...
+                    {:else}
+                        Confirmar Egreso
+                    {/if}
+                </button>
+            {/snippet}
+        </Dialog>
     {/if}
 
     <!-- ── Debt confirm dialog ─────────────────────────────────────────────── -->
@@ -193,16 +192,6 @@
                 name="amount"
                 error={w.inputErrors.amount}
             />
-
-            {#if w.amount && parseFloat(w.amount) > 0 && !w.inputErrors.amount}
-                <div in:fade={{ duration: 200 }} class="mt-2 w-full flex items-center justify-between px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg">
-                    <div class="flex items-center gap-2">
-                        <CircleCheck class="w-4 h-4 text-red-600 shrink-0" />
-                        <span class="text-sm font-medium text-red-900">Monto ingresado</span>
-                    </div>
-                    <span class="text-base font-bold text-red-900">{formatBOB(w.amount)}</span>
-                </div>
-            {/if}
 
             <!-- Proactive balance warning -->
             {#if w.selectedCashbox && w.amount && parseFloat(w.amount) > parseFloat(String(w.selectedCashbox.balance ?? "0"))}

@@ -146,9 +146,15 @@ export function createWithdrawOverdraftStore(
                 debtConfirm = null;
                 base.successMessage = result.data as any;
             }
-        } catch (err) {
-            debtConfirm  = null;
-            base.serverError = err instanceof Error ? err.message : "Error inesperado.";
+            // AFTER
+        } catch (err: any) {
+            const msg = err?.message ?? "";
+            const parsed = parseInsufficientFundsMessage(msg);
+            if (parsed) {
+                debtConfirm = parsed;
+            } else {
+                base.serverError = msg || "Error inesperado.";
+            }
         } finally {
             isSubmitting = false;
         }

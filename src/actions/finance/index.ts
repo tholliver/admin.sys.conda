@@ -248,11 +248,12 @@ export const withdraw = defineAction({
       }
 
       const currentBalance = String(cashbox.balance || "0");
+      const deficit = DecimalService.subtract(normalizedAmount, currentBalance);
 
       if (!DecimalService.isGreaterOrEqual(currentBalance, normalizedAmount)) {
         throw new ActionError({
-          code: "BAD_REQUEST",
-          message: `Saldo insuficiente en ${cashbox.name}. Disponible: ${formatBOB(currentBalance)}.`,
+            code: "BAD_REQUEST",
+            message: `__INSUFFICIENT_FUNDS__:${currentBalance}:${normalizedAmount}:${deficit}:${cashbox.name}`,
         });
       }
 
