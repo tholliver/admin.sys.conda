@@ -25,7 +25,6 @@
     "bk:now": "bun run src/jobs/backup.job.ts"
   },
   "dependencies": {
-    "3": "^2.1.0",
     "@astrojs/check": "^0.9.8",
     "@astrojs/node": "^10.0.6",
     "@astrojs/svelte": "^8.0.5",
