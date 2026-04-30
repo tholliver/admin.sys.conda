@@ -1,6 +1,7 @@
 <script lang="ts">
     import { fade } from "svelte/transition";
     import { CircleCheck, CircleAlert } from "@lucide/svelte";
+    import { ENV } from "@/config/env";
     import { formatBOB } from "@/utils/formatters";
 
     interface QuickPreset {
@@ -29,6 +30,12 @@
         { label: "Bs 5.000", value: "5000", testid: "quick-amount-5000" },
     ];
 
+    function getDefaultMax(accentColor: "green" | "red") {
+        return accentColor === "green"
+            ? ENV.TRANSACTION_LIMITS.DEPOSIT_MAX
+            : ENV.TRANSACTION_LIMITS.WITHDRAWAL_MAX;
+    }
+
     let {
         value = $bindable(""),
         accentColor = "green",
@@ -38,7 +45,7 @@
         testid,
         presets = DEFAULT_PRESETS,
         onChange,
-        max = 500_000,
+        max = getDefaultMax(accentColor),
     }: Props = $props();
 
     // ── Colour tokens ────────────────────────────────────────────────────────
@@ -83,6 +90,19 @@
         parseFloat(`${enterosDigits || "0"}.${decimalsDigits || "00"}`)
     );
     const hasValue = $derived(numericRaw > 0);
+    const enterosFontSize = $derived.by(() => {
+        const length = enterosDisplay.length;
+        if (length <= 6) return "clamp(1.75rem,5vw,2.5rem)";
+        if (length <= 9) return "clamp(1.5rem,4vw,2.1rem)";
+        if (length <= 12) return "clamp(1.2rem,3.1vw,1.7rem)";
+        return "clamp(1rem,2.5vw,1.35rem)";
+    });
+    const decimalsFontSize = $derived.by(() => {
+        const length = enterosDisplay.length;
+        if (length <= 9) return "clamp(1.1rem,3vw,1.5rem)";
+        if (length <= 12) return "clamp(0.95rem,2.3vw,1.2rem)";
+        return "clamp(0.85rem,2vw,1rem)";
+    });
 
     // ── Cursor split ─────────────────────────────────────────────────────────
     // Maps raw-digit cursor index → formatted-string index (skips separators)
@@ -133,20 +153,28 @@
         return getCursorFromClientX(clientX, decimalsDisplayEl, 2);
     }
 
+    function syncFromNumericString(nextValue: string) {
+        const num = parseFloat(nextValue);
+        if (!Number.isFinite(num) || num <= 0) {
+            enterosDigits = "0";
+            decimalsDigits = "00";
+            cursorPos = 0;
+            return;
+        }
+
+        const clampedNum = Math.min(num, max);
+        const [intPart, decPart = "00"] = clampedNum.toFixed(2).split(".");
+        enterosDigits = String(parseInt(intPart, 10));
+        decimalsDigits = decPart.padEnd(2, "0").slice(0, 2);
+        cursorPos = Math.min(cursorPos, enterosDigits.length);
+    }
+
     // ── Sync from external value ─────────────────────────────────────────────
     let _lastExternal = "";
     $effect(() => {
         if (value === _lastExternal) return;
         _lastExternal = value;
-        const num = parseFloat(value);
-        if (!isNaN(num) && num > 0) {
-            const [intPart, decPart = "00"] = num.toFixed(2).split(".");
-            enterosDigits  = String(parseInt(intPart, 10));
-            decimalsDigits = decPart.padEnd(2, "0").slice(0, 2);
-        } else {
-            enterosDigits  = "0";
-            decimalsDigits = "00";
-        }
+        syncFromNumericString(value);
         cursorPos = enterosDigits.length;
     });
 
@@ -191,6 +219,7 @@
         const full    = parseFloat(`${enterosDigits || "0"}.${decimalsDigits}`);
         const clamped = Math.min(full, max);
         const next    = clamped > 0 ? clamped.toFixed(2) : "";
+        syncFromNumericString(next);
         _lastExternal = next;
         value         = next;
         onChange?.(next);
@@ -324,14 +353,15 @@
 
     // ── Quick chips ──────────────────────────────────────────────────────────
     function selectPreset(v: string) {
-        _lastExternal = v;
-        value         = v;
-        onChange?.(v);
         const num = parseFloat(v);
-        const [intPart, decPart = "00"] = num.toFixed(2).split(".");
-        enterosDigits  = String(parseInt(intPart, 10));
-        decimalsDigits = decPart.padEnd(2, "0").slice(0, 2);
-        cursorPos      = enterosDigits.length;
+        const clamped = Number.isFinite(num) ? Math.min(num, max) : 0;
+        const next = clamped > 0 ? clamped.toFixed(2) : "";
+
+        syncFromNumericString(next);
+        _lastExternal = next;
+        value = next;
+        onChange?.(next);
+        cursorPos = enterosDigits.length;
     }
 </script>
 
@@ -379,8 +409,8 @@
                 {@const [left, right] = splitEnteros()}
                 <span
                     bind:this={enterosDisplayEl}
-                    class="font-bold tabular-nums leading-none"
-                    style="font-size:clamp(1.75rem,5vw,2.5rem); color:{hasValue ? 'inherit' : '#cbd5e1'};"
+                    class="block max-w-full overflow-hidden text-right font-bold tabular-nums leading-none whitespace-nowrap"
+                    style="font-size:{enterosFontSize}; color:{hasValue ? 'inherit' : '#cbd5e1'};"
                 >{left}<span
                         class="inline-block animate-[blink_1s_step-end_infinite] rounded-sm"
                         style="width:2px; height:1.8rem; background:{C.cursor}; vertical-align:bottom; margin-bottom:2px;"
@@ -388,8 +418,8 @@
             {:else}
                 <span
                     bind:this={enterosDisplayEl}
-                    class="font-bold tabular-nums leading-none"
-                    style="font-size:clamp(1.75rem,5vw,2.5rem); color:{hasValue ? 'inherit' : '#cbd5e1'};"
+                    class="block max-w-full overflow-hidden text-right font-bold tabular-nums leading-none whitespace-nowrap"
+                    style="font-size:{enterosFontSize}; color:{hasValue ? 'inherit' : '#cbd5e1'};"
                 >{enterosDisplay}</span>
             {/if}
         </button>
@@ -397,7 +427,7 @@
         <!-- Separator comma -->
         <span
             class="pb-3 font-bold text-slate-400"
-            style="font-size:clamp(1.75rem,5vw,2.5rem); line-height:1;"
+            style="font-size:{enterosFontSize}; line-height:1;"
         >,</span>
 
         <!-- ── Decimals segment ── -->
@@ -412,8 +442,8 @@
                 {@const [left, right] = splitDecimals()}
                 <span
                     bind:this={decimalsDisplayEl}
-                    class="font-bold tabular-nums leading-none"
-                    style="font-size:clamp(1.1rem,3vw,1.5rem); color:{hasValue ? '#64748b' : '#cbd5e1'}; padding-bottom:0.15rem;"
+                    class="block overflow-hidden font-bold tabular-nums leading-none whitespace-nowrap"
+                    style="font-size:{decimalsFontSize}; color:{hasValue ? '#64748b' : '#cbd5e1'}; padding-bottom:0.15rem;"
                 >{left}<span
                         class="inline-block animate-[blink_1s_step-end_infinite] rounded-sm"
                         style="width:2px; height:1.4rem; background:{C.cursor}; vertical-align:bottom; margin-bottom:1px;"
@@ -421,8 +451,8 @@
             {:else}
                 <span
                     bind:this={decimalsDisplayEl}
-                    class="font-bold tabular-nums leading-none"
-                    style="font-size:clamp(1.1rem,3vw,1.5rem); color:{hasValue ? '#64748b' : '#cbd5e1'}; padding-bottom:0.15rem;"
+                    class="block overflow-hidden font-bold tabular-nums leading-none whitespace-nowrap"
+                    style="font-size:{decimalsFontSize}; color:{hasValue ? '#64748b' : '#cbd5e1'}; padding-bottom:0.15rem;"
                 >{decimalsDigits}</span>
             {/if}
         </button>

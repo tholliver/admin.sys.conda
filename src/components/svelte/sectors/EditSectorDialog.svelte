@@ -269,7 +269,7 @@
 
             <form id={formId} class="space-y-4 px-1 pt-1 pb-1" onsubmit={handleSubmit}>
                 <div>
-                    <label class="block text-xs font-medium text-slate-600 mb-1">
+                    <label for="name" class="block text-xs font-medium text-slate-600 mb-1">
                         Nombre <span class="text-red-500">*</span>
                     </label>
                     <input
@@ -286,7 +286,7 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-medium text-slate-600 mb-1">
+                    <label for="description" class="block text-xs font-medium text-slate-600 mb-1">
                         Descripción <span class="text-slate-400 font-normal">(opcional)</span>
                     </label>
                     <input

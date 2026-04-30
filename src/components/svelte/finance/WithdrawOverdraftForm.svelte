@@ -1,8 +1,4 @@
 <script lang="ts">
-    // src/components/svelte/finance/WithdrawOverdraftForm.svelte
-    // Drop-in replacement for WithdrawForm.svelte on pages that want overdraft support.
-    // WithdrawForm.svelte stays UNTOUCHED.
-
     import { fade } from "svelte/transition";
     import type { SelectCashbox, SelectTransactionCategories } from "@/db/schema";
     import { CircleAlert, CircleCheck, Minus, TriangleAlert, X } from "@lucide/svelte";

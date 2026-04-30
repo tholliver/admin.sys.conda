@@ -25,8 +25,8 @@ export const deposit = defineAction({
       .regex(/^\d+(\.\d{1,2})?$/, "Monto debe ser un número válido")
       .refine((val) => {
         const num = parseFloat(val);
-        return num > 0 && num <= ENV.TRANSACTION_HARD_LIMITS.DEPOSIT_MAX;
-      }, `Monto debe ser entre 0.01 y ${formatBOB(String(ENV.TRANSACTION_HARD_LIMITS.DEPOSIT_MAX))}`),
+        return num > 0 && num <= ENV.TRANSACTION_LIMITS.DEPOSIT_MAX;
+      }, `Monto debe ser entre 0.01 y ${formatBOB(String(ENV.TRANSACTION_LIMITS.DEPOSIT_MAX))}`),
     notes: z.string().max(1000).optional(),
     // Bug 2 fix: accept an optional manual reference for cases where there is
     // no active invoice range assigned to the category.
@@ -167,8 +167,8 @@ export const withdraw = defineAction({
       .regex(/^\d+(\.\d{1,2})?$/, "Monto debe ser un número válido")
       .refine((val) => {
         const num = parseFloat(val);
-        return num > 0 && num <= ENV.TRANSACTION_HARD_LIMITS.WITHDRAWAL_MAX;
-      }, `Monto debe ser entre 0.01 y ${formatBOB(String(ENV.TRANSACTION_HARD_LIMITS.WITHDRAWAL_MAX))}`),
+        return num > 0 && num <= ENV.TRANSACTION_LIMITS.WITHDRAWAL_MAX;
+      }, `Monto debe ser entre 0.01 y ${formatBOB(String(ENV.TRANSACTION_LIMITS.WITHDRAWAL_MAX))}`),
     authorizedBy: z
       .string()
       .min(1, "Nombre de autorización requerido")

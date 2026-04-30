@@ -343,13 +343,19 @@
                                     >
                                         Fecha Inicial
                                     </label>
-                                    <input
-                                        id="startDate"
-                                        type="date"
-                                        bind:this={startDateInput}
-                                        bind:value={startDate}
-                                        class="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100 date-input-icon"
-                                    />
+                                    <div class="date-input-wrap">
+                                        <input
+                                            id="startDate"
+                                            type="date"
+                                            bind:this={startDateInput}
+                                            bind:value={startDate}
+                                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                                        />
+                                        <Calendar
+                                            class="date-input-icon"
+                                            aria-hidden="true"
+                                        />
+                                    </div>
                                 </div>
                                 <div>
                                     <label
@@ -358,13 +364,19 @@
                                     >
                                         Fecha Final
                                     </label>
-                                    <input
-                                        id="endDate"
-                                        type="date"
-                                        bind:this={endDateInput}
-                                        bind:value={endDate}
-                                        class="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100 date-input-icon"
-                                    />
+                                    <div class="date-input-wrap">
+                                        <input
+                                            id="endDate"
+                                            type="date"
+                                            bind:this={endDateInput}
+                                            bind:value={endDate}
+                                            class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                                        />
+                                        <Calendar
+                                            class="date-input-icon"
+                                            aria-hidden="true"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -423,12 +435,5 @@
         animation:
             fade-in 0.2s ease-out,
             slide-in-from-top-2 0.2s ease-out;
-    }
-
-    .date-input-icon {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 0.75rem center;
-        background-size: 16px 16px;
     }
 </style>

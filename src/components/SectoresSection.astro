@@ -102,22 +102,19 @@ const inactiveSectors = allSectors.filter((s) => !s.isActive);
                         <tr class="hover:bg-slate-50/70 transition-colors group">
 
                             {/* Sector name + description */}
-                            <td class="px-5 py-3.5">
+                            <td class="px-5 py-2">
                                 <div class="flex items-center gap-2.5">
                                     <div class="shrink-0 w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
                                         <Building2 class="w-3.5 h-3.5 text-slate-500" />
                                     </div>
                                     <div>
                                         <p class="font-semibold text-slate-800 leading-tight">{sector.name}</p>
-                                        {sector.description && (
-                                            <p class="text-[11px] text-slate-400 truncate max-w-xs">{sector.description}</p>
-                                        )}
                                     </div>
                                 </div>
                             </td>
 
                             {/* Cashbox chip */}
-                            <td class="px-4 py-3.5 hidden sm:table-cell">
+                            <td class="px-4 py-2 hidden sm:table-cell">
                                 {sector.cashboxName ? (
                                     <span class="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
                                         <Wallet class="h-3 w-3" />
@@ -130,7 +127,7 @@ const inactiveSectors = allSectors.filter((s) => !s.isActive);
                             </td>
 
                             {/* Employee count */}
-                            <td class="px-4 py-3.5 text-center hidden sm:table-cell">
+                            <td class="px-4 py-2 text-center hidden sm:table-cell">
                                 <span class="inline-flex items-center gap-1 text-xs text-slate-500">
                                     <Users class="h-3.5 w-3.5 text-slate-400" />
                                     {sector.empCount ?? 0}
@@ -138,7 +135,7 @@ const inactiveSectors = allSectors.filter((s) => !s.isActive);
                             </td>
 
                             {/* Actions */}
-                            <td class="px-4 py-3.5">
+                            <td class="px-4 py-2">
                                 <div class="flex items-center gap-1 justify-end">
                                     <EditSectorDialog
                                         sectorId={sector.id}

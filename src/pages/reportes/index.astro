@@ -43,10 +43,6 @@ const endOfMonth = new Date(
 );
 const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-// ============================================================================
-// OPTIMIZED QUERIES
-// ============================================================================
-
 // Query 1: Current Balance Summary
 const [balanceSummary] = await db
     .select({
@@ -140,8 +136,8 @@ const topOutcomeCategories = await db
     .orderBy(desc(sql`SUM(CAST(${transactions.amount} AS NUMERIC))`))
     .limit(10);
 
-// Query 5: Monthly Trend (Last 6 Months)
-const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+// Query 5: Monthly Trend (Last 3 Months)
+const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
 const monthlyTrend = await db
     .select({
         month: sql<string>`TO_CHAR(${transactions.createdAt}, 'YYYY-MM')`,
@@ -155,7 +151,7 @@ const monthlyTrend = await db
     .from(transactions)
     .where(
         and(
-            gte(transactions.createdAt, sixMonthsAgo),
+            gte(transactions.createdAt, threeMonthsAgo),
             eq(transactions.status, "completado"),
             realTransactionFilter,
         ),
@@ -476,7 +472,7 @@ const ytdNetIncome =
                 </div>
                 <div>
                     <h2 class="text-lg font-semibold text-slate-900">
-                        Tendencia Últimos 6 Meses
+                        Tendencia Últimos 3 Meses
                     </h2>
                     <p class="text-xs text-slate-500">
                         Comparación de ingresos vs egresos

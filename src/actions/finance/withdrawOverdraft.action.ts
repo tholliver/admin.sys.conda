@@ -24,7 +24,7 @@ export const withdrawOverdraft = defineAction({
             .refine(
                 (val) => {
                     const num = parseFloat(val);
-                    return num > 0 && num <= ENV.TRANSACTION_HARD_LIMITS.WITHDRAWAL_MAX;
+                    return num > 0 && num <= ENV.TRANSACTION_LIMITS.WITHDRAWAL_MAX;
                 },
                 `Monto fuera de rango permitido`,
             ),

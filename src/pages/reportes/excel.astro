@@ -1,0 +1,395 @@
+---
+// src/pages/reportes/excel.astro
+import FinanceLayout from "@/layouts/FinanceLayout.astro";
+import { db } from "@/db";
+import { cashboxes, sectors } from "@/db/schema";
+import { eq, isNull } from "drizzle-orm";
+import { FileSpreadsheet, Download, BookOpen, Wallet, Building2, CalendarRange } from "@lucide/astro";
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect("/login");
+
+// Load filter options
+const allCashboxes = await db
+  .select({ id: cashboxes.id, name: cashboxes.name, code: cashboxes.code })
+  .from(cashboxes)
+  .where(isNull(cashboxes.deletedAt))
+  .orderBy(cashboxes.name);
+
+const allSectors = await db
+  .select({ id: sectors.id, name: sectors.name })
+  .from(sectors)
+  .where(eq(sectors.isActive, true))
+  .orderBy(sectors.name);
+
+// Default date range: current month in Bolivia time
+const nowBo = new Date(new Date().toLocaleString("en-US", { timeZone: "America/La_Paz" }));
+const defaultFrom = `${nowBo.getFullYear()}-${String(nowBo.getMonth() + 1).padStart(2, "0")}-01`;
+const defaultTo   = new Date(nowBo.getFullYear(), nowBo.getMonth() + 1, 0)
+  .toISOString().slice(0, 10);
+---
+
+<FinanceLayout title="Reportes Excel" user={user}>
+  <div class="reports-page">
+
+    <!-- Page header -->
+    <div class="page-header">
+      <div class="page-header-left">
+        <FileSpreadsheet size={28} class="page-icon" />
+        <div>
+          <h1 class="page-title">Reportes Excel</h1>
+          <p class="page-subtitle">Genera reportes contables en formato .xlsx al estilo boliviano</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cards grid -->
+    <div class="reports-grid">
+
+      <!-- ① Libro Mayor -->
+      <div class="report-card" id="card-libro">
+        <div class="card-header">
+          <div class="card-icon card-icon--blue">
+            <BookOpen size={22} />
+          </div>
+          <div>
+            <h2 class="card-title">Libro Mayor</h2>
+            <p class="card-desc">Registro cronológico completo con Debe / Haber / Saldo. Estándar Bolivia.</p>
+          </div>
+        </div>
+
+        <form class="report-form" data-tipo="libro_mayor">
+          <div class="form-row">
+            <label class="form-label">
+              <CalendarRange size={14} /> Desde
+              <input type="date" name="from" value={defaultFrom} required class="form-input" />
+            </label>
+            <label class="form-label">
+              <CalendarRange size={14} /> Hasta
+              <input type="date" name="to" value={defaultTo} required class="form-input" />
+            </label>
+          </div>
+          <label class="form-label">
+            <Wallet size={14} /> Filtrar por Caja (opcional)
+            <select name="id" class="form-input">
+              <option value="">Todas las cajas</option>
+              {allCashboxes.map((c) => (
+                <option value={c.id}>[{c.code}] {c.name}</option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" class="btn-download">
+            <Download size={16} /> Descargar Libro Mayor
+          </button>
+        </form>
+      </div>
+
+      <!-- ② Gastos por Caja -->
+      <div class="report-card" id="card-caja">
+        <div class="card-header">
+          <div class="card-icon card-icon--green">
+            <Wallet size={22} />
+          </div>
+          <div>
+            <h2 class="card-title">Gastos por Caja</h2>
+            <p class="card-desc">Resumen y detalle de ingresos y egresos agrupados por caja registradora.</p>
+          </div>
+        </div>
+
+        <form class="report-form" data-tipo="por_caja">
+          <div class="form-row">
+            <label class="form-label">
+              <CalendarRange size={14} /> Desde
+              <input type="date" name="from" value={defaultFrom} required class="form-input" />
+            </label>
+            <label class="form-label">
+              <CalendarRange size={14} /> Hasta
+              <input type="date" name="to" value={defaultTo} required class="form-input" />
+            </label>
+          </div>
+          <p class="form-hint">Incluye todas las cajas activas con hoja resumen + detalle.</p>
+          <button type="submit" class="btn-download btn-download--green">
+            <Download size={16} /> Descargar Reporte por Caja
+          </button>
+        </form>
+      </div>
+
+      <!-- ③ Gastos por Sector -->
+      <div class="report-card" id="card-sector">
+        <div class="card-header">
+          <div class="card-icon card-icon--amber">
+            <Building2 size={22} />
+          </div>
+          <div>
+            <h2 class="card-title">Gastos por Sector</h2>
+            <p class="card-desc">Ingresos y egresos agrupados por sector organizacional. Incluye movimientos sin sector.</p>
+          </div>
+        </div>
+
+        <form class="report-form" data-tipo="por_sector">
+          <div class="form-row">
+            <label class="form-label">
+              <CalendarRange size={14} /> Desde
+              <input type="date" name="from" value={defaultFrom} required class="form-input" />
+            </label>
+            <label class="form-label">
+              <CalendarRange size={14} /> Hasta
+              <input type="date" name="to" value={defaultTo} required class="form-input" />
+            </label>
+          </div>
+          <label class="form-label">
+            <Building2 size={14} /> Filtrar por Sector (opcional)
+            <select name="id" class="form-input">
+              <option value="">Todos los sectores</option>
+              {allSectors.map((s) => (
+                <option value={String(s.id)}>{s.name}</option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" class="btn-download btn-download--amber">
+            <Download size={16} /> Descargar Reporte por Sector
+          </button>
+        </form>
+      </div>
+
+    </div><!-- /reports-grid -->
+
+    <!-- Status toast -->
+    <div id="report-toast" class="report-toast hidden" aria-live="polite"></div>
+  </div>
+</FinanceLayout>
+
+<script>
+  const forms = document.querySelectorAll<HTMLFormElement>(".report-form");
+  const toast = document.getElementById("report-toast")!;
+
+  function showToast(msg: string, type: "loading" | "error" | "success") {
+    toast.textContent = msg;
+    toast.className   = `report-toast report-toast--${type}`;
+    if (type !== "loading") setTimeout(() => { toast.className = "report-toast hidden"; }, 4000);
+  }
+
+  forms.forEach((form) => {
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const tipo  = form.dataset.tipo!;
+      const from  = (form.elements.namedItem("from") as HTMLInputElement).value;
+      const to    = (form.elements.namedItem("to")   as HTMLInputElement).value;
+      const idEl  = form.elements.namedItem("id") as HTMLSelectElement | null;
+      const id    = idEl?.value ?? "";
+
+      const btn = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+      const originalText = btn.innerHTML;
+
+      btn.disabled  = true;
+      btn.innerHTML = `<svg class="spin" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Generando...`;
+      showToast("Generando reporte, por favor espere…", "loading");
+
+      try {
+        const params = new URLSearchParams({ tipo, from, to });
+        if (id) params.set("id", id);
+
+        const res = await fetch(`/api/reportes/excel?${params}`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: "Error desconocido" }));
+          throw new Error(err.error ?? "Error del servidor");
+        }
+
+        // Trigger download
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        const cd   = res.headers.get("Content-Disposition") ?? "";
+        const name = cd.match(/filename="([^"]+)"/)?.[1] ?? `reporte_${tipo}.xlsx`;
+        a.href     = url;
+        a.download = name;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showToast("✓ Reporte descargado correctamente", "success");
+      } catch (err: any) {
+        showToast(`Error: ${err.message}`, "error");
+      } finally {
+        btn.disabled  = false;
+        btn.innerHTML = originalText;
+      }
+    });
+  });
+</script>
+
+<style>
+  .reports-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* ── Header ── */
+  .page-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+  }
+  .page-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+  }
+  .page-icon { color: var(--primary, #2563eb); flex-shrink: 0; }
+  .page-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--foreground, #0f172a);
+    line-height: 1.2;
+  }
+  .page-subtitle {
+    margin: 0.2rem 0 0;
+    font-size: 0.875rem;
+    color: var(--muted-foreground, #64748b);
+  }
+
+  /* ── Grid ── */
+  .reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.25rem;
+  }
+
+  /* ── Card ── */
+  .report-card {
+    background: var(--card, #fff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    transition: box-shadow 180ms;
+  }
+  .report-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.10); }
+
+  .card-header {
+    display: flex;
+    gap: 0.875rem;
+    align-items: flex-start;
+  }
+  .card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 0.625rem;
+    flex-shrink: 0;
+  }
+  .card-icon--blue  { background: #dbeafe; color: #1d4ed8; }
+  .card-icon--green { background: #dcfce7; color: #15803d; }
+  .card-icon--amber { background: #fef9c3; color: #a16207; }
+
+  .card-title {
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--foreground, #0f172a);
+  }
+  .card-desc {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--muted-foreground, #64748b);
+    line-height: 1.45;
+  }
+
+  /* ── Form ── */
+  .report-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .form-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--foreground, #334155);
+  }
+  .form-label svg { display: inline; opacity: 0.6; }
+  .form-input {
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--border, #cbd5e1);
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    background: var(--background, #fff);
+    color: var(--foreground, #0f172a);
+    transition: border-color 150ms;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .form-input:focus {
+    outline: none;
+    border-color: var(--primary, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+  }
+  .form-hint {
+    margin: 0;
+    font-size: 0.775rem;
+    color: var(--muted-foreground, #94a3b8);
+  }
+
+  /* ── Buttons ── */
+  .btn-download {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    background: var(--primary, #2563eb);
+    color: #fff;
+    transition: background 150ms, opacity 150ms;
+    margin-top: 0.25rem;
+  }
+  .btn-download:hover:not(:disabled)  { background: #1d4ed8; }
+  .btn-download:disabled              { opacity: 0.6; cursor: not-allowed; }
+  .btn-download--green                { background: #16a34a; }
+  .btn-download--green:hover:not(:disabled) { background: #15803d; }
+  .btn-download--amber                { background: #ca8a04; }
+  .btn-download--amber:hover:not(:disabled) { background: #a16207; }
+
+  /* ── Toast ── */
+  .report-toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    z-index: 9999;
+    white-space: nowrap;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    transition: opacity 200ms;
+  }
+  .report-toast.hidden          { display: none; }
+  .report-toast--loading        { background: #1e3a5f; color: #fff; }
+  .report-toast--success        { background: #15803d; color: #fff; }
+  .report-toast--error          { background: #dc2626; color: #fff; }
+
+  /* ── Spinner ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 0.8s linear infinite; }
+</style>
