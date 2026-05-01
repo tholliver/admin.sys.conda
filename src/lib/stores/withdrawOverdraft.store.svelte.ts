@@ -1,5 +1,5 @@
 // src/lib/stores/withdrawOverdraft.store.svelte.ts
-// Wraps createWithdrawStore — adds debt-confirm state.
+// Wraps createWithdrawStore — adds debt-confirm state + user-editable notes.
 // WithdrawForm stays UNTOUCHED. Use WithdrawOverdraftForm.svelte instead.
 
 import { actions, isInputError } from "astro:actions";
@@ -35,27 +35,28 @@ export function createWithdrawOverdraftStore(
     const base = createWithdrawStore(cashboxes, concepts);
 
     // ── Additional overdraft state ────────────────────────────────────────────
-    let debtConfirm    = $state<DebtConfirmState | null>(null);
-    let isSubmitting   = $state(false); // shadow — we need our own for overdraft path
+    let debtConfirm  = $state<DebtConfirmState | null>(null);
+    let isSubmitting = $state(false); // shadow — we need our own for overdraft path
+    let notes        = $state("");    // user-editable notes with employee autocomplete
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function buildNotes(prefix: string, conceptName: string, trimmedRef: string): string {
+        const userNotes = notes.trim();
+        if (userNotes) return userNotes;
+        return `${prefix}: ${conceptName}${trimmedRef ? ` (${trimmedRef})` : ""}`;
+    }
 
     // ── Override confirmWithdraw ──────────────────────────────────────────────
     // First attempt uses the normal `withdraw` action.
     // If insufficient → parse the error → show debt dialog instead of error banner.
     async function confirmWithdraw() {
-        // Let base handle the normal path first
-        // We monkey-patch by calling the normal action ourselves here
-        // so we can intercept before base sets serverError.
-
         const fd = new FormData();
         fd.append("cashboxId",  base.cashboxId);
         fd.append("categoryId", base.selectedConcept!.id);
         fd.append("amount",     base.amount);
 
-        const trimmedRef    = base.reference.trim();
-        const generatedNotes = base.selectedConcept
-            ? `Egreso: ${base.selectedConcept.name}${trimmedRef ? ` (${trimmedRef})` : ""}`
-            : "Egreso";
-        fd.append("notes", generatedNotes);
+        const trimmedRef = base.reference.trim();
+        fd.append("notes", buildNotes("Egreso", base.selectedConcept?.name ?? "Egreso", trimmedRef));
 
         if (base.authorizedBy.trim()) fd.append("authorizedBy", base.authorizedBy.trim());
 
@@ -94,8 +95,7 @@ export function createWithdrawOverdraftStore(
             }
 
             if (result?.data?.success) {
-                // @ts-ignore — successMessage setter is internal to base store
-                // We re-use the base success shape
+                // @ts-ignore
                 base.successMessage = result.data as any;
             }
         } catch (err) {
@@ -118,9 +118,8 @@ export function createWithdrawOverdraftStore(
         fd.append("categoryId", base.selectedConcept.id);
         fd.append("amount",     base.amount);
 
-        const trimmedRef     = base.reference.trim();
-        const generatedNotes = `Egreso (con deuda): ${base.selectedConcept.name}${trimmedRef ? ` (${trimmedRef})` : ""}`;
-        fd.append("notes", generatedNotes);
+        const trimmedRef = base.reference.trim();
+        fd.append("notes", buildNotes("Egreso (con deuda)", base.selectedConcept.name, trimmedRef));
 
         if (base.authorizedBy.trim()) fd.append("authorizedBy", base.authorizedBy.trim());
 
@@ -137,7 +136,7 @@ export function createWithdrawOverdraftStore(
             const result = await actions.finance.withdrawOverdraft(fd);
 
             if (result?.error) {
-                debtConfirm  = null;
+                debtConfirm = null;
                 base.serverError = result.error.message ?? "Error al registrar la deuda.";
                 return;
             }
@@ -146,7 +145,6 @@ export function createWithdrawOverdraftStore(
                 debtConfirm = null;
                 base.successMessage = result.data as any;
             }
-            // AFTER
         } catch (err: any) {
             const msg = err?.message ?? "";
             const parsed = parseInsufficientFundsMessage(msg);
@@ -180,6 +178,7 @@ export function createWithdrawOverdraftStore(
         get serverError()      { return base.serverError; },
         set serverError(v)     { base.serverError = v; },
         get successMessage()   { return base.successMessage; },
+        set successMessage(v)  { base.successMessage = v; },
         get showConfirmDialog(){ return base.showConfirmDialog; },
         get filteredConcepts() { return base.filteredConcepts; },
         get quickConcepts()    { return base.quickConcepts; },
@@ -188,6 +187,9 @@ export function createWithdrawOverdraftStore(
         get showInvoiceField() { return base.showInvoiceField; },
         get talonarioBanner()  { return base.talonarioBanner; },
         get canSubmit()        { return base.canSubmit; },
+        // ── Notes (employee autocomplete) ────────────────────────────────────
+        get notes()            { return notes; },
+        set notes(v)           { notes = v; },
         // ── Overdraft-only ───────────────────────────────────────────────────
         get debtConfirm()      { return debtConfirm; },
         get isSubmitting()     { return isSubmitting; },
@@ -197,7 +199,6 @@ export function createWithdrawOverdraftStore(
         handleKeyDown:        base.handleKeyDown,
         onClickOutside:       base.onClickOutside,
         handleInitialSubmit:  base.handleInitialSubmit,
-        // override confirm:
         confirmWithdraw,
         cancelConfirm:        base.cancelConfirm,
         cancelDebt,

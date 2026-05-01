@@ -1,45 +1,59 @@
 <script lang="ts">
   /**
    * GenerateDebtsWidget.svelte
-   * Topbar dropdown — pending payments, backup action, and quick nav links.
+   * Topbar widget — orchestrates nav links, bell, backup trigger, and dropdown panel.
+   * Migrated to Svelte 5 runes. Sub-components handle their own styles/markup.
    */
   import { actions } from "astro:actions";
   import { tooltip } from "@/lib/actions/tooltip";
+  import NavLinks      from "@/components/svelte/widgets/NavLinks.svelte";
+  import BellTrigger   from "@/components/svelte/widgets/BellTrigger.svelte";
+  import BackupTrigger from "@/components/svelte/widgets/BackupTrigger.svelte";
 
-  // ── Debt props ─────────────────────────────────────────────────────────
-  export let missingEmp:    number = 0;
-  export let missingTen:    number = 0;
-  export let unpaidEmp:     number = 0;
-  export let unpaidTen:     number = 0;
-  export let currentPeriod: string = "";
+  // ── Props ───────────────────────────────────────────────────────────────
+  interface Props {
+    missingEmp:    number;
+    missingTen:    number;
+    unpaidEmp:     number;
+    unpaidTen:     number;
+    currentPeriod: string;
+    backupLevel:   "warning" | "critical" | null;
+    backupLabel:   string;
+  }
 
-  // ── Backup props ───────────────────────────────────────────────────────
-  export let backupLevel: "warning" | "critical" | null = null;
-  export let backupLabel: string = "";
+  let {
+    missingEmp    = $bindable(0),
+    missingTen    = $bindable(0),
+    unpaidEmp     = 0,
+    unpaidTen     = 0,
+    currentPeriod = "",
+    backupLevel   = null,
+    backupLabel   = "",
+  }: Props = $props();
 
-  // ── Derived ────────────────────────────────────────────────────────────
-  $: totalEmpPending = missingEmp + unpaidEmp;
-  $: totalTenPending = missingTen + unpaidTen;
-  $: totalGaps       = totalEmpPending + totalTenPending;
+  // ── Derived counts ───────────────────────────────────────────────────────
+  const totalEmpPending = $derived(missingEmp + unpaidEmp);
+  const totalTenPending = $derived(missingTen + unpaidTen);
+  const totalGaps       = $derived(totalEmpPending + totalTenPending);
 
-  $: periodLabel = (() => {
+  const periodLabel = $derived.by(() => {
     if (!currentPeriod) return "";
     const [y, m] = currentPeriod.split("-").map(Number);
-    return new Date(y, m - 1, 1).toLocaleDateString("es-BO", { month: "long" });
-  })();
-  $: periodCapitalized = periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1);
+    const raw = new Date(y, m - 1, 1).toLocaleDateString("es-BO", { month: "long" });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  });
 
-  // ── Dropdown state ─────────────────────────────────────────────────────
-  let open = false;
+  // ── Dropdown state ────────────────────────────────────────────────────────
+  let open = $state(false);
   function toggle() { open = !open; }
   function close()  { open = false; }
 
-  // ── Debt generation state ──────────────────────────────────────────────
+  // ── Debt generation state ─────────────────────────────────────────────────
   type GenState = "idle" | "loading" | "done" | "error";
-  let empState: GenState = "idle";
-  let tenState: GenState = "idle";
-  let empCreated = 0;
-  let tenCreated = 0;
+  let empState   = $state<GenState>("idle");
+  let tenState   = $state<GenState>("idle");
+  let empCreated = $state(0);
+  let tenCreated = $state(0);
 
   async function generateEmp() {
     if (empState === "loading" || empState === "done") return;
@@ -50,10 +64,13 @@
       const res = await actions.rrhh.bulkGenerateFees(fd);
       if (res?.error) throw new Error(res.error.message ?? "Error al generar salarios");
       empCreated = res.data?.created ?? 0;
-      empState = "done";
+      empState   = "done";
       missingEmp = 0;
       if (tenState === "done" || missingTen === 0) scheduleReload();
-    } catch { empState = "error"; setTimeout(() => { empState = "idle"; }, 3000); }
+    } catch {
+      empState = "error";
+      setTimeout(() => { empState = "idle"; }, 3000);
+    }
   }
 
   async function generateTen() {
@@ -65,10 +82,13 @@
       const res = await actions.inquilinos.bulkGenerateRents(fd);
       if (res?.error) throw new Error(res.error.message ?? "Error al generar alquileres");
       tenCreated = res.data?.created ?? 0;
-      tenState = "done";
+      tenState   = "done";
       missingTen = 0;
       if (empState === "done" || missingEmp === 0) scheduleReload();
-    } catch { tenState = "error"; setTimeout(() => { tenState = "idle"; }, 3000); }
+    } catch {
+      tenState = "error";
+      setTimeout(() => { tenState = "idle"; }, 3000);
+    }
   }
 
   async function generateAll() {
@@ -80,14 +100,10 @@
 
   function scheduleReload() { setTimeout(() => window.location.reload(), 1200); }
 
-  $: triggerTooltip = open
-    ? ""
-    : `${periodCapitalized} · ${totalGaps} pendiente${totalGaps !== 1 ? "s" : ""}`;
-
-  // ── Backup state ───────────────────────────────────────────────────────
-  let backupRunning = false;
-  let backupStatus: "idle" | "success" | "error" = "idle";
-  let backupMsg = "";
+  // ── Backup state ──────────────────────────────────────────────────────────
+  let backupRunning = $state(false);
+  let backupStatus  = $state<"idle" | "success" | "error">("idle");
+  let backupMsg     = $state("");
 
   function generateFilename(): string {
     const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -97,25 +113,25 @@
   async function runBackup() {
     if (backupRunning) return;
     backupRunning = true;
-    backupStatus = "idle";
-    backupMsg = "";
+    backupStatus  = "idle";
+    backupMsg     = "";
     try {
-      const res = await fetch("/api/database/db-handler.json", {
-        method: "POST",
+      const res  = await fetch("/api/database/db-handler.json", {
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "backup", filename: generateFilename() }),
+        body:    JSON.stringify({ action: "backup", filename: generateFilename() }),
       });
       const data = await res.json();
       if (res.ok && data?.success) {
         backupStatus = "success";
-        backupMsg = "Respaldo creado";
+        backupMsg    = "Respaldo creado";
       } else {
         backupStatus = "error";
-        backupMsg = "Fallo al respaldar";
+        backupMsg    = "Fallo al respaldar";
       }
     } catch {
       backupStatus = "error";
-      backupMsg = "Sin conexión";
+      backupMsg    = "Sin conexión";
     } finally {
       backupRunning = false;
     }
@@ -123,79 +139,38 @@
 </script>
 
 <!-- Click-outside to close -->
-<svelte:window onclick={(e) => { if (open && !(e.target as Element)?.closest(".gdw-root")) close(); }} />
+<svelte:window onclick={(e) => {
+  if (open && !(e.target as Element)?.closest(".gdw-root")) close();
+}} />
 
 <div class="gdw-root">
 
-  <!-- ── Quick nav: Egresos ── -->
-    <a
-      href="/egresos"
-      class="nav-link nav-link--egreso"
-      use:tooltip={{ content: `Ir a Egresos` }}
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 19V5M5 12l7-7 7 7"/>
-      </svg>
-      <!-- <span class="nav-badge">{pendingEgresos > 99 ? "99+" : pendingEgresos}</span> -->
-    </a>
+  <!-- ── Nav anchors (own component) ─────────────────────────────────── -->
+  <NavLinks />
 
-  <!-- ── Quick nav: Ingresos ── -->
-    <a
-      href="/ingresos"
-      aria-label="Ir a Ingresos"
-      class="nav-link nav-link--ingreso"
-      use:tooltip={{ content: `Ir a Ingresos` }}
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 5v14M19 12l-7 7-7-7"/>
-      </svg>
-    </a>
+  <!-- ── Bell (pending payments) ─────────────────────────────────────── -->
+  <BellTrigger
+    {totalGaps}
+    periodLabel={periodLabel}
+    isOpen={open}
+    onToggle={toggle}
+  />
 
-  <!-- ── Bell trigger (hidden when 0 pending) ── -->
-  {#if totalGaps > 0}
-    <button
-      use:tooltip={{ content: triggerTooltip }}
-      onclick={toggle}
-      class="trigger-btn"
-      class:is-open={open}
-      aria-expanded={open}
-      aria-label="Ver resumen de pagos pendientes"
-    >
-      <svg class="trigger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-      </svg>
-      <span class="trigger-badge">{totalGaps > 99 ? "99+" : totalGaps}</span>
-    </button>
-  {/if}
+  <!-- ── Backup DB icon ───────────────────────────────────────────────── -->
+  <BackupTrigger
+    {backupLevel}
+    {backupLabel}
+    isOpen={open}
+    onToggle={toggle}
+  />
 
-  <!-- ── Backup trigger (hidden when no alert) ── -->
-  {#if backupLevel}
-    <button
-      use:tooltip={{ content: backupLabel }}
-      onclick={toggle}
-      class="trigger-btn trigger-btn--backup"
-      class:trigger-btn--critical={backupLevel === "critical"}
-      class:trigger-btn--warning={backupLevel === "warning"}
-      class:is-open={open}
-      aria-expanded={open}
-      aria-label="Estado del respaldo"
-    >
-      <svg class="trigger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <ellipse cx="12" cy="5" rx="9" ry="3"/>
-        <path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
-        <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
-      </svg>
-    </button>
-  {/if}
-
-  <!-- ── Dropdown panel ── -->
+  <!-- ── Dropdown panel ──────────────────────────────────────────────── -->
   {#if open}
     <div class="panel" role="dialog" aria-label="Resumen de pagos y respaldo">
 
       <!-- Header -->
       <div class="panel-header">
-        <span class="panel-title">{periodCapitalized || "Alertas"}</span>
+        <span class="panel-title">{periodLabel || "Alertas"}</span>
         {#if totalGaps > 0}
           <span class="panel-sub">{totalGaps} situación{totalGaps !== 1 ? "es" : ""} por resolver</span>
         {:else}
@@ -227,7 +202,7 @@
                   {#if missingEmp > 0 && unpaidEmp > 0}
                     {missingEmp} sin generar · {unpaidEmp} sin pagar
                   {:else if missingEmp > 0}
-                    Sin generar · {periodCapitalized}
+                    Sin generar · {periodLabel}
                   {:else}
                     Sin pagar · períodos anteriores incluidos
                   {/if}
@@ -267,7 +242,7 @@
                   {#if missingTen > 0 && unpaidTen > 0}
                     {missingTen} sin generar · {unpaidTen} sin cobrar
                   {:else if missingTen > 0}
-                    Sin generar · {periodCapitalized}
+                    Sin generar · {periodLabel}
                   {:else}
                     Sin cobrar · períodos anteriores incluidos
                   {/if}
@@ -292,7 +267,11 @@
 
       <!-- Backup section -->
       {#if backupLevel}
-        <div class="backup-section" class:backup-section--critical={backupLevel === "critical"} class:backup-section--warning={backupLevel === "warning"}>
+        <div
+          class="backup-section"
+          class:backup-section--critical={backupLevel === "critical"}
+          class:backup-section--warning={backupLevel === "warning"}
+        >
           <div class="backup-info">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="backup-icon">
               <ellipse cx="12" cy="5" rx="9" ry="3"/>
@@ -302,15 +281,16 @@
             <span class="backup-label">{backupLabel}</span>
           </div>
           <div class="backup-actions">
-            <button
-              class="backup-btn"
-              onclick={runBackup}
-              disabled={backupRunning}
-            >
+            <button class="backup-btn" onclick={runBackup} disabled={backupRunning}>
               {backupRunning ? "Respaldando…" : "Respaldar ahora"}
             </button>
             {#if backupStatus !== "idle"}
-              <span class="backup-status" class:backup-status--ok={backupStatus === "success"} class:backup-status--err={backupStatus === "error"} aria-live="polite">
+              <span
+                class="backup-status"
+                class:backup-status--ok={backupStatus === "success"}
+                class:backup-status--err={backupStatus === "error"}
+                aria-live="polite"
+              >
                 {backupMsg}
               </span>
             {/if}
@@ -352,102 +332,6 @@
     flex-shrink: 0;
   }
 
-  /* ── Quick nav links ─────────────────────────────────────────────────── */
-  .nav-link {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 0.4rem;
-    border: 1px solid transparent;
-    text-decoration: none;
-    transition: background 140ms, border-color 140ms;
-    flex-shrink: 0;
-  }
-
-  .nav-link svg {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-  }
-
-  .nav-link--egreso {
-    background: oklch(0.96 0.05 25);
-    border-color: oklch(0.87 0.1 25);
-    color: oklch(0.52 0.2 25);
-  }
-  .nav-link--egreso:hover { background: oklch(0.92 0.08 25); }
-
-  .nav-link--ingreso {
-    background: oklch(0.96 0.05 150);
-    border-color: oklch(0.87 0.1 150);
-    color: oklch(0.45 0.18 150);
-  }
-  .nav-link--ingreso:hover { background: oklch(0.92 0.08 150); }
-
-  /* ── Trigger buttons ─────────────────────────────────────────────────── */
-  .trigger-btn {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 0.4rem;
-    border: 1px solid oklch(0.87 0.1 25);
-    background: oklch(0.96 0.05 25);
-    color: oklch(0.52 0.2 25);
-    cursor: pointer;
-    transition: background 140ms, border-color 140ms;
-    flex-shrink: 0;
-  }
-
-  .trigger-btn:hover,
-  .trigger-btn.is-open { background: oklch(0.92 0.08 25); }
-
-  /* Backup trigger colours */
-  .trigger-btn--warning {
-    background: oklch(0.97 0.05 85);
-    border-color: oklch(0.88 0.1 85);
-    color: oklch(0.55 0.18 75);
-  }
-  .trigger-btn--warning:hover,
-  .trigger-btn--warning.is-open { background: oklch(0.93 0.08 85); }
-
-  .trigger-btn--critical {
-    background: oklch(0.96 0.05 25);
-    border-color: oklch(0.87 0.1 25);
-    color: oklch(0.52 0.2 25);
-  }
-  .trigger-btn--critical:hover,
-  .trigger-btn--critical.is-open { background: oklch(0.92 0.08 25); }
-
-  .trigger-icon {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-  }
-
-  .trigger-badge {
-    position: absolute;
-    top: -0.3rem;
-    right: -0.3rem;
-    min-width: 1.1rem;
-    height: 1.1rem;
-    padding: 0 0.2rem;
-    border-radius: 9999px;
-    background: oklch(0.52 0.2 25);
-    color: white;
-    font-size: 0.55rem;
-    font-weight: 700;
-    line-height: 1.1rem;
-    text-align: center;
-    pointer-events: none;
-    border: 1.5px solid white;
-  }
-
   /* ── Panel ───────────────────────────────────────────────────────────── */
   .panel {
     position: absolute;
@@ -476,12 +360,8 @@
     color: oklch(0.2 0 0);
   }
 
-  .panel-sub {
-    font-size: 0.7rem;
-    color: oklch(0.55 0 0);
-  }
-
-  .panel-sub--ok { color: oklch(0.45 0.18 150); }
+  .panel-sub        { font-size: 0.7rem; color: oklch(0.55 0 0); }
+  .panel-sub--ok    { color: oklch(0.45 0.18 150); }
 
   /* ── Rows ────────────────────────────────────────────────────────────── */
   .panel-body {
@@ -498,9 +378,9 @@
     transition: background 120ms;
   }
 
-  .row:last-child { border-bottom: none; }
-  .row:hover { background: oklch(0.98 0 0); }
-  .row--done { opacity: 0.6; }
+  .row:last-child  { border-bottom: none; }
+  .row:hover       { background: oklch(0.98 0 0); }
+  .row--done       { opacity: 0.6; }
 
   .row-icon {
     display: flex;
@@ -532,10 +412,7 @@
     text-overflow: ellipsis;
   }
 
-  .row-sub {
-    font-size: 0.68rem;
-    color: oklch(0.55 0 0);
-  }
+  .row-sub { font-size: 0.68rem; color: oklch(0.55 0 0); }
 
   .row-action {
     flex-shrink: 0;
@@ -602,7 +479,7 @@
     border-top: 1px solid oklch(0.93 0 0);
   }
 
-  .backup-section--warning { background: oklch(0.98 0.04 85); }
+  .backup-section--warning  { background: oklch(0.98 0.04 85); }
   .backup-section--critical { background: oklch(0.98 0.04 25); }
 
   .backup-info {
@@ -611,10 +488,7 @@
     gap: 0.4rem;
   }
 
-  .backup-icon {
-    flex-shrink: 0;
-    color: oklch(0.52 0.18 50);
-  }
+  .backup-icon  { flex-shrink: 0; color: oklch(0.52 0.18 50); }
 
   .backup-label {
     font-size: 0.72rem;
@@ -643,10 +517,7 @@
   .backup-btn:hover:not(:disabled) { background: oklch(0.87 0.1 50); }
   .backup-btn:disabled { opacity: 0.6; cursor: default; }
 
-  .backup-status {
-    font-size: 0.68rem;
-    font-weight: 600;
-  }
+  .backup-status      { font-size: 0.68rem; font-weight: 600; }
   .backup-status--ok  { color: oklch(0.45 0.18 150); }
   .backup-status--err { color: oklch(0.52 0.2 25); }
 

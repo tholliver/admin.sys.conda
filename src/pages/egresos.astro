@@ -8,8 +8,9 @@ import {
     transactionCategories,
     transactions,
     invoiceRanges,
+    employees
 } from "@/db/schema";
-import { eq, desc, and, sql, asc } from "drizzle-orm";
+import { eq, desc, and, sql, isNull, asc } from "drizzle-orm";
 import { formatter } from "@/utils/timex";
 // import WithdrawForm from "@/components/svelte/finance/WithdrawForm.svelte";
 import WithdrawOverdraftForm from "@/components/svelte/finance/WithdrawOverdraftForm.svelte";
@@ -98,6 +99,16 @@ const summary = todaysSummary[0] || {
     withdrawalCount: 0,
 };
 
+const activeEmployees = await db
+    .select({
+        id:          employees.id,
+        fullName:    employees.fullName,
+        chargeTitle: employees.chargeTitle,
+    })
+    .from(employees)
+    .where(and(eq(employees.status, "activo"), isNull(employees.deletedAt)))
+    .orderBy(asc(employees.fullName));
+
 ---
 
 <FinanceLayout title="Registro de Egresos" user={user}>
@@ -137,6 +148,7 @@ const summary = todaysSummary[0] || {
                     <WithdrawOverdraftForm
                         concepts={activeWithdrawalTransactionCategories as any}
                         cashboxes={activeCashboxes}
+                        employees={activeEmployees}
                         client:load
                     />
                 </div>

@@ -11,13 +11,21 @@
     import ConceptPicker     from "./withdraw/ConceptPicker.svelte";
     import InvoiceBookBanner from "./InvoiceBookBanner.svelte";
     import OverdraftConfirmDialog from "./OverdraftConfirmDialog.svelte";
+    import NotesAutocomplete from "./NotesAutocomplete.svelte";
 
-    interface Props {
-        concepts:  SelectTransactionCategories[];
-        cashboxes: SelectCashbox[];
+    interface EmployeeOption {
+        id:          number;
+        fullName:    string;
+        chargeTitle: string;
     }
 
-    let { concepts, cashboxes }: Props = $props();
+    interface Props {
+        concepts:   SelectTransactionCategories[];
+        cashboxes:  SelectCashbox[];
+        employees?: EmployeeOption[];
+    }
+
+    let { concepts, cashboxes, employees = [] }: Props = $props();
 
     const w = createWithdrawOverdraftStore(cashboxes, concepts);
 </script>
@@ -51,7 +59,7 @@
         </div>
     {/if}
 
-    <!-- ── Normal confirm dialog (unchanged) ──────────────────────────────── -->
+    <!-- ── Normal confirm dialog ──────────────────────────────────────────── -->
     {#if w.showConfirmDialog}
         <Dialog
             isOpen={true}
@@ -103,6 +111,12 @@
                             <span class="text-sm font-medium text-slate-900">{w.authorizedBy}</span>
                         </div>
                     {/if}
+                    {#if w.notes.trim()}
+                        <div class="flex justify-between items-start gap-4">
+                            <span class="text-sm text-slate-600 shrink-0">Notas:</span>
+                            <span class="text-sm font-medium text-slate-900 text-right">{w.notes.trim()}</span>
+                        </div>
+                    {/if}
                 </div>
             </div>
 
@@ -146,7 +160,7 @@
         />
     {/if}
 
-    <!-- ── Form (identical to WithdrawForm) ───────────────────────────────── -->
+    <!-- ── Form ───────────────────────────────────────────────────────────── -->
     <form method="POST" onsubmit={w.handleInitialSubmit} class="space-y-5">
         <CashboxPicker
             {cashboxes}
@@ -222,6 +236,11 @@
                 />
             </div>
         {/if}
+
+        <NotesAutocomplete
+            bind:value={w.notes}
+            {employees}
+        />
 
         <button
             type="submit"

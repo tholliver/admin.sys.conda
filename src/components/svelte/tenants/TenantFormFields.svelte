@@ -32,7 +32,7 @@
 
     <!-- Nombre completo -->
     <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">
+        <label for="fullName" class="block text-sm font-medium text-slate-700 mb-1">
             Nombre Completo <span class="text-red-500">*</span>
         </label>
         <input
@@ -54,7 +54,7 @@
     <!-- CI + Ciudad CI -->
     <div class="grid grid-cols-2 gap-4">
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">CI</label>
+            <label for="ci" class="block text-sm font-medium text-slate-700 mb-1">CI</label>
             <input
                 type="text"
                 value={form.values.ci}
@@ -65,7 +65,7 @@
             />
         </div>
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Ciudad CI</label>
+            <label for="ciCity" class="block text-sm font-medium text-slate-700 mb-1">Ciudad CI</label>
             <select
                 value={form.values.ciCity}
                 onchange={(e) => set("ciCity", e.currentTarget.value)}
@@ -81,7 +81,7 @@
     <!-- Teléfono + Email -->
     <div class="grid grid-cols-2 gap-4">
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
+            <label for="phone" class="block text-sm font-medium text-slate-700 mb-1">Teléfono</label>
             <input
                 type="tel"
                 value={form.values.phone}
@@ -92,7 +92,7 @@
             />
         </div>
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Correo</label>
+            <label for="email" class="block text-sm font-medium text-slate-700 mb-1">Correo</label>
             <input
                 type="email"
                 value={form.values.email}
@@ -112,7 +112,7 @@
 
     <!-- Tipo de Ambiente -->
     <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Tipo de Ambiente</label>
+        <label for="description" class="block text-sm font-medium text-slate-700 mb-1">Tipo de Ambiente</label>
         <input
             type="text"
             value={form.values.description}
@@ -126,7 +126,7 @@
     <!-- Alquiler + Fechas -->
     <div class="grid grid-cols-3 gap-3">
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">
+            <label for="startDate" class="block text-sm font-medium text-slate-700 mb-1">
                 Alquiler/Mes (Bs) <span class="text-red-500">*</span>
             </label>
             <div class="relative">
@@ -150,7 +150,7 @@
             {/if}
         </div>
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">
+            <label for="startDate" class="block text-sm font-medium text-slate-700 mb-1">
                 Inicio Contrato <span class="text-red-500">*</span>
             </label>
             <div class="date-input-wrap">
@@ -171,7 +171,7 @@
             {/if}
         </div>
         <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Fin Contrato</label>
+            <label for="endDate" class="block text-sm font-medium text-slate-700 mb-1">Fin Contrato</label>
             <div class="date-input-wrap">
                 <input
                     type="date"
@@ -186,7 +186,7 @@
 
     <!-- Notas -->
     <div>
-        <label class="block text-sm font-medium text-slate-700 mb-1">Notas</label>
+        <label for="notes" class="block text-sm font-medium text-slate-700 mb-1">Notas</label>
         <textarea
             rows="2"
             value={form.values.notes}
