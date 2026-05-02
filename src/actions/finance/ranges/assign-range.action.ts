@@ -8,7 +8,7 @@ export const assignCategoryRange = defineAction({
   accept: "form",
   input: z.object({
     rangeId:    z.uuid("ID de talonario inválido"),
-    categoryId: z.string().optional(), // uuid or empty = unassign
+    categoryId: z.string().optional(),
   }),
   async handler(input, { locals }) {
     const user = locals.user;
@@ -42,7 +42,6 @@ export const assignCategoryRange = defineAction({
       return { success: true, message: "Talonario asignado correctamente" };
     }
 
-    // unassign: categoryId empty means caller passes the categoryId to unassign
     throw new ActionError({ code: "BAD_REQUEST", message: "categoryId requerido" });
   },
 });

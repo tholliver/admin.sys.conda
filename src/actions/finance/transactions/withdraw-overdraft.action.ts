@@ -1,7 +1,4 @@
-// src/actions/finance/withdrawOverdraft.action.ts
-// Separate action — called only after the user explicitly confirms the debt dialog.
-// The normal `withdraw` action is UNTOUCHED.
-
+// src/actions/finance/transactions/withdraw-overdraft.action.ts
 import { defineAction, ActionError } from "astro:actions";
 import { z } from "zod";
 import { db } from "@/db";
@@ -43,7 +40,6 @@ export const withdrawOverdraft = defineAction({
         DecimalService.validateAmount(amount);
         const normalizedAmount = DecimalService.normalize(amount);
 
-        // ── Validate category ────────────────────────────────────────────────
         const [category] = await db
             .select()
             .from(transactionCategories)
@@ -57,7 +53,6 @@ export const withdrawOverdraft = defineAction({
 
         if (!category) throw new ActionError({ code: "NOT_FOUND", message: "Cuenta no encontrada o inactiva." });
 
-        // ── Validate cashbox ─────────────────────────────────────────────────
         const [cashbox] = await db.select().from(cashboxes).where(eq(cashboxes.id, cashboxId));
 
         if (!cashbox) throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
@@ -69,10 +64,6 @@ export const withdrawOverdraft = defineAction({
             ? DecimalService.normalize(DecimalService.subtract(normalizedAmount, available))
             : "0.00";
 
-        // New balance — can go negative (no DB check constraint blocks this
-        // because we UPDATE with raw numeric; the check on cashboxes.balance
-        // applies only to INSERT default, not UPDATE in most PG setups,
-        // but if your migration has a CHECK you need to drop it — see migration note below)
         const newBalance = DecimalService.subtract(available, normalizedAmount);
 
         const { reference: resolvedReference, rangeIdToIncrement } =
@@ -97,7 +88,6 @@ export const withdrawOverdraft = defineAction({
                 })
                 .returning();
 
-            // Use raw SQL to bypass any positive-balance CHECK constraint
             await tx.execute(
                 sql`UPDATE finance.cashboxes SET balance = ${newBalance}, updated_at = NOW() WHERE id = ${cashbox.id}`,
             );

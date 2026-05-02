@@ -1,3 +1,4 @@
+// src/actions/finance/transactions/void-transaction.action.ts
 import { ActionError, defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { db } from "@/db";
@@ -51,10 +52,6 @@ export const voidTransaction = defineAction({
       throw new ActionError({ code: "BAD_REQUEST", message: "Solo se pueden anular transacciones completadas." });
     }
 
-    // ── TRANSFER: void both legs atomically ──────────────────────────────────
-    // A transfer creates two linked transactions (withdraw + deposit) sharing a
-    // transferPairId. We MUST reverse both in a single DB transaction or the
-    // total money across all cashboxes will be wrong.
     if (tx.transferPairId) {
       const pairLegs = await db
         .select()
@@ -96,7 +93,6 @@ export const voidTransaction = defineAction({
           let reversedBalance: string;
 
           if (leg.type === "deposit") {
-            // Deposit leg → subtract back
             if (!DecimalService.isGreaterOrEqual(currentBalance, leg.amount)) {
               throw new ActionError({
                 code: "BAD_REQUEST",
@@ -105,7 +101,6 @@ export const voidTransaction = defineAction({
             }
             reversedBalance = DecimalService.subtract(currentBalance, leg.amount);
           } else {
-            // Withdraw leg → add back
             reversedBalance = DecimalService.add(currentBalance, leg.amount);
           }
 
@@ -138,7 +133,6 @@ export const voidTransaction = defineAction({
       };
     }
 
-    // ── REGULAR TRANSACTION: single leg void ─────────────────────────────────
     const [cashbox] = await db
       .select()
       .from(cashboxes)

@@ -9,7 +9,7 @@ import {
   CreditCard, BadgeDollarSign, ShoppingBag, Wrench, Bus, CarFront, Route,
   Map, Landmark, Ticket, Users, IdCard, Fuel, Shield, BadgeCheck, FileText,
   ClipboardList, CalendarCheck, Hammer, TriangleAlert, Building2, Handshake,
-  Zap, Plus,
+  Zap, Trash2,
 } from "@lucide/astro";
 import CreateCategoryDialog from "@/components/categories/CreateCategoryDialog.svelte";
 import EditCategoryDialog   from "@/components/categories/EditCategoryDialog.svelte";
@@ -17,17 +17,20 @@ import EditCategoryDialog   from "@/components/categories/EditCategoryDialog.sve
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
 
-// Action results (status toggle + sort only — create/edit now handled client-side)
 const disableResult  = Astro.getActionResult(actions.finance.disableTransactionCategory);
 const activateResult = Astro.getActionResult(actions.finance.activateTransactionCategory);
 const sortResult     = Astro.getActionResult(actions.finance.setCategorySortOrder);
+const deleteResult   = Astro.getActionResult(actions.finance.deleteTransactionCategory);
 
 const statusError =
   isActionError(disableResult?.error)  ? disableResult.error.message :
-  isActionError(activateResult?.error) ? activateResult.error.message : null;
+  isActionError(activateResult?.error) ? activateResult.error.message :
+  isActionError(deleteResult?.error)   ? deleteResult.error.message   : null;
+
 const statusSuccess =
   !disableResult?.error  && disableResult?.data?.message  ? disableResult.data.message  :
-  !activateResult?.error && activateResult?.data?.message ? activateResult.data.message : null;
+  !activateResult?.error && activateResult?.data?.message ? activateResult.data.message :
+  !deleteResult?.error   && deleteResult?.data?.message   ? deleteResult.data.message   : null;
 
 const sortSuccess = !sortResult?.error && sortResult?.data?.message ? sortResult.data.message : null;
 const sortError   = isActionError(sortResult?.error) ? sortResult.error.message : null;
@@ -71,30 +74,20 @@ const resolveIcon  = (icon: string | null, type: "income" | "outcome") =>
 
 <FinanceLayout title="Cuentas de transacciones" user={user}>
 
-  <!-- Page header -->
   <div class="flex items-start justify-between gap-4">
     <div>
       <h1 class="text-xl font-bold text-slate-900">Cuentas de transacciones</h1>
-      <p class="text-sm text-slate-500 mt-0.5">
-        Define las cuentas que clasifican ingresos y egresos.
-      </p>
+      <p class="text-sm text-slate-500 mt-0.5">Define las cuentas que clasifican ingresos y egresos.</p>
     </div>
-    <CreateCategoryDialog
-      activeParents={activeParents as any}
-      availableRanges={availableRanges as any}
-      client:load
-    />
+    <CreateCategoryDialog activeParents={activeParents as any} availableRanges={availableRanges as any} client:load />
   </div>
 
-  <!-- Feedback banners (status toggle + sort — server actions) -->
   {statusSuccess && <p class="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">{statusSuccess}</p>}
   {statusError   && <p class="rounded-md border border-red-200   bg-red-50   px-3 py-2 text-sm text-red-700">{statusError}</p>}
   {sortSuccess   && <p class="rounded-md border border-blue-200  bg-blue-50  px-3 py-2 text-sm text-blue-700">{sortSuccess}</p>}
   {sortError     && <p class="rounded-md border border-red-200   bg-red-50   px-3 py-2 text-sm text-red-700">{sortError}</p>}
 
-  <!-- Accounts panel -->
   <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
-    <!-- Panel header -->
     <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100">
       <div class="flex items-center gap-3 flex-wrap text-xs text-slate-500">
         <div class="flex items-center gap-1">
@@ -113,7 +106,6 @@ const resolveIcon  = (icon: string | null, type: "income" | "outcome") =>
       <span class="text-sm text-slate-400 shrink-0">{categories.length} total</span>
     </div>
 
-    <!-- Tabs -->
     <div class="flex gap-1 px-4 pt-4 pb-0">
       <div class="flex gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 w-full max-w-xs">
         <button type="button" id="tab-income" data-tab="income"
@@ -135,7 +127,7 @@ const resolveIcon  = (icon: string | null, type: "income" | "outcome") =>
       </div>
     </div>
 
-    <!-- Income table -->
+    <!-- ── Income ───────────────────────────────────────────────────── -->
     <div id="panel-income" class="max-h-[70vh] overflow-auto">
       <table class="w-full text-left">
         <thead class="sticky top-0 border-b border-slate-200 bg-white text-slate-500 text-xs">
@@ -176,7 +168,7 @@ const resolveIcon  = (icon: string | null, type: "income" | "outcome") =>
                     {canPromote && (
                       <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
                         <input type="hidden" name="categoryId" value={cat.id} />
-                        <input type="hidden" name="sortOrder" value="1" />
+                        <input type="hidden" name="sortOrder"  value="1" />
                         <button type="submit" class="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition-colors">
                           <Zap class="h-2.5 w-2.5" /> Fijar
                         </button>
@@ -185,27 +177,32 @@ const resolveIcon  = (icon: string | null, type: "income" | "outcome") =>
                     {canDemote && (
                       <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
                         <input type="hidden" name="categoryId" value={cat.id} />
-                        <input type="hidden" name="sortOrder" value="999" />
+                        <input type="hidden" name="sortOrder"  value="999" />
                         <button type="submit" class="flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-100 transition-colors">
                           <Zap class="h-2.5 w-2.5" /> Quitar
                         </button>
                       </form>
                     )}
-                    <!-- Edit dialog per row -->
-                    <EditCategoryDialog
-                      category={cat as any}
-                      activeParents={activeParents as any}
-                      availableRanges={availableRanges as any}
-                      client:load
-                    />
+                    <EditCategoryDialog category={cat as any} activeParents={activeParents as any} availableRanges={availableRanges as any} client:load />
                     <form method="POST" action={cat.status ? actions.finance.disableTransactionCategory : actions.finance.activateTransactionCategory} class="inline">
                       <input type="hidden" name="categoryId" value={cat.id} />
                       <button type="submit" disabled={cat.status && cat.isSystem}
-                        onclick={cat.status ? "return confirm('Desactivar esta cuenta?');" : "return confirm('Activar esta cuenta?');"}
-                        class:list={["rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors", cat.status ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"]}>
+                        onclick={cat.status ? "return confirm('¿Desactivar esta cuenta?');" : "return confirm('¿Activar esta cuenta?');"}
+                        class:list={["rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors", cat.status ? "bg-slate-500 hover:bg-slate-600" : "bg-emerald-600 hover:bg-emerald-700"]}>
                         {cat.status ? "Desactivar" : "Activar"}
                       </button>
                     </form>
+                    {!cat.isSystem && (
+                      <form method="POST" action={actions.finance.deleteTransactionCategory} class="inline">
+                        <input type="hidden" name="categoryId" value={cat.id} />
+                        <button type="submit"
+                          onclick={`return confirm('¿Eliminar permanentemente "${cat.name}"?\\nEsta acción no se puede deshacer.');`}
+                          class="rounded border border-red-200 bg-red-50 p-1 text-red-600 hover:bg-red-100 transition-colors"
+                          title="Eliminar permanentemente">
+                          <Trash2 class="h-3 w-3" />
+                        </button>
+                      </form>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -215,7 +212,7 @@ const resolveIcon  = (icon: string | null, type: "income" | "outcome") =>
       </table>
     </div>
 
-    <!-- Outcome table -->
+    <!-- ── Outcome ───────────────────────────────────────────────────── -->
     <div id="panel-outcome" class="max-h-[70vh] overflow-auto hidden">
       <table class="w-full text-left">
         <thead class="sticky top-0 border-b border-slate-200 bg-white text-slate-500 text-xs">
@@ -256,7 +253,7 @@ const resolveIcon  = (icon: string | null, type: "income" | "outcome") =>
                     {canPromote && (
                       <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
                         <input type="hidden" name="categoryId" value={cat.id} />
-                        <input type="hidden" name="sortOrder" value="1" />
+                        <input type="hidden" name="sortOrder"  value="1" />
                         <button type="submit" class="flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1.5 py-1 text-[10px] font-medium text-amber-700 hover:bg-amber-100 transition-colors">
                           <Zap class="h-2.5 w-2.5" /> Fijar
                         </button>
@@ -265,26 +262,32 @@ const resolveIcon  = (icon: string | null, type: "income" | "outcome") =>
                     {canDemote && (
                       <form method="POST" action={actions.finance.setCategorySortOrder} class="inline">
                         <input type="hidden" name="categoryId" value={cat.id} />
-                        <input type="hidden" name="sortOrder" value="999" />
+                        <input type="hidden" name="sortOrder"  value="999" />
                         <button type="submit" class="flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-1 text-[10px] font-medium text-slate-500 hover:bg-slate-100 transition-colors">
                           <Zap class="h-2.5 w-2.5" /> Quitar
                         </button>
                       </form>
                     )}
-                    <EditCategoryDialog
-                      category={cat as any}
-                      activeParents={activeParents as any}
-                      availableRanges={availableRanges as any}
-                      client:load
-                    />
+                    <EditCategoryDialog category={cat as any} activeParents={activeParents as any} availableRanges={availableRanges as any} client:load />
                     <form method="POST" action={cat.status ? actions.finance.disableTransactionCategory : actions.finance.activateTransactionCategory} class="inline">
                       <input type="hidden" name="categoryId" value={cat.id} />
                       <button type="submit" disabled={cat.status && cat.isSystem}
-                        onclick={cat.status ? "return confirm('Desactivar esta cuenta?');" : "return confirm('Activar esta cuenta?');"}
-                        class:list={["rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors", cat.status ? "bg-red-500 hover:bg-red-600" : "bg-emerald-600 hover:bg-emerald-700"]}>
+                        onclick={cat.status ? "return confirm('¿Desactivar esta cuenta?');" : "return confirm('¿Activar esta cuenta?');"}
+                        class:list={["rounded px-2 py-1 text-[10px] font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300 transition-colors", cat.status ? "bg-slate-500 hover:bg-slate-600" : "bg-emerald-600 hover:bg-emerald-700"]}>
                         {cat.status ? "Desactivar" : "Activar"}
                       </button>
                     </form>
+                    {!cat.isSystem && (
+                      <form method="POST" action={actions.finance.deleteTransactionCategory} class="inline">
+                        <input type="hidden" name="categoryId" value={cat.id} />
+                        <button type="submit"
+                          onclick={`return confirm('¿Eliminar permanentemente "${cat.name}"?\\nEsta acción no se puede deshacer.');`}
+                          class="rounded border border-red-200 bg-red-50 p-1 text-red-600 hover:bg-red-100 transition-colors"
+                          title="Eliminar permanentemente">
+                          <Trash2 class="h-3 w-3" />
+                        </button>
+                      </form>
+                    )}
                   </div>
                 </td>
               </tr>

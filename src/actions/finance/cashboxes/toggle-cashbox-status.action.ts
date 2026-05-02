@@ -25,7 +25,6 @@ export const toggleCashboxStatus = defineAction({
       throw new ActionError({ code: "NOT_FOUND", message: "Caja no encontrada." });
     }
 
-    // Prevent deactivating the GEN cashbox
     if (cashbox.code === "GEN" && input.status !== "activo") {
       throw new ActionError({
         code: "BAD_REQUEST",
