@@ -143,14 +143,15 @@
             {/if}
 
             {#key formKey}
-                <TransactionCategoryFormFields
-                    {form}
-                    formId={FORM_ID}
-                    {activeParents}
-                    serverFieldErrors={serverErrors}
-                    onSubmit={handleSubmit}
-                    isEdit={true}
-                />
+            <TransactionCategoryFormFields
+                {form}
+                formId={FORM_ID}
+                {activeParents}
+                serverFieldErrors={serverErrors}
+                onSubmit={handleSubmit}
+                isEdit={true}
+                isSystem={category.isSystem}
+            />
             {/key}
         {/if}
     {/snippet}

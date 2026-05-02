@@ -8,6 +8,7 @@ import {
     Users,
     Building2,
     CalendarClock,
+    Files,
     Layers,
     Building,
     ArrowLeftRight,
@@ -39,6 +40,7 @@ export const navGroups: NavGroup[] = [
             // { label: "Transferencias", href: "/transferencias", icon: ArrowLeftRight },
             { label: "Cajas", href: "/cajas", icon: Layers },
             { label: "Historial", href: "/historial", icon: History },
+            { label: "Reportes", href: "/reportes", icon: Files },
         ],
     },
     {

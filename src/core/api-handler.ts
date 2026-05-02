@@ -4,7 +4,7 @@ import type {
   LogContext,
   LogEntry,
   SuccessResponse,
-} from "@/types/api";
+} from "@/core/types.ts";
 import z from "zod/v4";
 export enum HttpStatus {
   OK = 200,

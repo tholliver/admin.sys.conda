@@ -29,6 +29,8 @@
         onSubmit: (e: SubmitEvent) => void;
         /** True when rendering inside edit dialog — code field starts touched */
         isEdit?: boolean;
+        /** True when the category is a system category — code field is disabled */
+        isSystem?: boolean;
     }
 
     let {
@@ -38,6 +40,7 @@
         serverFieldErrors = {},
         onSubmit,
         isEdit = false,
+        isSystem = false,
     }: Props = $props();
 
     // ── Local UI state (icon picker dialog — scoped here, not in parent) ───────
@@ -243,26 +246,30 @@
             <div>
                 <div class="mb-1 flex items-center justify-between gap-2">
                     <label for="{formId}-code" class="block text-sm font-medium text-slate-700">Codigo</label>
-                    <button
-                        type="button"
-                        onclick={generateCode}
-                        class="text-xs font-semibold text-blue-600 hover:text-blue-700"
-                    >
-                        Generar codigo
-                    </button>
+                    {#if !isSystem}
+                        <button
+                            type="button"
+                            onclick={generateCode}
+                            class="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                        >
+                            Generar codigo
+                        </button>
+                    {/if}
                 </div>
                 <input
                     id="{formId}-code"
                     type="text"
                     maxlength="50"
                     required
+                    disabled={isSystem}
                     value={form.values.code}
                     oninput={onCodeInput}
                     onblur={() => form.onBlur("code")}
                     class="w-full rounded-md border px-3 py-2 text-sm uppercase focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100
-                        {fieldError('code') ? 'border-red-400' : 'border-slate-300'}"
+                        {fieldError('code') ? 'border-red-400' : 'border-slate-300'}
+                        {isSystem ? 'bg-slate-100 cursor-not-allowed opacity-60' : ''}"
                 />
-                <p class="mt-1 text-xs text-slate-500">Se autogenera desde el nombre y puedes editarlo.</p>
+                <p class="mt-1 text-xs text-slate-500">{isSystem ? 'Codigo del sistema — no editable' : 'Se autogenera desde el nombre y puedes editarlo.'}</p>
                 {#if fieldError("code")}
                     <p class="mt-1 text-xs text-red-600">{fieldError("code")}</p>
                 {/if}

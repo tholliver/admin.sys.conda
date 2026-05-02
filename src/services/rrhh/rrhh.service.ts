@@ -193,7 +193,13 @@ export async function getFeesWithEmployees(filters: FeeFilters = {} as FeeFilter
   if (status !== "all") conditions.push(eq(employeeFees.status, status as any));
   if (sectorId) conditions.push(eq(employees.sectorId, sectorId));
   if (employeeId) conditions.push(eq(employeeFees.employeeId, employeeId));
-  if (employeeType !== "all") conditions.push(eq(employees.employeeType, employeeType as any));
+  if (employeeType !== "all") {
+    // Some data may store employeeType in uppercase (e.g. DIRECTORIO).
+    // Apply a case-insensitive comparison to ensure we don't miss active directorio staff.
+    conditions.push(
+      sql`LOWER(${employees.employeeType}) = ${String(employeeType).toLowerCase()}`
+    );
+  }
 
   const rows = await db
     .select({
