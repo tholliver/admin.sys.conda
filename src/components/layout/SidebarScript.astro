@@ -2,6 +2,7 @@
 <script is:inline>
     (function () {
         const STORAGE_KEY = "financeSidebarCollapsed";
+        const SUBMENU_STORAGE_PREFIX = "financeSubmenu_";
         const MOBILE_QUERY = "(max-width: 1024px)";
 
         function applyCollapsed(value) {
@@ -106,6 +107,24 @@
 
             // --- Independent accordion (each group toggles on its own) ---
             document.querySelectorAll("[data-accordion-btn]").forEach((btn) => {
+                const id = btn.getAttribute("data-accordion-btn");
+                const panel = document.getElementById(
+                    `accordion-panel-${id}`,
+                );
+
+                // Restore submenu state from localStorage
+                if (panel) {
+                    const storedSubmenu = localStorage.getItem(`${SUBMENU_STORAGE_PREFIX}${id}`);
+                    if (storedSubmenu !== null) {
+                        const isOpen = storedSubmenu === "true";
+                        if (!isOpen) {
+                            panel.classList.add("hidden");
+                            btn.setAttribute("data-open", "false");
+                            btn.setAttribute("aria-expanded", "false");
+                        }
+                    }
+                }
+
                 btn.addEventListener("click", () => {
                     // When collapsed: navigate to the group's first real link
                     if (sidebar.getAttribute("data-collapsed") === "true") {
@@ -114,25 +133,40 @@
                         return;
                     }
 
-                    const id = btn.getAttribute("data-accordion-btn");
-                    const panel = document.getElementById(
-                        `accordion-panel-${id}`,
-                    );
                     if (!panel) return;
 
-                    const isOpen = !panel.classList.contains("hidden");
+                    const isOpen = btn.getAttribute("data-open") === "true";
 
                     if (isOpen) {
-                        // Close this group
-                        panel.classList.add("hidden");
+                        // Close this group with animation
                         btn.setAttribute("data-open", "false");
                         btn.setAttribute("aria-expanded", "false");
+                        localStorage.setItem(`${SUBMENU_STORAGE_PREFIX}${id}`, "false");
+
+                        panel.style.maxHeight = panel.scrollHeight + "px";
+                        requestAnimationFrame(() => {
+                            panel.style.maxHeight = "0";
+                        });
                     } else {
-                        // Open this group — others stay as-is (independent)
-                        panel.classList.remove("hidden");
+                        // Open this group with animation
                         btn.setAttribute("data-open", "true");
                         btn.setAttribute("aria-expanded", "true");
+                        localStorage.setItem(`${SUBMENU_STORAGE_PREFIX}${id}`, "true");
+
+                        panel.classList.remove("hidden");
+                        panel.style.maxHeight = "0";
+                        requestAnimationFrame(() => {
+                            panel.style.maxHeight = panel.scrollHeight + "px";
+                        });
                     }
+
+                    // Clean up inline style after transition
+                    panel.addEventListener("transitionend", function handler() {
+                        panel.removeEventListener("transitionend", handler);
+                        if (btn.getAttribute("data-open") === "true") {
+                            panel.style.maxHeight = "none";
+                        }
+                    }, { once: true });
                 });
             });
 

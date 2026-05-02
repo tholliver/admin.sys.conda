@@ -135,7 +135,7 @@
   size="md"
   preventCloseOnEscapeKeyDown={true}
   preventCloseOnInteractOutside={true}
-  title="Cuentas: {rangeLabel}"
+  title="Talonario: {rangeLabel}"
   description="Asigna o desvincula cuentas a este talonario."
   onClose={reset}
 >
