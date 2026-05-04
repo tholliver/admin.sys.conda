@@ -150,15 +150,14 @@ const expenseReport = await getDetailedExpenseReport(startDate, endDate);
                                             <span class="text-xs text-slate-400">
                                                 Ref: {expense.invoiceNumber ? `#${expense.invoiceNumber}` : expense.externalReference}
                                             </span>
+                                        )}
+                                    </div>
+                                    <div class="shrink-0 text-right text-sm font-bold text-red-600">
+                                        {formatBOB(expense.amount)}
                                     </div>
                                 </div>
-                                <div class="w-16 text-right text-xs text-slate-500">
-                                    {day.count} ops
-                                </div>
-                            </div>
-                        );
-                    })
-                }
+                            ))
+                    }
             </div>
         </div>
     </div>

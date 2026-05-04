@@ -322,16 +322,14 @@ export const employees = pgTable("employees", {
 export const employeeFees = pgTable("employee_fees", {
   id:            serial("id").primaryKey(),
   uuid:          uuid("uuid").default(sql`uuidv7()`).unique().notNull(),
-  // SET NULL: fee history survives even if the employee record is deleted
   employeeId:    integer("employee_id").references(() => employees.id, { onDelete: "set null" }),
-  period:        varchar("period", { length: 7 }).notNull(),   // "YYYY-MM"
-  amount:        numeric("amount", { mode: "number", precision: 12, scale: 2 }).notNull(),
+  period:        varchar("period", { length: 7 }).notNull(),
+  amount:        numeric("amount",      { mode: "number", precision: 12, scale: 2 }).notNull(),
+  paidAmount:    numeric("paid_amount", { mode: "number", precision: 12, scale: 2 }).notNull().default(0),
   status:        feePaymentStatusEnum("status").notNull().default("pendiente"),
   dueDate:       date("due_date", { mode: "date" }),
-  // Payment method moved here from the old bridge table
   paymentMethod: salaryPaymentMethodEnum("payment_method").default("efectivo"),
-  // Real FK to the ledger. Null while pending, set atomically on payment.
-  transactionId: uuid("transaction_id").references(() => transactions.id, { onDelete: "set null" }),
+  // ✂ transactionId removed
   createdAt:     timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:     timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
@@ -339,8 +337,8 @@ export const employeeFees = pgTable("employee_fees", {
   index("idx_fees_employee").on(t.employeeId),
   index("idx_fees_status").on(t.status),
   index("idx_fees_period").on(t.period),
-  index("idx_fees_tx").on(t.transactionId),
-  check("fee_amount_positive", sql`${t.amount} >= 0`),
+  check("fee_amount_positive",       sql`${t.amount} >= 0`),
+  check("fee_paid_not_exceed_total", sql`${t.paidAmount} <= ${t.amount}`),
 ]);
 
 // =====================================================================
@@ -376,16 +374,15 @@ export const tenants = pgTable("tenants", {
 export const tenantPayments = pgTable("tenant_payments", {
   id:            serial("id").primaryKey(),
   uuid:          uuid("uuid").default(sql`uuidv7()`).unique().notNull(),
-  // SET NULL: rent history survives even if the tenant is deleted
   tenantId:      integer("tenant_id").references(() => tenants.id, { onDelete: "set null" }),
-  period:        varchar("period", { length: 7 }).notNull(),   // "YYYY-MM"
-  amount:        numeric("amount", { mode: "number", precision: 12, scale: 2 }).notNull(),
+  period:        varchar("period", { length: 7 }).notNull(),
+  amount:        numeric("amount",      { mode: "number", precision: 12, scale: 2 }).notNull(),
+  paidAmount:    numeric("paid_amount", { mode: "number", precision: 12, scale: 2 }).notNull().default(0),
   status:        rentPaymentStatusEnum("status").notNull().default("pendiente"),
   dueDate:       date("due_date", { mode: "date" }),
   receiptNumber: varchar("receipt_number", { length: 30 }),
   notes:         text("notes"),
-  // Real FK to the ledger. Set atomically on payment.
-  transactionId: uuid("transaction_id").references(() => transactions.id, { onDelete: "set null" }),
+  // ✂ transactionId removed
   createdAt:     timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:     timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
@@ -393,7 +390,8 @@ export const tenantPayments = pgTable("tenant_payments", {
   index("idx_tp_tenant").on(t.tenantId),
   index("idx_tp_status").on(t.status),
   index("idx_tp_period").on(t.period),
-  index("idx_tp_tx").on(t.transactionId),
+  check("tp_amount_positive",       sql`${t.amount} >= 0`),
+  check("tp_paid_not_exceed_total", sql`${t.paidAmount} <= ${t.amount}`),
 ]);
 
 // =====================================================================
@@ -474,7 +472,6 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
 
 export const employeeFeesRelations = relations(employeeFees, ({ one }) => ({
   employee:    one(employees,    { fields: [employeeFees.employeeId],    references: [employees.id] }),
-  transaction: one(transactions, { fields: [employeeFees.transactionId], references: [transactions.id] }),
 }));
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
@@ -482,6 +479,14 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
   category:     one(transactionCategories, { fields: [transactions.categoryId],     references: [transactionCategories.id] }),
   sector:       one(sectors,               { fields: [transactions.sectorId],       references: [sectors.id] }),
   invoiceRange: one(invoiceRanges,         { fields: [transactions.invoiceRangeId], references: [invoiceRanges.id] }),
+  employeeFee:  one(employeeFees, {
+    fields:     [transactions.linkedEntityId],
+    references: [employeeFees.id],
+  }),
+  tenantPayment: one(tenantPayments, {
+    fields:     [transactions.linkedEntityId],
+    references: [tenantPayments.id],
+  }),
 }));
 
 export const tenantsRelations = relations(tenants, ({ many }) => ({
@@ -490,7 +495,6 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
 
 export const tenantPaymentsRelations = relations(tenantPayments, ({ one }) => ({
   tenant:      one(tenants,      { fields: [tenantPayments.tenantId],      references: [tenants.id] }),
-  transaction: one(transactions, { fields: [tenantPayments.transactionId], references: [transactions.id] }),
 }));
 
 export const contractorsRelations = relations(contractors, ({ many }) => ({
