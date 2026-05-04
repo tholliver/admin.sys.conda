@@ -15,8 +15,8 @@
                 .max(50)
                 .trim(),
             prefix: z.string().max(10).optional(),
-            rangeStart: z.coerce.number().int().min(0, "Debe ser mayor o igual a 0"),
-            rangeEnd: z.coerce.number().int().min(0, "Debe ser mayor o igual a 0"),
+            rangeStart: z.coerce.number().int().min(1, "Debe ser mayor a 0"),
+            rangeEnd: z.coerce.number().int().min(1, "Debe ser mayor a 0"),
             authorizationNumber: z
                 .string()
                 .min(1, "El número de autorización es obligatorio")
@@ -229,7 +229,7 @@
                             data-testid="ir-create-start-input"
                             type="number"
                             step="1"
-                            min="0"
+                            min="1"
                             class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
                             value={form.values.rangeStart}
                             oninput={(e) => form.setValue("rangeStart", Number.parseInt((e.currentTarget as HTMLInputElement).value) || 0)}
@@ -250,7 +250,7 @@
                             data-testid="ir-create-end-input"
                             type="number"
                             step="1"
-                            min="0"
+                            min="1"
                             class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
                             value={form.values.rangeEnd}
                             oninput={(e) =>

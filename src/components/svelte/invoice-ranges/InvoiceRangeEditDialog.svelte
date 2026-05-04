@@ -22,9 +22,9 @@
                 .max(50)
                 .trim(),
             prefix: z.string().max(10).optional(),
-            rangeStart: z.coerce.number().int().min(0, "Debe ser mayor o igual a 0"),
-            rangeEnd: z.coerce.number().int().min(0, "Debe ser mayor o igual a 0"),
-            current: z.coerce.number().int().min(0, "Debe ser mayor o igual a 0"),
+            rangeStart: z.coerce.number().int().min(1, "Debe ser mayor a 0"),
+            rangeEnd: z.coerce.number().int().min(1, "Debe ser mayor a 0"),
+            current: z.coerce.number().int().min(1, "Debe ser mayor a 0"),
             authorizationNumber: z
                 .string()
                 .min(1, "El número de autorización es obligatorio")
@@ -62,7 +62,7 @@
         },
     });
 
-    // Sync current to rangeStart whenever start changes
+    // Keep the next invoice number aligned with a new range start.
     function syncCurrentToStart(val: number) {
         form.setValue("rangeStart", val || 0);
         form.setValue("current", val || 0);
@@ -261,7 +261,7 @@
                             data-testid="ir-edit-start-input"
                             type="number"
                             step="1"
-                            min="0"
+                            min="1"
                             class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
                             value={form.values.rangeStart}
                             oninput={(e) =>
@@ -289,7 +289,7 @@
                             data-testid="ir-edit-end-input"
                             type="number"
                             step="1"
-                            min="0"
+                            min="1"
                             class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
                             value={form.values.rangeEnd}
                             oninput={(e) =>
@@ -326,7 +326,7 @@
                         data-testid="ir-edit-current-input"
                         type="number"
                         step="1"
-                        min="0"
+                        min="1"
                         class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
                         value={form.values.current}
                         oninput={(e) =>

@@ -390,13 +390,21 @@
                         {@const isLatest = file.filename === latestFilename}
                         <tr class="hover:bg-muted/30 transition-colors">
                             <td class="whitespace-nowrap px-5 py-4">
-                                <div class="flex flex-col">
-                                    <span class="font-medium text-foreground"
-                                        >{file.formattedDate}</span
-                                    >
-                                    <span class="text-xs text-muted-foreground"
-                                        >{shortTime(file.created)}</span
-                                    >
+                                <div class="flex flex-col gap-1">
+                                    <div class="flex items-baseline gap-1.5">
+                                        <span class="font-semibold text-foreground tabular-nums">
+                                            {new Date(file.created).toLocaleDateString("es-BO", { day: "numeric", month: "short", timeZone })}
+                                        </span>
+                                        <span class="text-xs text-muted-foreground tabular-nums">
+                                            {new Date(file.created).getFullYear()}
+                                        </span>
+                                        <span class="text-xs font-medium text-primary tabular-nums">
+                                            {shortTime(file.created)}
+                                        </span>
+                                    </div>
+                                    <span class="text-xs text-muted-foreground/60 capitalize tracking-wide">
+                                        {new Date(file.created).toLocaleDateString("es-BO", { weekday: "long", timeZone })}
+                                    </span>
                                 </div>
                             </td>
 
@@ -422,23 +430,25 @@
                                 {file.formattedSize}
                             </td>
 
-                            <td class="px-5 py-4 max-w-50">
-                                <span
-                                    class="block truncate text-xs font-mono text-muted-foreground"
-                                    title={file.filename}
-                                >
-                                    {file.filename}
-                                </span>
-                                {#if isLatest}
+                            <td class="px-5 py-4 max-w-52">
+                                <div class="flex flex-col gap-0.5">
                                     <span
-                                        class="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 mt-0.5"
+                                        class="block truncate text-xs font-mono text-muted-foreground cursor-default"
+                                        title="Archivo: {file.filename} — Creado el {new Date(file.created).toLocaleDateString('es-BO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZone })} — Tamaño: {file.formattedSize}"
                                     >
-                                        <span
-                                            class="h-1.5 w-1.5 rounded-full bg-emerald-500"
-                                        ></span>
-                                        Más reciente
+                                        {file.filename}
                                     </span>
-                                {/if}
+                                    {#if isLatest}
+                                        <span class="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+                                            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                            Más reciente
+                                        </span>
+                                    {:else}
+                                        <span class="text-xs text-muted-foreground/50">
+                                            {file.origin === "cron" ? "Respaldo automático" : "Respaldo manual"}
+                                        </span>
+                                    {/if}
+                                </div>
                             </td>
 
                             <td class="whitespace-nowrap px-5 py-4 text-right">

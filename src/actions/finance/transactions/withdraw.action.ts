@@ -2,7 +2,7 @@ import { ActionError, defineAction } from "astro:actions";
 import { z } from "astro/zod";
 import { db } from "@/db";
 import { transactions, cashboxes, transactionCategories, invoiceRanges } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
 import { formatter } from "@/utils/timex";
 import { ENV } from "@/config/env";
@@ -130,7 +130,7 @@ export const withdraw = defineAction({
         if (resolvedRangeId && invoiceNumber) {
           await tx
             .update(invoiceRanges)
-            .set({ current: sql`${invoiceRanges.current} + 1` })
+            .set({ current: invoiceNumber + 1 })
             .where(and(eq(invoiceRanges.id, resolvedRangeId), eq(invoiceRanges.isSystem, false)));
         }
 

@@ -26,8 +26,7 @@ const updateSchema = z
     authorizationNumber: z.string().min(1).max(50).trim().optional(),
     expirationDate:      z.coerce.date().optional(),
   })
-  .refine((d) => d.rangeStart === undefined || d.rangeEnd === undefined || d.rangeEnd > d.rangeStart, { message: "El fin debe ser mayor al inicio", path: ["rangeEnd"] })
-  .refine((d) => d.current === undefined || d.rangeStart === undefined || d.rangeEnd === undefined || (d.current >= d.rangeStart && d.current <= d.rangeEnd), { message: "El actual debe estar dentro del rango", path: ["current"] });
+  .refine((d) => d.rangeStart === undefined || d.rangeEnd === undefined || d.rangeEnd > d.rangeStart, { message: "El fin debe ser mayor al inicio", path: ["rangeEnd"] });
 
 async function checkDuplicateCategory(category: string, excludeId?: string) {
   const conditions = [ilike(invoiceRanges.category, category)];
@@ -77,7 +76,7 @@ export const POST: APIRoute = async ({ request }) => {
         prefix: prefix ?? null,
         rangeStart,
         rangeEnd,
-        current: rangeStart - 1,
+        current: rangeStart,
         authorizationNumber: parsed.data.authorizationNumber,
         expirationDate:      parsed.data.expirationDate,
       })
@@ -148,6 +147,30 @@ export const PUT: APIRoute = async ({ request }) => {
           { status: 409, headers: { "Content-Type": "application/json" } },
         );
       }
+    }
+
+    const nextRangeStart = rangeStart ?? existing[0].rangeStart;
+    const nextRangeEnd = rangeEnd ?? existing[0].rangeEnd;
+    const nextCurrent = current ?? existing[0].current;
+
+    if (nextRangeEnd <= nextRangeStart) {
+      return new Response(
+        JSON.stringify({
+          error: "Validación fallida",
+          details: [{ field: "rangeEnd", message: "El fin debe ser mayor al inicio" }],
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (nextCurrent < nextRangeStart || nextCurrent > nextRangeEnd) {
+      return new Response(
+        JSON.stringify({
+          error: "Validación fallida",
+          details: [{ field: "current", message: "El actual debe estar dentro del rango" }],
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     const updateData: Partial<NewInvoiceRange> = {};

@@ -9,10 +9,7 @@ function toBoliviaTimestamp(date: Date): number {
 export function timeAgo(date: string | Date, unit?: TimeUnit): string | number {
   const parsedDate = typeof date === "string" ? new Date(date) : date;
 
-  const nowBoliviaTs = toBoliviaTimestamp(new Date());
-  const parsedBoliviaTs = toBoliviaTimestamp(parsedDate);
-
-  const diffMs = nowBoliviaTs - parsedBoliviaTs;
+  const diffMs = new Date().getTime() - parsedDate.getTime();
   const isFuture = diffMs < 0;
   const absDiffMs = Math.abs(diffMs);
 

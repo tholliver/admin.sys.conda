@@ -52,12 +52,12 @@
         <div class="flex-1 min-w-0">
             <p class="text-white font-semibold text-sm leading-tight">{label}</p>
             <p class="{sub} text-xs mt-0.5 truncate">{concept}</p>
-            {#if reference}
-                <span class="inline-block mt-1 font-mono text-xs {badge} px-2 py-0.5 rounded">
-                    {reference}
-                </span>
-            {/if}
         </div>
+        {#if reference}
+            <span class="shrink-0 font-mono text-xs {badge} px-2.5 py-1 rounded">
+                {reference}
+            </span>
+        {/if}
     </div>
 
     <!-- Receipt rows -->

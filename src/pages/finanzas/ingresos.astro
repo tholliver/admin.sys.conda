@@ -140,26 +140,13 @@ const incomeReport = await getIncomeAnalysisReport(startDate, endDate);
                                         <p class="text-xs text-slate-500">
                                             {income.categoryName}
                                         </p>
-                                        {(income.invoiceNumber || income.externalReference) && (
+                                        {(income.invoiceNumber || income.reference) && (
                                             <span class="text-xs text-slate-400">
-                                                Ref: {income.invoiceNumber ? `#${income.invoiceNumber}` : income.externalReference}
+                                                Ref: {income.invoiceNumber ? `#${income.invoiceNumber}` : income.reference}
                                             </span>
+                                        )}
                                     </div>
                                 </div>
-                                {index > 0 && (
-                                    <div
-                                        class={`text-xs font-semibold ${
-                                            week.growthRate >= 0
-                                                ? "text-emerald-600"
-                                                : "text-red-600"
-                                        }`}
-                                    >
-                                        {week.growthRate >= 0 ? "+" : ""}
-                                        {week.growthRate.toFixed(1)}%
-                                    </div>
-                                )}
-                            </div>
-                        </div>
                     ))
                 }
             </div>

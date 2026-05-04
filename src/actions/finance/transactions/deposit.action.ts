@@ -95,7 +95,7 @@ export const deposit = defineAction({
         if (resolvedRangeId && invoiceNumber) {
           await tx
             .update(invoiceRanges)
-            .set({ current: sql`${invoiceRanges.current} + 1` })
+            .set({ current: invoiceNumber + 1 })
             .where(and(eq(invoiceRanges.id, resolvedRangeId), eq(invoiceRanges.isSystem, false)));
         }
 

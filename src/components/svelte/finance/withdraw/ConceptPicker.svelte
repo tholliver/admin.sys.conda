@@ -192,7 +192,7 @@
                 {@const hasRange = !isPlaceholder && !!(quick as any).invoiceRangeId}
                 {@const isExhausted =
                     hasRange &&
-                    Number((quick as any).invoiceRangeCurrent) + 1 >
+                    Number((quick as any).invoiceRangeCurrent) >
                         Number((quick as any).invoiceRangeEnd)}
 
                 <button
@@ -248,7 +248,7 @@
                         {@const hasRange = !!(option as any).invoiceRangeId}
                         {@const isExhausted =
                             hasRange &&
-                            Number((option as any).invoiceRangeCurrent) + 1 >
+                            Number((option as any).invoiceRangeCurrent) >
                                 Number((option as any).invoiceRangeEnd)}
                         <li>
                             <button

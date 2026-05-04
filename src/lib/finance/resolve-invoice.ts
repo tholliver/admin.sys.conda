@@ -84,7 +84,7 @@ export async function resolveInvoiceReference(
         });
     }
 
-    const next = range.current + 1;
+    const next = Math.max(range.current, range.rangeStart);
     if (next > range.rangeEnd) {
         // Range exhausted — allow transaction without invoice reference
         return { reference: manualReference?.trim() || null, invoiceNumber: null, rangeIdToIncrement: null, resolvedRangeId: null };

@@ -333,11 +333,10 @@ function formatDate(date: Date): string {
 }
 
 function parseTimestampFromFilename(filename: string): Date | null {
-    // Accepts both zero-padded and single-digit day/time segments
-    // e.g. backup_data_2026-03-3T16-47-45.dump or backup_data_2026-03-03T16-47-45.dump
     const match = filename.match(/_(\d{4}-\d{1,2}-\d{1,2}T\d{1,2}-\d{1,2}-\d{1,2})\.dump$/);
     if (!match?.[1]) return null;
-    const parsed = new Date(match[1].replace(/-(\d{1,2})-(\d{1,2})$/, ":$1:$2"));
+    const isoString = match[1].replace(/-(\d{1,2})-(\d{1,2})$/, ":$1:$2") + "Z";
+    const parsed = new Date(isoString);
     return isNaN(parsed.getTime()) ? null : parsed;
 }
 

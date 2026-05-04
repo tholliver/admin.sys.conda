@@ -21,6 +21,7 @@ import type { SelectTransactionCategories } from "@/db/schema";
 export type ConceptWithRange = SelectTransactionCategories & {
     invoiceRangeId?: string | null;
     invoiceRangePrefix?: string | null;
+    invoiceRangeStart?: number | null;
     invoiceRangeCurrent?: number | null;
     invoiceRangeEnd?: number | null;
     invoiceRangeIsActive?: boolean | null;
@@ -78,7 +79,10 @@ export function getInvoicePreview(
     if (!needsInvoice(concept)) return null;
     if (!concept!.invoiceRangeId || !concept!.invoiceRangeIsActive) return null;
 
-    const next = Number(concept!.invoiceRangeCurrent) + 1;
+    const next = Math.max(
+        Number(concept!.invoiceRangeCurrent),
+        Number(concept!.invoiceRangeStart ?? 1),
+    );
     if (next > Number(concept!.invoiceRangeEnd)) return null; // exhausted
 
     const label = concept!.invoiceRangePrefix
@@ -96,7 +100,10 @@ export function isTalonarioExhausted(concept: ConceptWithRange | null): boolean 
     if (!needsInvoice(concept)) return false;
     if (!concept!.invoiceRangeId) return false;
     if (!concept!.invoiceRangeIsActive) return true;
-    const next = Number(concept!.invoiceRangeCurrent) + 1;
+    const next = Math.max(
+        Number(concept!.invoiceRangeCurrent),
+        Number(concept!.invoiceRangeStart ?? 1),
+    );
     return next > Number(concept!.invoiceRangeEnd);
 }
 
