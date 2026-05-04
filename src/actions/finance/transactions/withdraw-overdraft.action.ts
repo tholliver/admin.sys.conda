@@ -26,8 +26,8 @@ export const withdrawOverdraft = defineAction({
                 `Monto fuera de rango permitido`,
             ),
         authorizedBy:    z.string().min(1).max(255).optional(),
-        reference:       z.string().max(255).optional(),
-        notes:           z.string().min(1, "Debe justificar el egreso").max(1000),
+        externalReference: z.string().max(255).optional(),
+        justification:     z.string().min(1, "Debe justificar el egreso").max(1000),
         invoiceRangeId:  z.uuid().optional(),
     }),
 
@@ -35,7 +35,7 @@ export const withdrawOverdraft = defineAction({
         const user = locals.user;
         if (!user) throw new ActionError({ code: "UNAUTHORIZED" });
 
-        const { cashboxId, categoryId, amount, authorizedBy, reference, notes, invoiceRangeId } = input;
+        const { cashboxId, categoryId, amount, authorizedBy, externalReference, justification, invoiceRangeId } = input;
 
         DecimalService.validateAmount(amount);
         const normalizedAmount = DecimalService.normalize(amount);
@@ -66,8 +66,8 @@ export const withdrawOverdraft = defineAction({
 
         const newBalance = DecimalService.subtract(available, normalizedAmount);
 
-        const { reference: resolvedReference, rangeIdToIncrement } =
-            await resolveInvoiceReference(category, { manualReference: reference, invoiceRangeId });
+        const { reference: resolvedReference, invoiceNumber, resolvedRangeId } =
+            await resolveInvoiceReference(category, { manualReference: externalReference, invoiceRangeId });
 
         const transaction = await db.transaction(async (tx) => {
             const [txn] = await tx
@@ -78,9 +78,11 @@ export const withdrawOverdraft = defineAction({
                     categoryId,
                     concept:         category.name,
                     authorizedBy:    authorizedBy ?? null,
-                    reference:       resolvedReference,
+                    invoiceRangeId:    resolvedRangeId,
+                    invoiceNumber:     invoiceNumber,
                     cashboxId:       cashbox.id,
-                    notes:           notes.trim(),
+                    externalReference: resolvedReference ?? externalReference ?? null,
+                    metadata:          JSON.stringify({ justification: justification.trim() }),
                     createdByUserId: user.id,
                     status:          "completado",
                     balanceAfter:    newBalance,
@@ -92,11 +94,11 @@ export const withdrawOverdraft = defineAction({
                 sql`UPDATE finance.cashboxes SET balance = ${newBalance}, updated_at = NOW() WHERE id = ${cashbox.id}`,
             );
 
-            if (rangeIdToIncrement && resolvedReference) {
+            if (resolvedRangeId && invoiceNumber) {
                 await tx
                     .update(invoiceRanges)
                     .set({ current: sql`${invoiceRanges.current} + 1` })
-                    .where(and(eq(invoiceRanges.id, rangeIdToIncrement), eq(invoiceRanges.isSystem, false)));
+                    .where(and(eq(invoiceRanges.id, resolvedRangeId), eq(invoiceRanges.isSystem, false)));
             }
 
             return txn;
@@ -113,7 +115,7 @@ export const withdrawOverdraft = defineAction({
                 concept:     category.name,
                 authorizedBy: authorizedBy ?? undefined,
                 timestamp:   formatter.format(transaction.createdAt),
-                reference:   transaction.reference ?? null,
+                reference:   invoiceNumber ? `#${invoiceNumber}` : transaction.externalReference ?? null,
             },
             newBalance: formatBOB(newBalance),
         };

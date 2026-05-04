@@ -1,20 +1,22 @@
 type TimeUnit = "years" | "months" | "days" | "hours" | "minutes" | "seconds";
 
+const BOLIVIA_OFFSET_MS = -4 * 60 * 60 * 1000; // America/La_Paz is UTC-4, no DST
+
+function toBoliviaTimestamp(date: Date): number {
+  return date.getTime() + BOLIVIA_OFFSET_MS;
+}
+
 export function timeAgo(date: string | Date, unit?: TimeUnit): string | number {
   const parsedDate = typeof date === "string" ? new Date(date) : date;
 
-  // Convert both dates to Bolivia/La Paz timezone (UTC-4)
-  const nowUTC = new Date();
-  const parsedUTC = parsedDate;
+  const nowBoliviaTs = toBoliviaTimestamp(new Date());
+  const parsedBoliviaTs = toBoliviaTimestamp(parsedDate);
 
-  // Get Bolivia time by subtracting 4 hours from UTC
-  const nowBolivia = new Date(nowUTC.getTime() - 4 * 60 * 60 * 1000);
-  const parsedBolivia = new Date(parsedUTC.getTime() - 4 * 60 * 60 * 1000);
+  const diffMs = nowBoliviaTs - parsedBoliviaTs;
+  const isFuture = diffMs < 0;
+  const absDiffMs = Math.abs(diffMs);
 
-  const isFuture = parsedBolivia.getTime() > nowBolivia.getTime();
-
-  const diff = Math.abs(nowBolivia.getTime() - parsedBolivia.getTime());
-  const seconds = Math.floor(diff / 1000);
+  const seconds = Math.floor(absDiffMs / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);

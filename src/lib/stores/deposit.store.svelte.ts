@@ -75,9 +75,7 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         ];
     });
 
-    let invoicePreview = $derived<InvoicePreview | null>(
-        getInvoicePreview(selectedConcept),
-    );
+    let invoicePreview = $derived(getInvoicePreview(selectedConcept));
 
     let showInvoiceField = $derived(needsInvoice(selectedConcept));
 
@@ -178,10 +176,9 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         fd.append("amount", amount);
 
         if (invoicePreview && needsInvoice(selectedConcept)) {
-            // Active range — server resolves atomically, do NOT also send reference
             fd.append("invoiceRangeId", invoicePreview.rangeId);
         } else if (reference.trim()) {
-            fd.append("reference", reference.trim());
+            fd.append("externalReference", reference.trim());
         }
 
         isSubmitting = true;

@@ -167,7 +167,7 @@ export const registerRentPayment = defineAction({
           type: "deposit",
           amount: amountStr,
           concept: `Alquiler ${input.period} — ${input.tenantName}`,
-          notes: `Pago de alquiler período ${input.period}`,
+          metadata: JSON.stringify({ note: `Pago de alquiler período ${input.period}` }),
           createdByUserId: user.id,
           status: "completado",
           balanceAfter: newBalance,

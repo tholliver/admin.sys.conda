@@ -54,7 +54,7 @@ export type ConceptWithRange = SelectTransactionCategories & {
  */
 export function needsInvoice(concept: ConceptWithRange | null): boolean {
     if (!concept) return false;
-    return concept.type === "income" && concept.code !== "TRANSFER_IN";
+    return !!concept.invoiceRangeId;
 }
 
 // ─── Invoice preview ──────────────────────────────────────────────────────────

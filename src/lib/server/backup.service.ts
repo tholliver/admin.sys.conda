@@ -322,11 +322,14 @@ function formatBytes(bytes: number): string {
 }
 
 function formatDate(date: Date): string {
-    const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+    const BOLIVIA_OFFSET_MS = -4 * 60 * 60 * 1000; // America/La_Paz UTC-4, no DST
+    const nowBolivia = Date.now() + BOLIVIA_OFFSET_MS;
+    const dateBolivia = date.getTime() + BOLIVIA_OFFSET_MS;
+    const days = Math.floor((nowBolivia - dateBolivia) / (1000 * 60 * 60 * 24));
     if (days === 0) return "Hoy";
     if (days === 1) return "Ayer";
-    if (days < 7) return `Hace ${days} dias`;
-    return date.toLocaleDateString("es-BO", { year: "numeric", month: "short", day: "numeric" });
+    if (days < 7) return `Hace ${days} dia${days > 1 ? "s" : ""}`;
+    return date.toLocaleDateString("es-BO", { year: "numeric", month: "short", day: "numeric", timeZone: "America/La_Paz" });
 }
 
 function parseTimestampFromFilename(filename: string): Date | null {

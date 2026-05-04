@@ -33,7 +33,7 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (error: any) {
-    console.error("Error al eliminar rango:", error);
+    console.error("Error al eliminar talonario:", error);
     return ApiResponseHandler.error("Error interno del servidor");
   }
 };

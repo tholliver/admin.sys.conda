@@ -22,9 +22,9 @@
                 .max(50)
                 .trim(),
             prefix: z.string().max(10).optional(),
-            rangeStart: z.coerce.number().int().min(1, "Debe ser mayor a 0"),
-            rangeEnd: z.coerce.number().int().min(1, "Debe ser mayor a 0"),
-            current: z.coerce.number().int().min(1, "Debe ser mayor a 0"),
+            rangeStart: z.coerce.number().int().min(0, "Debe ser mayor o igual a 0"),
+            rangeEnd: z.coerce.number().int().min(0, "Debe ser mayor o igual a 0"),
+            current: z.coerce.number().int().min(0, "Debe ser mayor o igual a 0"),
             authorizationNumber: z
                 .string()
                 .min(1, "El número de autorización es obligatorio")
@@ -64,8 +64,8 @@
 
     // Sync current to rangeStart whenever start changes
     function syncCurrentToStart(val: number) {
-        form.setValue("rangeStart", val || 1);
-        form.setValue("current", val || 1);
+        form.setValue("rangeStart", val || 0);
+        form.setValue("current", val || 0);
     }
 
     let isOpen = $state(false);
@@ -172,12 +172,12 @@
                         >
                             Fecha de Expiración
                         </label>
-                        <div class="relative">
+                        <div class="relative date-input-wrap">
                             <input
                                 id="ir-create-expiry"
                                 data-testid="ir-create-expiry-input"
                                 type="date"
-                                class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm appearance-none date-input-icon"
+                                class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                 value={form.values.expirationDate}
                                 oninput={(e) =>
                                     form.setValue(
@@ -187,7 +187,7 @@
                                 onblur={() => form.onBlur("expirationDate")}
                             />
                             <Calendar
-                                class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
+                                class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
                             />
                         </div>
                         {#if form.errors.expirationDate}
@@ -261,7 +261,7 @@
                             data-testid="ir-edit-start-input"
                             type="number"
                             step="1"
-                            min="1"
+                            min="0"
                             class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
                             value={form.values.rangeStart}
                             oninput={(e) =>
@@ -289,7 +289,7 @@
                             data-testid="ir-edit-end-input"
                             type="number"
                             step="1"
-                            min="1"
+                            min="0"
                             class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
                             value={form.values.rangeEnd}
                             oninput={(e) =>
@@ -298,7 +298,7 @@
                                     Number.parseInt(
                                         (e.currentTarget as HTMLInputElement)
                                             .value,
-                                    ) || 1,
+                                    ) || 0,
                                 )}
                             onblur={() => form.onBlur("rangeEnd")}
                         />
@@ -326,7 +326,7 @@
                         data-testid="ir-edit-current-input"
                         type="number"
                         step="1"
-                        min="1"
+                        min="0"
                         class="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono"
                         value={form.values.current}
                         oninput={(e) =>
@@ -334,7 +334,7 @@
                                 "current",
                                 Number.parseInt(
                                     (e.currentTarget as HTMLInputElement).value,
-                                ) || 1,
+                                ) || 0,
                             )}
                         onblur={() => form.onBlur("current")}
                     />

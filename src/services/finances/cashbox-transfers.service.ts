@@ -177,7 +177,7 @@ export async function getTransfersBetween(opts: TransferHistoryOptions): Promise
       id:              transactions.id,
       concept:         transactions.concept,
       amount:          transactions.amount,
-      notes:           transactions.notes,
+      metadata:        transactions.metadata,
       createdAt:       transactions.createdAt,
       createdByUserId: transactions.createdByUserId,
       fromCashboxId:   transactions.cashboxId,
@@ -196,20 +196,26 @@ export async function getTransfersBetween(opts: TransferHistoryOptions): Promise
     .from(cashboxes);
   const nameMap = new Map(boxes.map((b) => [b.id, b.name]));
 
-  return rows.map((r) => ({
-    id:              r.id,
-    concept:         r.concept,
-    amount:          r.amount,
-    notes:           r.notes,
-    createdAt:       r.createdAt,
-    createdByUserId: r.createdByUserId,
-    fromCashboxId:   r.fromCashboxId,
-    fromCashboxName: nameMap.get(r.fromCashboxId) ?? "?",
-    toCashboxId:     r.toCashboxId ?? "",
-    toCashboxName:   nameMap.get(r.toCashboxId ?? "") ?? "?",
-    transferPairId:  r.transferPairId ?? "",
-    balanceAfter:    r.balanceAfter,
-  }));
+  return rows.map((r) => {
+    let desc: string | null = null;
+    if (r.metadata) {
+      try { desc = (JSON.parse(r.metadata) as Record<string, string>).description ?? null; } catch { /* ignore */ }
+    }
+    return {
+      id:              r.id,
+      concept:         r.concept,
+      amount:          r.amount,
+      description:     desc,
+      createdAt:       r.createdAt,
+      createdByUserId: r.createdByUserId,
+      fromCashboxId:   r.fromCashboxId,
+      fromCashboxName: nameMap.get(r.fromCashboxId) ?? "?",
+      toCashboxId:     r.toCashboxId ?? "",
+      toCashboxName:   nameMap.get(r.toCashboxId ?? "") ?? "?",
+      transferPairId:  r.transferPairId ?? "",
+      balanceAfter:    r.balanceAfter,
+    };
+  });
 }
 
 // ── All inter-cashbox transfers (for /transferencias overview) ─────────────────
@@ -243,7 +249,7 @@ export async function getAllInterCashboxTransfers(opts: AllTransfersOptions = {}
       id:             transactions.id,
       concept:        transactions.concept,
       amount:         transactions.amount,
-      notes:          transactions.notes,
+      metadata:       transactions.metadata,
       createdAt:      transactions.createdAt,
       fromCashboxId:  transactions.cashboxId,
       toCashboxId:    transactions.transferToCashboxId,
@@ -258,14 +264,21 @@ export async function getAllInterCashboxTransfers(opts: AllTransfersOptions = {}
   const boxes = await db.select({ id: cashboxes.id, name: cashboxes.name, code: cashboxes.code }).from(cashboxes);
   const nameMap = new Map(boxes.map((b) => [b.id, { name: b.name, code: b.code }]));
 
-  return rows.map((r) => ({
-    ...r,
-    toCashboxId:     r.toCashboxId ?? "",
-    fromCashboxName: nameMap.get(r.fromCashboxId)?.name ?? "?",
-    fromCashboxCode: nameMap.get(r.fromCashboxId)?.code ?? "?",
-    toCashboxName:   nameMap.get(r.toCashboxId ?? "")?.name ?? "?",
-    toCashboxCode:   nameMap.get(r.toCashboxId ?? "")?.code ?? "?",
-  }));
+  return rows.map((r) => {
+    let desc: string | null = null;
+    if (r.metadata) {
+      try { desc = (JSON.parse(r.metadata) as Record<string, string>).description ?? null; } catch { /* ignore */ }
+    }
+    return {
+      ...r,
+      description:     desc,
+      toCashboxId:     r.toCashboxId ?? "",
+      fromCashboxName: nameMap.get(r.fromCashboxId)?.name ?? "?",
+      fromCashboxCode: nameMap.get(r.fromCashboxId)?.code ?? "?",
+      toCashboxName:   nameMap.get(r.toCashboxId ?? "")?.name ?? "?",
+      toCashboxCode:   nameMap.get(r.toCashboxId ?? "")?.code ?? "?",
+    };
+  });
 }
 
 // ── Period-scoped summary (for salary page) ────────────────────────────────────

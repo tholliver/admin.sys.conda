@@ -319,7 +319,7 @@ const outPct = 100 - incPct;
                 >
                     <TrendingUp class="h-5 w-5 text-emerald-600 mb-2" />
                     <p class="text-sm font-semibold text-slate-900">
-                        Análisis de Ingresos
+                        Reporte de Ingresos
                     </p>
                     <p class="text-xs text-slate-500 mt-0.5">
                         Tendencias y cuentas
@@ -331,7 +331,7 @@ const outPct = 100 - incPct;
                 >
                     <TrendingDown class="h-5 w-5 text-red-600 mb-2" />
                     <p class="text-sm font-semibold text-slate-900">
-                        Análisis de Gastos
+                        Reporte de Gastos
                     </p>
                     <p class="text-xs text-slate-500 mt-0.5">
                         Desglose por cuenta
@@ -446,9 +446,9 @@ const outPct = 100 - incPct;
                                     </td>
                                     <td
                                         class="py-3 px-4 text-slate-500 max-w-32 truncate hidden md:table-cell"
-                                        title={tx.description || ""}
+                                        title={tx.invoiceNumber ? `#${tx.invoiceNumber}` : tx.externalReference || ""}
                                     >
-                                        {tx.description || "—"}
+                                        {tx.invoiceNumber ? `#${tx.invoiceNumber}` : tx.externalReference || "—"}
                                     </td>
                                     <td class="py-3 px-4">
                                         <TxStatusBadge status={tx.status} iconOnly />

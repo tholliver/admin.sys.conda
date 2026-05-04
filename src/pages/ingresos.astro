@@ -42,7 +42,8 @@ const recentDeposits = await db
         id: transactions.id,
         concept: transactions.concept,
         amount: transactions.amount,
-        reference: transactions.reference,
+        externalReference: transactions.externalReference,
+        invoiceNumber: transactions.invoiceNumber,
         createdAt: transactions.createdAt,
         cashboxName: cashboxes.name,
     })
@@ -156,10 +157,16 @@ const summary = todaysSummary || { totalDeposits: "0.00", depositCount: 0 };
                                         <!-- Row 2: Cashbox, Reference & Date -->
                                         <div class="flex items-center gap-2 text-xs text-slate-600">
                                           <span>{tx.cashboxName}</span>
-                                          {tx.reference && (
+                                          {tx.invoiceNumber && (
                                             <>
                                               <span>•</span>
-                                              <span class="truncate">{tx.reference}</span>
+                                              <span class="truncate">#{tx.invoiceNumber}</span>
+                                            </>
+                                          )}
+                                          {tx.externalReference && !tx.invoiceNumber && (
+                                            <>
+                                              <span>•</span>
+                                              <span class="truncate">{tx.externalReference}</span>
                                             </>
                                           )}
                                           <span class="ml-auto text-slate-500 shrink-0">

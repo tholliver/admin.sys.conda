@@ -159,7 +159,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
         .select({
           date: transactions.createdAt,
           concept: transactions.concept,
-          reference: transactions.reference,
+          externalReference: transactions.externalReference,
+          invoiceNumber: transactions.invoiceNumber,
           categoryName: transactionCategories.name,
           cashboxName: cashboxes.name,
           type: transactions.type,
@@ -191,7 +192,7 @@ export const GET: APIRoute = async ({ request, locals }) => {
         ws.addRow([
           r.date ? new Date(r.date).toISOString() : "",
           r.concept,
-          r.reference ?? "",
+          r.invoiceNumber ? `#${r.invoiceNumber}` : r.externalReference ?? "",
           r.category ?? "",
           r.cashbox ?? "",
           r.type ?? "",

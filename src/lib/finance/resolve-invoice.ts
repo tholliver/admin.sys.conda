@@ -31,7 +31,9 @@ interface ResolveOptions {
 
 interface ResolveResult {
     reference: string | null;
+    invoiceNumber: number | null;
     rangeIdToIncrement: string | null;
+    resolvedRangeId: string | null;
 }
 
 /**
@@ -50,12 +52,12 @@ export async function resolveInvoiceReference(
 
     // ── Pass-through: outcome categories, TRANSFER_IN, CONTRATISTA ──────────
     if (!categoryNeedsInvoice(category)) {
-        return { reference: manualReference?.trim() || null, rangeIdToIncrement: null };
+        return { reference: manualReference?.trim() || null, invoiceNumber: null, rangeIdToIncrement: null, resolvedRangeId: null };
     }
 
     // ── Income category with no range assigned — allow, just skip invoice ───
     if (!category.invoiceRangeId) {
-        return { reference: manualReference?.trim() || null, rangeIdToIncrement: null };
+        return { reference: manualReference?.trim() || null, invoiceNumber: null, rangeIdToIncrement: null, resolvedRangeId: null };
     }
 
     // ── Validate client-supplied rangeId matches the category ────────────────
@@ -85,9 +87,9 @@ export async function resolveInvoiceReference(
     const next = range.current + 1;
     if (next > range.rangeEnd) {
         // Range exhausted — allow transaction without invoice reference
-        return { reference: manualReference?.trim() || null, rangeIdToIncrement: null };
+        return { reference: manualReference?.trim() || null, invoiceNumber: null, rangeIdToIncrement: null, resolvedRangeId: null };
     }
 
     const reference = range.prefix ? `${range.prefix}-${next}` : String(next);
-    return { reference, rangeIdToIncrement: rangeId };
+    return { reference, invoiceNumber: next, rangeIdToIncrement: rangeId, resolvedRangeId: rangeId };
 }

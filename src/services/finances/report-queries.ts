@@ -67,6 +67,7 @@ interface TopExpense {
     categoryName: string;
     createdAt: Date;
     reference: string | null;
+    invoiceNumber: number | null;
     authorizedBy: string | null;
 }
 
@@ -93,6 +94,7 @@ interface TopIncome {
     categoryName: string;
     createdAt: Date;
     reference: string | null;
+    invoiceNumber: number | null;
 }
 
 interface IncomeGrowth {
@@ -220,8 +222,8 @@ export async function getDailyTransactionsList(date: Date = new Date()) {
             type: transactions.type,
             amount: transactions.amount,
             concept: transactions.concept,
-            notes: transactions.notes,
-            reference: transactions.reference,
+            externalReference: transactions.externalReference,
+            invoiceNumber: transactions.invoiceNumber,
             categoryName: transactionCategories.name,
             createdAt: transactions.createdAt,
             authorizedBy: transactions.authorizedBy,
@@ -394,7 +396,8 @@ export async function getDetailedExpenseReport(
             amount: transactions.amount,
             categoryName: transactionCategories.name,
             createdAt: transactions.createdAt,
-            reference: transactions.reference,
+            externalReference: transactions.externalReference,
+            invoiceNumber: transactions.invoiceNumber,
             authorizedBy: transactions.authorizedBy,
         })
         .from(transactions)
@@ -513,7 +516,8 @@ export async function getIncomeAnalysisReport(
             amount: transactions.amount,
             categoryName: transactionCategories.name,
             createdAt: transactions.createdAt,
-            reference: transactions.reference,
+            externalReference: transactions.externalReference,
+            invoiceNumber: transactions.invoiceNumber,
         })
         .from(transactions)
         .innerJoin(

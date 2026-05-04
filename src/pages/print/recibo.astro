@@ -15,8 +15,9 @@ const [tx] = await db
     type:            transactions.type,
     amount:          transactions.amount,
     concept:         transactions.concept,
-    reference:       transactions.reference,
-    notes:           transactions.notes,
+    externalReference: transactions.externalReference,
+    invoiceNumber:     transactions.invoiceNumber,
+    metadata:        transactions.metadata,
     authorizedBy:    transactions.authorizedBy,
     status:          transactions.status,
     balanceAfter:    transactions.balanceAfter,
@@ -58,7 +59,15 @@ const issueDate = tx.createdAt.toLocaleString("es-BO", {
   timeStyle: "short",
 });
 
-const displayRef = tx.reference ?? tx.id.slice(0, 8).toUpperCase();
+let metaNote: string | null = null;
+if (tx.metadata) {
+  try {
+    const meta = JSON.parse(tx.metadata) as Record<string, string>;
+    metaNote = meta.description ?? meta.justification ?? meta.note ?? null;
+  } catch { /* ignore */ }
+}
+
+const displayRef = tx.invoiceNumber ? `#${tx.invoiceNumber}` : tx.externalReference ?? tx.id.slice(0, 8).toUpperCase();
 const copies = [0, 1];
 ---
 
@@ -132,7 +141,7 @@ const copies = [0, 1];
           <tr class="v-row-even">
             <td class="v-td">
               <p class="v-td-name">{tx.concept}</p>
-              {tx.description && <p class="v-td-note">{tx.description}</p>}
+              {metaNote && <p class="v-td-note">{metaNote}</p>}
               {tx.categoryName && tx.categoryName !== tx.concept && (
                 <p class="v-td-note">Cuenta: {tx.categoryName}</p>
               )}

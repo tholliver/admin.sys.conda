@@ -18,8 +18,7 @@ export const deposit = defineAction({
         const num = parseFloat(val);
         return num > 0 && num <= ENV.TRANSACTION_LIMITS.DEPOSIT_MAX;
       }, `Monto debe ser entre 0.01 y ${formatBOB(String(ENV.TRANSACTION_LIMITS.DEPOSIT_MAX))}`),
-    notes: z.string().max(1000).optional(),
-    reference: z.string().max(255).optional(),
+    externalReference: z.string().max(255).optional(),
     invoiceRangeId: z.uuid().optional(),
   }),
   async handler(input, { locals }) {
@@ -33,7 +32,7 @@ export const deposit = defineAction({
         });
       }
 
-      const { categoryId, amount, notes, reference, invoiceRangeId } = input;
+      const { categoryId, amount, externalReference, invoiceRangeId } = input;
 
       const [category] = await db
         .select()
@@ -63,8 +62,8 @@ export const deposit = defineAction({
         throw new ActionError({ code: "BAD_REQUEST", message: "La caja principal esta inactiva. Contacta al administrador." });
       }
 
-      const { reference: resolvedReference, rangeIdToIncrement } =
-        await resolveInvoiceReference(category, { manualReference: reference, invoiceRangeId });
+      const { reference: resolvedReference, invoiceNumber, resolvedRangeId } =
+        await resolveInvoiceReference(category, { manualReference: externalReference, invoiceRangeId });
 
       const { transaction, newBalance } = await db.transaction(async (tx) => {
         const [updatedCashbox] = await tx
@@ -83,19 +82,21 @@ export const deposit = defineAction({
             categoryId,
             concept: category.name,
             cashboxId: cashAccount.id,
-            reference: resolvedReference,
-            notes: notes?.trim() || null,
+            invoiceRangeId: resolvedRangeId,
+            invoiceNumber:  invoiceNumber,
+            externalReference: resolvedReference ?? externalReference ?? null,
+            metadata: null,
             createdByUserId: user.id || "system",
             status: "completado",
             balanceAfter: nb,
           })
           .returning();
 
-        if (rangeIdToIncrement && resolvedReference) {
+        if (resolvedRangeId && invoiceNumber) {
           await tx
             .update(invoiceRanges)
             .set({ current: sql`${invoiceRanges.current} + 1` })
-            .where(and(eq(invoiceRanges.id, rangeIdToIncrement), eq(invoiceRanges.isSystem, false)));
+            .where(and(eq(invoiceRanges.id, resolvedRangeId), eq(invoiceRanges.isSystem, false)));
         }
 
         return { transaction: txn, newBalance: nb };
@@ -109,7 +110,7 @@ export const deposit = defineAction({
           amount: formatBOB(amount),
           concept: transaction.concept,
           timestamp: transaction.createdAt.toISOString(),
-          reference: transaction.reference ?? null,
+          reference: invoiceNumber ? `#${invoiceNumber}` : transaction.externalReference ?? null,
         },
         newBalance: formatBOB(newBalance),
       };

@@ -68,7 +68,8 @@ const recentWithdrawals = await db
         concept: transactions.concept,
         amount: transactions.amount,
         authorizedBy: transactions.authorizedBy,
-        reference: transactions.reference,
+        externalReference: transactions.externalReference,
+        invoiceNumber: transactions.invoiceNumber,
         createdAt: transactions.createdAt,
         cashboxName: cashboxes.name,
     })
@@ -194,11 +195,19 @@ const activeEmployees = await db
                                             </div>
                                             <div class="flex items-center gap-2 text-xs text-slate-600 truncate">
                                                 <span>{tx.cashboxName}</span>
-                                                {tx.reference && (
+                                                {tx.invoiceNumber && (
                                                     <>
                                                         <span>•</span>
                                                         <span class="truncate">
-                                                            {tx.reference}
+                                                            #{tx.invoiceNumber}
+                                                        </span>
+                                                    </>
+                                                )}
+                                                {tx.externalReference && !tx.invoiceNumber && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span class="truncate">
+                                                            {tx.externalReference}
                                                         </span>
                                                     </>
                                                 )}

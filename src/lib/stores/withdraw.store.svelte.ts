@@ -183,14 +183,14 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
         const generatedNotes = selectedConcept
             ? `Egreso: ${selectedConcept.name}${trimmedReference ? ` (${trimmedReference})` : ""}`
             : "Egreso";
-        fd.append("notes", generatedNotes);
+        fd.append("justification", generatedNotes);
 
         if (authorizedBy.trim()) fd.append("authorizedBy", authorizedBy.trim());
 
         if (invoicePreview && showInvoiceField) {
             fd.append("invoiceRangeId", invoicePreview.rangeId);
         } else if (trimmedReference) {
-            fd.append("reference", trimmedReference);
+            fd.append("externalReference", trimmedReference);
         }
 
         try {

@@ -5,8 +5,6 @@
    * Migrated to Svelte 5 runes. Sub-components handle their own styles/markup.
    */
   import { actions } from "astro:actions";
-  import { tooltip } from "@/lib/actions/tooltip";
-  import NavLinks      from "@/components/svelte/widgets/NavLinks.svelte";
   import BellTrigger   from "@/components/svelte/widgets/BellTrigger.svelte";
   import BackupTrigger from "@/components/svelte/widgets/BackupTrigger.svelte";
 
@@ -144,10 +142,6 @@
 }} />
 
 <div class="gdw-root">
-
-  <!-- ── Nav anchors (own component) ─────────────────────────────────── -->
-  <NavLinks />
-
   <!-- ── Bell (pending payments) ─────────────────────────────────────── -->
   <BellTrigger
     {totalGaps}

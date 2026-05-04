@@ -329,7 +329,7 @@ const outcomeCategories = categoryBreakdown.filter(
                                         {tx.categoryName}
                                     </td>
                                     <td class="px-4 py-3 text-slate-500 text-xs">
-                                        {tx.reference || "-"}
+                                        {tx.invoiceNumber ? `#${tx.invoiceNumber}` : tx.externalReference || "-"}
                                     </td>
                                     <td
                                         class={`px-4 py-3 text-right font-semibold ${

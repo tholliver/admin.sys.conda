@@ -50,8 +50,8 @@
         type="button"
         onclick={() => (isOpen = true)}
         class="inline-flex items-center justify-center size-9 rounded-md border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:border-red-300 transition-colors"
-        aria-label="Eliminar rango"
-        title="Eliminar rango"
+        aria-label="Eliminar talonario"
+        title="Eliminar talonario"
     >
         <Trash2 class="h-4 w-4" />
     </button>
@@ -72,7 +72,7 @@
                     </div>
                     <div>
                         <h2 class="text-base font-semibold text-slate-900">
-                            Eliminar rango
+                            Eliminar talonario
                         </h2>
                         <p class="text-sm text-slate-500 mt-0.5">
                             Esta accion no se puede deshacer.

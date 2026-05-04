@@ -157,7 +157,7 @@
         fd.set("categoryId", values.categoryId);
         fd.set("amount", values.amount);
         if (values.notes?.trim()) fd.set("notes", values.notes.trim());
-        if (values.reference?.trim()) fd.set("reference", values.reference.trim());
+        if (values.reference?.trim()) fd.set("externalReference", values.reference.trim());
 
         const result = await actions.sector.depositToCashbox(fd);
 
@@ -181,8 +181,8 @@
         fd.set("cashboxId", cashboxId);
         fd.set("categoryId", values.categoryId);
         fd.set("amount", values.amount);
-        fd.set("notes", values.notes.trim());
-        if (values.reference?.trim()) fd.set("reference", values.reference.trim());
+        fd.set("justification", values.notes.trim());
+        if (values.reference?.trim()) fd.set("externalReference", values.reference.trim());
         if (values.authorizedBy?.trim()) fd.set("authorizedBy", values.authorizedBy.trim());
 
         const result = await actions.finance.withdraw(fd);

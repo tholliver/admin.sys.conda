@@ -1,0 +1,227 @@
+---
+import { db } from "@/db";
+import { invoiceRanges, transactions, cashboxes, transactionCategories, sectors } from "@/db/schema";
+import { eq, desc } from "drizzle-orm";
+import FinanceLayout from "@/layouts/FinanceLayout.astro";
+import { formatBOB, formatTransactionStatus, formatTransactionType } from "@/utils/formatters";
+import TxStatusBadge from "@/components/financial/TxStatusBadge.astro";
+
+const { user } = Astro.locals;
+if (!user) return Astro.redirect("/login");
+
+const rangeId = Astro.params.id;
+if (!rangeId) return Astro.redirect("/talonarios");
+
+const [range] = await db
+    .select()
+    .from(invoiceRanges)
+    .where(eq(invoiceRanges.id, rangeId));
+
+if (!range) return Astro.redirect("/talonarios");
+
+const relatedTransactions = await db
+    .select({
+        id:              transactions.id,
+        type:            transactions.type,
+        amount:          transactions.amount,
+        concept:         transactions.concept,
+        status:          transactions.status,
+        invoiceNumber:   transactions.invoiceNumber,
+        createdAt:       transactions.createdAt,
+        cashboxName:     cashboxes.name,
+        cashboxCode:     cashboxes.code,
+        category:        transactionCategories.name,
+        categoryType:    transactionCategories.type,
+        sector:          sectors.name,
+    })
+    .from(transactions)
+    .leftJoin(cashboxes, eq(transactions.cashboxId, cashboxes.id))
+    .leftJoin(transactionCategories, eq(transactions.categoryId, transactionCategories.id))
+    .leftJoin(sectors, eq(transactions.sectorId, sectors.id))
+    .where(eq(transactions.invoiceRangeId, rangeId))
+    .orderBy(desc(transactions.createdAt));
+
+const totalInvoices   = relatedTransactions.length;
+const totalAmount     = relatedTransactions.reduce((sum, tx) => sum + Number(tx.amount), 0);
+const used            = Number(range.current) - Number(range.rangeStart);
+const totalRange      = Number(range.rangeEnd) - Number(range.rangeStart);
+const pct             = totalRange > 0 ? Math.min(Math.round((used / totalRange) * 100), 100) : 0;
+const remaining       = Number(range.rangeEnd) - Number(range.current);
+
+const statusLabel = remaining <= 0 ? "Agotado" : pct >= 80 ? "Por agotarse" : "Activo";
+const statusClass = remaining <= 0
+    ? "bg-red-100 text-red-700"
+    : pct >= 80
+        ? "bg-amber-100 text-amber-700"
+        : "bg-emerald-100 text-emerald-700";
+const barColor = remaining <= 0
+    ? "bg-red-500"
+    : pct >= 80
+        ? "bg-amber-400"
+        : "bg-emerald-500";
+
+const expiresDate = range.expirationDate.toLocaleDateString("es-BO", {
+    year: "numeric", month: "long", day: "numeric"
+});
+---
+
+<FinanceLayout title={`Talonario — ${range.category}`} user={user}>
+    <div class="mb-4">
+        <a href="/talonarios" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 mb-3 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m15 18-6-6 6-6"/>
+            </svg>
+            Volver a talonarios
+        </a>
+        <h1 class="text-xl font-semibold text-slate-900 capitalize">
+            Talonario {range.category}
+            {range.prefix && (
+                <span class="inline-block font-mono text-sm px-2 py-0.5 rounded-md text-slate-500 border border-slate-200 ml-2">
+                    {range.prefix}
+                </span>
+            )}
+        </h1>
+        <p class="text-sm text-slate-500 mt-0.5">Numeración de factura y transacciones asociadas.</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p class="text-xs text-slate-500 mb-1">Estado</p>
+            <span class={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusClass}`}>
+                <span class={`w-1.5 h-1.5 rounded-full shrink-0 ${remaining <= 0 ? "bg-red-500" : pct >= 80 ? "bg-amber-400" : "bg-emerald-500"}`} />
+                {statusLabel}
+            </span>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p class="text-xs text-slate-500 mb-1">Facturas emitidas</p>
+            <p class="text-2xl font-semibold text-slate-900">{totalInvoices}</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p class="text-xs text-slate-500 mb-1">Monto total</p>
+            <p class="text-2xl font-semibold text-slate-900">{formatBOB(totalAmount)}</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p class="text-xs text-slate-500 mb-1">Restantes</p>
+            <p class="text-2xl font-semibold {remaining > 0 ? 'text-emerald-600' : 'text-red-500'}">{remaining > 0 ? remaining.toLocaleString("es-BO") : "0"}</p>
+        </div>
+    </div>
+
+    <div class="rounded-lg border border-slate-200 bg-white shadow-sm p-4 mb-4">
+        <h2 class="text-sm font-medium text-slate-700 mb-3">Rango de numeración</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            <div>
+                <p class="text-xs text-slate-500">Inicio</p>
+                <p class="font-mono text-slate-900 font-medium">{Number(range.rangeStart).toLocaleString("es-BO")}</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-500">Actual</p>
+                <p class="font-mono text-slate-900 font-medium">{Number(range.current).toLocaleString("es-BO")}</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-500">Fin</p>
+                <p class="font-mono text-slate-900 font-medium">{Number(range.rangeEnd).toLocaleString("es-BO")}</p>
+            </div>
+            <div>
+                <p class="text-xs text-slate-500">Vencimiento</p>
+                <p class="text-slate-900 font-medium">{expiresDate}</p>
+            </div>
+        </div>
+        <div class="mt-3">
+            <div class="flex items-center gap-2">
+                <span class="font-mono text-xs text-slate-400">{pct}%</span>
+                <div class="flex-1 bg-slate-200 rounded-full h-2 overflow-hidden">
+                    <div class={`h-full rounded-full ${barColor}`} style={`width: ${pct}%`} />
+                </div>
+            </div>
+        </div>
+        {range.authorizationNumber && (
+            <div class="mt-3 pt-3 border-t border-slate-100">
+                <p class="text-xs text-slate-500">Nº Autorización</p>
+                <p class="font-mono text-sm text-slate-900">{range.authorizationNumber}</p>
+            </div>
+        )}
+    </div>
+
+    <div class="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-200 bg-slate-50">
+            <h2 class="text-sm font-medium text-slate-700">Transacciones ({totalInvoices})</h2>
+        </div>
+        {relatedTransactions.length > 0 ? (
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead>
+                        <tr class="border-b border-slate-200 bg-slate-50/50">
+                            <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Nº Factura</th>
+                            <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Caja</th>
+                            <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Categoría</th>
+                            <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Concepto</th>
+                            <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide text-right">Monto</th>
+                            <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Estado</th>
+                            <th class="px-4 py-3 font-medium text-slate-600 text-xs uppercase tracking-wide">Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {relatedTransactions.map((tx) => {
+                            const typeInfo = formatTransactionType(tx.type);
+                            const statusInfo = formatTransactionStatus(tx.status);
+                            return (
+                                <tr class="transition-colors hover:bg-slate-50/60">
+                                    <td class="px-4 py-3">
+                                        <span class="font-mono text-xs font-medium text-slate-700">
+                                            {tx.invoiceNumber ? Number(tx.invoiceNumber).toLocaleString("es-BO") : "—"}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <div>
+                                            <p class="font-medium text-slate-900 text-xs">{tx.cashboxName ?? "—"}</p>
+                                            {tx.cashboxCode && <p class="text-[10px] text-slate-400 font-mono">{tx.cashboxCode}</p>}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium ${
+                                            tx.categoryType === "income"
+                                                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                                : "bg-red-50 border-red-200 text-red-700"
+                                        }`}>
+                                            {tx.category ?? "—"}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-slate-700 max-w-xs truncate">{tx.concept}</td>
+                                    <td class="px-4 py-3 text-right">
+                                        <span class={`font-mono text-sm font-medium ${tx.type === "deposit" ? "text-emerald-600" : "text-rose-600"}`}>
+                                            {tx.type === "deposit" ? "+" : "-"}{formatBOB(tx.amount)}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${statusInfo.color}`}>
+                                            {statusInfo.label}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span class="text-xs text-slate-500">
+                                            {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                                        </span>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        ) : (
+            <div class="flex flex-col items-center justify-center py-12 px-4 text-center">
+                <div class="rounded-full bg-slate-100 p-3 mb-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" x2="8" y1="13" y2="13"/>
+                        <line x1="16" x2="8" y1="17" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                </div>
+                <p class="text-sm font-medium text-slate-700">Sin transacciones</p>
+                <p class="text-xs text-slate-500 mt-1">Este talonario aún no tiene facturas emitidas.</p>
+            </div>
+        )}
+    </div>
+</FinanceLayout>

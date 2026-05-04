@@ -56,14 +56,14 @@ export function createWithdrawOverdraftStore(
         fd.append("amount",     base.amount);
 
         const trimmedRef = base.reference.trim();
-        fd.append("notes", buildNotes("Egreso", base.selectedConcept?.name ?? "Egreso", trimmedRef));
+        fd.append("justification", buildNotes("Egreso", base.selectedConcept?.name ?? "Egreso", trimmedRef));
 
         if (base.authorizedBy.trim()) fd.append("authorizedBy", base.authorizedBy.trim());
 
         if (base.invoicePreview && base.showInvoiceField) {
             fd.append("invoiceRangeId", base.invoicePreview.rangeId);
         } else if (trimmedRef) {
-            fd.append("reference", trimmedRef);
+            fd.append("externalReference", trimmedRef);
         }
 
         // Close the normal confirm dialog, enter our submitting state
@@ -119,14 +119,14 @@ export function createWithdrawOverdraftStore(
         fd.append("amount",     base.amount);
 
         const trimmedRef = base.reference.trim();
-        fd.append("notes", buildNotes("Egreso (con deuda)", base.selectedConcept.name, trimmedRef));
+        fd.append("justification", buildNotes("Egreso (con deuda)", base.selectedConcept.name, trimmedRef));
 
         if (base.authorizedBy.trim()) fd.append("authorizedBy", base.authorizedBy.trim());
 
         if (base.invoicePreview && base.showInvoiceField) {
             fd.append("invoiceRangeId", base.invoicePreview.rangeId);
         } else if (trimmedRef) {
-            fd.append("reference", trimmedRef);
+            fd.append("externalReference", trimmedRef);
         }
 
         isSubmitting = true;

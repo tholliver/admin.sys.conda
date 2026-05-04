@@ -1,5 +1,6 @@
 ---
 import { PanelLeft } from "@lucide/astro";
+import NavLinks from "@/components/svelte/widgets/NavLinks.svelte";
 import GenerateDebtsWidget from "@/components/svelte/GenerateDebtsWidget.svelte";
 import { getHoursSinceLastBackup } from "@/lib/server/backup.service";
 import { db } from "@/db";
@@ -108,7 +109,10 @@ const showWidget = canSeeAlerts && (
             <span class="topbar-breadcrumb-current">{title}</span>
         </div>
 
+
+        <!-- ── Nav anchors (own component) ─────────────────────────────────── -->
         <div class="topbar-actions">
+            <NavLinks client:load />
             {showWidget && (
                 <GenerateDebtsWidget
                     client:load

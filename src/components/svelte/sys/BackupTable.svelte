@@ -96,11 +96,14 @@
     });
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+    const timeZone = "America/La_Paz";
+
     function fullDate(iso: string) {
         return new Date(iso).toLocaleDateString("es-BO", {
             weekday: "long",
             day: "numeric",
             month: "long",
+            timeZone,
         });
     }
 
@@ -108,6 +111,8 @@
         return new Date(iso).toLocaleTimeString("es-BO", {
             hour: "2-digit",
             minute: "2-digit",
+            hour12: true,
+            timeZone,
         });
     }
 

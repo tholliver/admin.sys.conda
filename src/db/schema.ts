@@ -243,20 +243,23 @@ export const transactions = financeSchema.table("transactions", {
   sectorId:            integer("sector_id").references(() => sectors.id, { onDelete: "set null" }),
   type:                transactionTypeEnum("type").notNull(),
   amount:              numeric("amount", { mode: "string", precision: 15, scale: 2 }).notNull(),
-  concept:             varchar("concept",      { length: 255 }).notNull(),
-  notes:               text("notes"),
-  reference:           varchar("reference",    { length: 255 }),   // receipt / invoice number
-  authorizedBy: varchar("authorized_by", { length: 255 }),
-  // on transactions table
-  overdraftAmount:     numeric("overdraft_amount", { precision: 12, scale: 2 }).default("0"), // null/0 = normal transaction, > 0 = how much exceeded the balance
+  concept:             varchar("concept", { length: 255 }).notNull(),
+  // Invoice talonario — frozen at write time, null for non-invoiced transactions
+  invoiceRangeId:      uuid("invoice_range_id").references(() => invoiceRanges.id, { onDelete: "set null" }),
+  invoiceNumber:       bigint("invoice_number", { mode: "number" }),
+  // External reference only (bank wire ID, external receipt, etc.) — not for invoice numbers
+  externalReference:   varchar("external_reference", { length: 255 }),
+  authorizedBy:        varchar("authorized_by", { length: 255 }),
+  overdraftAmount:     numeric("overdraft_amount", { precision: 12, scale: 2 }).default("0"),
   createdByUserId:     varchar("created_by_user_id", { length: 255 }).notNull(),
   status:              transactionStatusEnum("status").notNull().default("pendiente"),
   balanceAfter:        numeric("balance_after", { mode: "string", precision: 15, scale: 2 }),
-  metadata:            text("metadata"),                           // void reason, extra JSON
-  // Transfer cross-reference: both legs share transferPairId so they can be traced together
+  // Single escape hatch: void reason, extra notes, any future JSON keys
+  metadata:            text("metadata"),
+  // Transfer cross-reference: both legs share transferPairId
   transferToCashboxId: uuid("transfer_to_cashbox_id"),
   transferPairId:      uuid("transfer_pair_id"),
-  // Business entity that originated this cash movement (points to the obligation table PK)
+  // Polymorphic FK to obligation tables (employee_fees, tenant_payments, contractor_payments)
   linkedEntityType:    linkedEntityTypeEnum("linked_entity_type"),
   linkedEntityId:      integer("linked_entity_id"),
   createdAt:           timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -271,6 +274,8 @@ export const transactions = financeSchema.table("transactions", {
   index("idx_tx_transfer_pair").on(t.transferPairId),
   index("idx_tx_transfer_to_cashbox").on(t.transferToCashboxId),
   index("idx_tx_linked_entity").on(t.linkedEntityType, t.linkedEntityId),
+  index("idx_tx_invoice_range").on(t.invoiceRangeId),
+  index("idx_tx_invoice_number").on(t.invoiceRangeId, t.invoiceNumber),
   check("amount_positive", sql`${t.amount} >= 0`),
 ]);
 
@@ -473,9 +478,10 @@ export const employeeFeesRelations = relations(employeeFees, ({ one }) => ({
 }));
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
-  cashbox:  one(cashboxes,             { fields: [transactions.cashboxId],  references: [cashboxes.id] }),
-  category: one(transactionCategories, { fields: [transactions.categoryId], references: [transactionCategories.id] }),
-  sector:   one(sectors,               { fields: [transactions.sectorId],   references: [sectors.id] }),
+  cashbox:      one(cashboxes,             { fields: [transactions.cashboxId],      references: [cashboxes.id] }),
+  category:     one(transactionCategories, { fields: [transactions.categoryId],     references: [transactionCategories.id] }),
+  sector:       one(sectors,               { fields: [transactions.sectorId],       references: [sectors.id] }),
+  invoiceRange: one(invoiceRanges,         { fields: [transactions.invoiceRangeId], references: [invoiceRanges.id] }),
 }));
 
 export const tenantsRelations = relations(tenants, ({ many }) => ({

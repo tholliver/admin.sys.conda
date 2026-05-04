@@ -1,0 +1,182 @@
+---
+import FinanceLayout from "@/layouts/FinanceLayout.astro";
+import BackupCreatePill from "@/components/svelte/sys/BackupCreatePill.svelte";
+import BackupDownloadPill from "@/components/svelte/sys/BackupDownloadPill.svelte";
+import BackupRestorePill from "@/components/svelte/sys/BackupRestorePill.svelte";
+import BackupTable from "@/components/svelte/sys/BackupTable.svelte";
+import {
+    getBackupSystemInfo,
+    listBackupFiles,
+} from "@/lib/server/backup.service";
+import { timeAgo, formatDate } from "@/utils/timex";
+
+const { user } = Astro.locals;
+if (!user) return Astro.redirect("/login");
+
+const [systemInfo, backupFiles] = await Promise.all([
+    getBackupSystemInfo(),
+    listBackupFiles(),
+]);
+
+const latestBackup =
+    backupFiles.length > 0
+        ? [...backupFiles].sort(
+              (a, b) =>
+                  new Date(b.created).getTime() - new Date(a.created).getTime(),
+          )[0]
+        : null;
+
+const lastBackupDate = latestBackup ? new Date(latestBackup.created) : null;
+
+const hoursAgo = lastBackupDate
+    ? Math.floor((Date.now() - lastBackupDate.getTime()) / (1000 * 60 * 60))
+    : null;
+
+const health: "ok" | "warning" | "critical" = (() => {
+    if (hoursAgo === null) return "critical";
+    if (hoursAgo <= 24) return "ok";
+    if (hoursAgo <= 71) return "warning";
+    return "critical";
+})();
+
+function formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const units = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(2)} ${units[i]}`;
+}
+
+const totalBytes = backupFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+const storageUsed = formatBytes(totalBytes);
+
+const platformLabel = systemInfo.isWindows
+    ? "Windows"
+    : systemInfo.isLinux
+      ? "Linux"
+      : systemInfo.platform;
+
+const healthConfig = {
+    ok: {
+        badge: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800",
+        dot: "bg-emerald-500",
+        ping: true,
+        label: "Sistema protegido",
+    },
+    warning: {
+        badge: "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800",
+        dot: "bg-amber-500",
+        ping: false,
+        label: "Respaldo recomendado",
+    },
+    critical: {
+        badge: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800",
+        dot: "bg-red-500",
+        ping: false,
+        label: "Requiere acción",
+    },
+}[health];
+
+const lastBackupLabel = lastBackupDate ? timeAgo(lastBackupDate) : "Sin respaldos";
+const lastBackupDateStr = lastBackupDate ? formatDate(lastBackupDate, "medium") : "Sin registros aún";
+---
+
+<FinanceLayout title="Copias de Seguridad" user={user}>
+    <div class="px-4 sm:px-6 lg:px-8 space-y-6 pb-10">
+
+        <!-- ── Page Heading ─────────────────────────────────────────────── -->
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p class="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+                    Sistema
+                </p>
+                <h1 class="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+                    Copias de Seguridad
+                </h1>
+            </div>
+            <div class={`inline-flex items-center gap-2 self-start sm:self-auto rounded-full border px-3.5 py-1.5 text-xs font-semibold ${healthConfig.badge}`}>
+                <span class="relative flex h-2 w-2">
+                    {healthConfig.ping && (
+                        <span class={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${healthConfig.dot}`}></span>
+                    )}
+                    <span class={`relative inline-flex h-2 w-2 rounded-full ${healthConfig.dot}`}></span>
+                </span>
+                {healthConfig.label}
+            </div>
+        </div>
+
+        <!-- ── PostgreSQL not found banner ──────────────────────────────── -->
+        {!systemInfo.postgresInstalled && (
+            <div class="flex items-start gap-3 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-5 py-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0 mt-0.5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                </svg>
+                <div>
+                    <p class="text-sm font-semibold text-red-800 dark:text-red-300">
+                        PostgreSQL no encontrado en este sistema
+                    </p>
+                    <p class="text-xs text-red-600 dark:text-red-400 mt-1">
+                        {systemInfo.isWindows
+                            ? "Instala PostgreSQL desde postgresql.org y asegúrate que pg_dump.exe esté en el PATH, o configura PG_BIN_PATH en el entorno."
+                            : "Ejecuta: sudo apt install postgresql-client, o configura PG_BIN_PATH en el entorno."}
+                    </p>
+                </div>
+            </div>
+        )}
+
+        <!-- ── Stat strip ────────────────────────────────────────────────── -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="rounded-xl border border-border bg-card p-3 sm:px-4 sm:py-3.5 shadow-sm min-w-0">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Estado DB</p>
+                <p class="text-base sm:text-lg font-bold text-foreground leading-none truncate">
+                    {systemInfo.postgresInstalled ? "Operacional" : "Sin PG"}
+                </p>
+                <p class="text-[11px] text-muted-foreground mt-1 truncate">{platformLabel}</p>
+            </div>
+
+            <div class="rounded-xl border border-border bg-card p-3 sm:px-4 sm:py-3.5 shadow-sm min-w-0">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Último Respaldo</p>
+                <p class="text-base sm:text-lg font-bold text-foreground leading-none truncate">{lastBackupLabel}</p>
+                <p class="text-[11px] text-muted-foreground mt-1 truncate">{lastBackupDateStr}</p>
+            </div>
+
+            <div class="rounded-xl border border-border bg-card p-3 sm:px-4 sm:py-3.5 shadow-sm min-w-0">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Archivos</p>
+                <p class="text-base sm:text-lg font-bold text-foreground leading-none truncate">{backupFiles.length}</p>
+                <p class="text-[11px] text-muted-foreground mt-1 truncate">
+                    {backupFiles.length === 1 ? "archivo" : "archivos"} de respaldo
+                </p>
+            </div>
+
+            <div class="rounded-xl border border-border bg-card p-3 sm:px-4 sm:py-3.5 shadow-sm min-w-0">
+                <p class="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Almacenamiento</p>
+                <p class="text-base sm:text-lg font-bold text-foreground leading-none truncate">{storageUsed}</p>
+                <p class="text-[11px] text-muted-foreground mt-1 truncate">en disco</p>
+            </div>
+        </div>
+
+        <!-- ── Action bar ────────────────────────────────────────────────── -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+            <BackupCreatePill pgReady={systemInfo.postgresInstalled} client:load />
+            <BackupDownloadPill latestFilename={latestBackup?.filename ?? null} client:load />
+            <BackupRestorePill pgReady={systemInfo.postgresInstalled} client:load />
+        </div>
+
+        <!-- ── Backup history table ──────────────────────────────────────── -->
+        <div class="space-y-3">
+            <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                    <path d="M3 3v5h5"/>
+                </svg>
+                <h2 class="text-base font-bold text-foreground">Historial de Respaldos</h2>
+            </div>
+            <BackupTable
+                systemInfo={{ postgresInstalled: systemInfo.postgresInstalled }}
+                initialBackupFiles={backupFiles}
+                latestFilename={latestBackup?.filename ?? null}
+                client:load
+            />
+        </div>
+    </div>
+</FinanceLayout>

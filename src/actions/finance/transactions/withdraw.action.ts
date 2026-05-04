@@ -26,8 +26,8 @@ export const withdraw = defineAction({
       .min(1, "Nombre de autorización requerido")
       .max(255)
       .optional(),
-    reference: z.string().max(255).optional(),
-    notes: z.string().min(1, "Debe justificar el egreso").max(1000),
+    externalReference: z.string().max(255).optional(),
+    justification: z.string().min(1, "Debe justificar el egreso").max(1000),
     invoiceRangeId: z.uuid().optional(),
   }),
   async handler(input, { locals }) {
@@ -40,7 +40,7 @@ export const withdraw = defineAction({
         });
       }
 
-      const { categoryId, amount, authorizedBy, reference, notes, invoiceRangeId } = input;
+      const { categoryId, amount, authorizedBy, externalReference, justification, invoiceRangeId } = input;
 
       try {
         DecimalService.validateAmount(amount);
@@ -99,8 +99,8 @@ export const withdraw = defineAction({
 
       const newBalance = DecimalService.subtract(currentBalance, normalizedAmount);
 
-      const { reference: resolvedReference, rangeIdToIncrement } =
-        await resolveInvoiceReference(category, { manualReference: reference, invoiceRangeId });
+      const { reference: resolvedReference, invoiceNumber, resolvedRangeId } =
+        await resolveInvoiceReference(category, { manualReference: externalReference, invoiceRangeId });
 
       const transaction = await db.transaction(async (tx) => {
         const [txn] = await tx
@@ -111,9 +111,11 @@ export const withdraw = defineAction({
             categoryId,
             concept: category.name,
             authorizedBy: authorizedBy || null,
-            reference: resolvedReference,
+            invoiceRangeId: resolvedRangeId,
+            invoiceNumber:  invoiceNumber,
             cashboxId: cashbox.id,
-            notes: notes?.trim() || null,
+            externalReference: resolvedReference ?? externalReference ?? null,
+            metadata: justification?.trim() ? JSON.stringify({ justification: justification.trim() }) : null,
             createdByUserId: user.id,
             status: "completado",
             balanceAfter: newBalance,
@@ -125,11 +127,11 @@ export const withdraw = defineAction({
           .set({ balance: newBalance, updatedAt: new Date() })
           .where(eq(cashboxes.id, cashbox.id));
 
-        if (rangeIdToIncrement && resolvedReference) {
+        if (resolvedRangeId && invoiceNumber) {
           await tx
             .update(invoiceRanges)
             .set({ current: sql`${invoiceRanges.current} + 1` })
-            .where(and(eq(invoiceRanges.id, rangeIdToIncrement), eq(invoiceRanges.isSystem, false)));
+            .where(and(eq(invoiceRanges.id, resolvedRangeId), eq(invoiceRanges.isSystem, false)));
         }
 
         return txn;
@@ -144,7 +146,7 @@ export const withdraw = defineAction({
           concept: category.name,
           authorizedBy: authorizedBy || undefined,
           timestamp: formatter.format(transaction.createdAt),
-          reference: transaction.reference ?? null,
+          reference: invoiceNumber ? `#${invoiceNumber}` : transaction.externalReference ?? null,
         },
         newBalance: formatBOB(newBalance),
       };

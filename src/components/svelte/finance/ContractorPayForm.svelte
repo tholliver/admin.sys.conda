@@ -515,12 +515,12 @@
                 />
             </div>
 
-            <QuickAmountActions
+            <!-- <QuickAmountActions
                 {amount}
                 onSelectAmount={(v) => (amount = v)}
                 activeClass="bg-red-600 border-red-600 text-white shadow-sm"
                 inactiveClass="bg-white border-slate-200 text-slate-600 hover:border-red-300 hover:text-red-600 hover:bg-red-50 active:bg-red-100"
-            />
+            /> -->
 
             {#if amount && parseFloat(amount) > 0 && hasEnough && !inputErrors.amount}
                 <div

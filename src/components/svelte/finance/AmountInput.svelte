@@ -496,7 +496,7 @@
     {/if}
 
     <!-- Quick chips -->
-    <div class="mt-3">
+    <!-- <div class="mt-3">
         <span class="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
             Montos Rápidos
         </span>
@@ -511,7 +511,7 @@
                 >{preset.label}</button>
             {/each}
         </div>
-    </div>
+    </div> -->
 
     <!-- Error -->
     {#if error}

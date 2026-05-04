@@ -31,7 +31,7 @@ export const transfer = defineAction({
       .string()
       .regex(/^\d+(\.\d{1,2})?$/, "Monto debe ser un número válido")
       .refine((v) => parseFloat(v) > 0, "El monto debe ser mayor a 0"),
-    notes: z.string().max(1000).optional(),
+    description: z.string().max(1000).optional(),
   }),
   async handler(input, { locals }) {
     const user = locals.user;
@@ -82,10 +82,9 @@ export const transfer = defineAction({
     const newFromBalance = DecimalService.subtract(String(from.balance ?? "0"), amount);
     const newToBalance = DecimalService.add(String(to.balance ?? "0"), amount);
 
-    const notes = input.notes?.trim() || null;
+    const outDesc = input.description?.trim() || null;
     const outConcept = `Transferencia → ${to.name}`;
     const inConcept = `Transferencia ← ${from.name}`;
-    const outDesc = notes || null;
 
     const { outTx } = await db.transaction(async (tx) => {
       // Generate a shared pair ID so both legs are traceable together
@@ -99,7 +98,7 @@ export const transfer = defineAction({
           amount,
           categoryId: transferCategory.id,
           concept: outConcept,
-          notes: outDesc || null,
+          metadata: outDesc ? JSON.stringify({ description: outDesc }) : null,
           cashboxId: from.id,
           createdByUserId: user.id,
           status: "completado",
@@ -114,7 +113,7 @@ export const transfer = defineAction({
         amount,
         categoryId: transferInCategory.id, // ← was transferCategory.id
         concept: inConcept,
-        notes: outDesc || null,
+        metadata: outDesc ? JSON.stringify({ description: outDesc }) : null,
         cashboxId: to.id,
         createdByUserId: user.id,
         status: "completado",
@@ -159,7 +158,7 @@ export const payContractor = defineAction({
       .refine((v) => parseFloat(v) > 0, "El monto debe ser mayor a 0"),
     concept: z.string().min(1, "Concepto requerido").max(255),
     receiptNumber: z.string().max(30).optional(),
-    notes: z.string().max(1000).optional(),
+    description: z.string().max(1000).optional(),
   }),
   async handler(input, { locals }) {
     const user = locals.user;
@@ -212,7 +211,7 @@ export const payContractor = defineAction({
           categoryId: contractorCategory.id,
           concept: `Pago contratista: ${contractor.fullName} — ${concept}`,
           cashboxId: cashbox.id,
-          notes: input.notes?.trim() || null,
+          metadata: input.description?.trim() ? JSON.stringify({ note: input.description.trim() }) : null,
           createdByUserId: user.id,
           status: "completado",
           balanceAfter: newBalance,
@@ -233,7 +232,7 @@ export const payContractor = defineAction({
           transactionId: financeTx.id,
           concept,
           receiptNumber: input.receiptNumber?.trim() || null,
-          notes: input.notes?.trim() || null,
+          notes: input.description?.trim() || null,
           processedByUserId: user.id,
         })
         .returning();
