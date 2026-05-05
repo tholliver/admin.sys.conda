@@ -294,6 +294,7 @@ export const depositToCashboxAction = defineAction({
       .max(999_999_999, "Monto fuera de rango"),
     concept: z.string().min(1, "Concepto requerido").max(255),
     reference: z.string().max(100).optional(),
+    externalReference: z.string().max(100).optional(),
     notes: z.string().max(500).optional(),
   }),
   handler: async (input, ctx) => {
@@ -368,7 +369,7 @@ export const depositToCashboxAction = defineAction({
         amount: amountStr,
         concept: input.concept,
         metadata: input.notes?.trim() ? JSON.stringify({ note: input.notes.trim() }) : null,
-        externalReference: input.reference?.trim() || null,
+        externalReference: input.reference?.trim() || input.externalReference?.trim() || null,
         createdByUserId: user.id,
         status: "completado",
         balanceAfter: newBalance,

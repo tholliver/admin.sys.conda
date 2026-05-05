@@ -249,8 +249,9 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
         get inputErrors() { return inputErrors; },
         get serverError() { return serverError; },
         set serverError(v) { serverError = v; },
-        get successMessage() { return successMessage; },
-        get isSubmitting() { return isSubmitting; },
+        get successMessage()  { return successMessage; },
+        set successMessage(v) { successMessage = v; },
+        get isSubmitting()    { return isSubmitting; },
         get showConfirmDialog() { return showConfirmDialog; },
         // derived
         get filteredConcepts() { return filteredConcepts; },

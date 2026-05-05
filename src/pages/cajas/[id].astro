@@ -15,7 +15,7 @@ import {
   ArrowRightLeft,
   AlertCircle,
 } from "@lucide/astro";
-import CashboxDepositDialog from "@/components/svelte/dialogs/CashboxDepositDialog.svelte";
+import CashboxOperationsDialog from "@/components/svelte/CashboxOperationsDialog.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -143,7 +143,7 @@ const statusClass: Record<string, string> = {
 
     <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
       {isActive && (
-        <CashboxDepositDialog
+        <CashboxOperationsDialog
           cashboxId={cashbox.id}
           cashboxName={cashbox.name}
           currentBalance={balance}
