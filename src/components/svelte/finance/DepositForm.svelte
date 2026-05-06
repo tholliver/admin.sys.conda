@@ -5,7 +5,8 @@
      * Thin orchestrator — all state and logic lives in deposit.store.svelte.ts,
      * mirroring the WithdrawForm pattern.
      */
-    import { Plus, CircleAlert, CircleCheck, X } from "@lucide/svelte";
+    import { untrack } from 'svelte';
+    import { Plus, CircleAlert, X } from "@lucide/svelte";
     import type { SelectTransactionCategories } from "@/db/schema";
     import AmountInput from "./AmountInput.svelte";
     import { createDepositStore } from "@/lib/stores/deposit.store.svelte";
@@ -20,7 +21,7 @@
 
     let { concepts }: Props = $props();
 
-    const d = createDepositStore(concepts);
+    const d = createDepositStore(untrack(() => concepts));
 </script>
 
 <svelte:window onclick={d.onClickOutside} />
