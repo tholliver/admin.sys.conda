@@ -55,7 +55,9 @@ export type ConceptWithRange = SelectTransactionCategories & {
  */
 export function needsInvoice(concept: ConceptWithRange | null): boolean {
     if (!concept) return false;
-    return !!concept.invoiceRangeId;
+    if (concept.type !== "income") return false;
+    if (concept.code === "TRANSFER_IN") return false;
+    return true;
 }
 
 // ─── Invoice preview ──────────────────────────────────────────────────────────
@@ -79,11 +81,10 @@ export function getInvoicePreview(
     if (!needsInvoice(concept)) return null;
     if (!concept!.invoiceRangeId || !concept!.invoiceRangeIsActive) return null;
 
-    const next = Math.max(
-        Number(concept!.invoiceRangeCurrent),
-        Number(concept!.invoiceRangeStart ?? 1),
-    );
-    if (next > Number(concept!.invoiceRangeEnd)) return null; // exhausted
+    const start = concept!.invoiceRangeStart ?? 1;
+    const current = concept!.invoiceRangeCurrent ?? start;
+    const next = Math.max(Number(current), Number(start));
+    if (next > Number(concept!.invoiceRangeEnd)) return null;
 
     const label = concept!.invoiceRangePrefix
         ? `${concept!.invoiceRangePrefix}-${next}`
@@ -100,10 +101,9 @@ export function isTalonarioExhausted(concept: ConceptWithRange | null): boolean 
     if (!needsInvoice(concept)) return false;
     if (!concept!.invoiceRangeId) return false;
     if (!concept!.invoiceRangeIsActive) return true;
-    const next = Math.max(
-        Number(concept!.invoiceRangeCurrent),
-        Number(concept!.invoiceRangeStart ?? 1),
-    );
+    const start = concept!.invoiceRangeStart ?? 1;
+    const current = concept!.invoiceRangeCurrent ?? start;
+    const next = Math.max(Number(current), Number(start));
     return next > Number(concept!.invoiceRangeEnd);
 }
 

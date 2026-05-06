@@ -3,11 +3,11 @@
     import { actions, isInputError } from "astro:actions";
     import { UserPlus, CircleAlert, CircleCheck, X } from "@lucide/svelte";
     import EmployeeForm from "@/components/svelte/rrhh/EmployeeForm.svelte";
-    import type { SelectSector } from "@/db/schema";
+    import type { SelectCashbox } from "@/db/schema";
     import type { EmployeeFormData } from "@/components/svelte/rrhh/employeeFormTypes";
 
     interface Props {
-        sectors: Pick<SelectSector, "id" | "name">[];
+        cashboxes: Pick<SelectCashbox, "id" | "name">[];
         directorioCount: number;
         plantaCount: number;
         maxDirectorio: number;
@@ -15,7 +15,7 @@
     }
 
     let {
-        sectors,
+        cashboxes,
         directorioCount,
         plantaCount,
         maxDirectorio,
@@ -49,8 +49,7 @@
         if (data.phone) fd.set("phone", data.phone);
         if (data.address) fd.set("address", data.address);
         fd.set("chargeTitle", data.chargeTitle);
-        const sectorId = Number(data.sectorId);
-        if (Number.isFinite(sectorId) && sectorId > 0) fd.set("sectorId", String(sectorId));
+        if (data.cashboxId) fd.set("cashboxId", data.cashboxId);
         fd.set("hireDate", data.hireDate ?? "");
         fd.set("baseSalary", String(data.baseSalary));
         if (data.notes) fd.set("notes", data.notes);
@@ -135,7 +134,7 @@
             {#key formKey}
                 <EmployeeForm
                     {formId}
-                    {sectors}
+                    cashboxes={cashboxes}
                     {directorioCount}
                     {plantaCount}
                     {maxDirectorio}

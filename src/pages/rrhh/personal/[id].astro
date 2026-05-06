@@ -8,7 +8,6 @@ import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { actions, isActionError } from "astro:actions";
 import {
     getEmployeeById,
-    getSectorCashboxLinks,
     getFeesWithEmployees,
     formatPeriod,
     currentPeriod,
@@ -54,11 +53,10 @@ const errorMsg =
 
 const today = currentPeriod();
 
-const [employee, allGaps, allFees, cashboxLinks] = await Promise.all([
+const [employee, allGaps, allFees] = await Promise.all([
     getEmployeeById(employeeId),
     auditEmployeeFees(today),
     getFeesWithEmployees({ employeeId, status: "all" }),
-    getSectorCashboxLinks(),
 ]);
 
 if (!employee) return Astro.redirect("/rrhh/personal");
@@ -68,14 +66,11 @@ const gaps        = allGaps.filter((g) => g.employeeId === employeeId);
 const missingGaps = gaps.filter((g) => g.kind === "missing");
 const pendingGaps = gaps.filter((g) => g.kind === "pending") as Extract<typeof gaps[number], { kind: "pending" }>[];
 
-// Cashbox for this employee's sector
-const cashboxBySector = new Map(
-    cashboxLinks
-        .filter((l) => l.cashboxId && l.cashboxName)
-        .map((l) => [l.sectorId, { id: l.cashboxId!, name: l.cashboxName!, balance: Number(l.cashboxBalance ?? 0) }])
-);
-const defaultCashbox  = employee.sectorId ? (cashboxBySector.get(employee.sectorId) ?? null) : null;
-const defaultCashboxId = defaultCashbox?.id ?? cashboxLinks[0]?.cashboxId ?? "";
+// Cashbox for this employee
+const defaultCashbox = employee.cashboxId
+    ? { id: employee.cashboxId, name: employee.cashboxName, balance: 0 }
+    : null;
+const defaultCashboxId = defaultCashbox?.id ?? "";
 
 // Fee history stats
 const paidFees    = allFees.filter((f) => f.status === "pagado");
@@ -128,7 +123,7 @@ const fmtPeriod = (p: string) =>
                 </span>
                 <span class="text-xs text-slate-400">{employee.chargeTitle}</span>
                 <span class="text-xs text-slate-300">·</span>
-                <span class="text-xs text-slate-400">{employee.sectorName}</span>
+                <span class="text-xs text-slate-400">{employee.cashboxName}</span>
             </div>
         </div>
         <div class="text-right">
@@ -172,8 +167,8 @@ const fmtPeriod = (p: string) =>
             <div class="flex items-start gap-3">
                 <Building2 class="h-4 w-4 text-slate-400 mt-0.5" />
                 <div>
-                    <p class="text-xs text-slate-500">Sector</p>
-                    <p class="font-medium text-slate-900">{employee.sectorName}</p>
+                    <p class="text-xs text-slate-500">Caja</p>
+                    <p class="font-medium text-slate-900">{employee.cashboxName}</p>
                 </div>
             </div>
             <div class="flex items-start gap-3">
@@ -270,8 +265,8 @@ const fmtPeriod = (p: string) =>
                                             employee: {
                                                 fullName:    employee.fullName,
                                                 ci:          employee.ci ?? "",
-                                                sectorId:    employee.sectorId ?? null,
-                                                sectorName:  employee.sectorName,
+                                                cashboxId:   employee.cashboxId ?? null,
+                                                cashboxName: employee.cashboxName,
                                                 chargeTitle: employee.chargeTitle,
                                             },
                                         }}
@@ -350,8 +345,8 @@ const fmtPeriod = (p: string) =>
                                                         employee: {
                                                             fullName:    employee.fullName,
                                                             ci:          employee.ci ?? "",
-                                                            sectorId:    employee.sectorId ?? null,
-                                                            sectorName:  employee.sectorName,
+                                                            cashboxId:   employee.cashboxId ?? null,
+                                                            cashboxName: employee.cashboxName,
                                                             chargeTitle: employee.chargeTitle,
                                                         },
                                                     }}

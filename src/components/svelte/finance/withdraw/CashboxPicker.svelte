@@ -1,7 +1,7 @@
 <script lang="ts">
+    import { tick } from "svelte";
     import type { SelectCashbox } from "@/db/schema";
-    import { Vault, Plus, ChevronDown, X } from "@lucide/svelte";
-    import { tooltip } from "@/lib/actions/tooltip";
+    import { Check, ChevronDown, CircleAlert, Search, Vault } from "@lucide/svelte";
     import { formatBOB } from "@/utils/formatters";
 
     interface Props {
@@ -14,163 +14,222 @@
     let { cashboxes, selected, onSelect, error }: Props = $props();
 
     let showDropdown = $state(false);
+    let searchQuery = $state("");
+    let highlightedIndex = $state(0);
+    let searchInput = $state<HTMLInputElement | null>(null);
 
     const genCashbox = $derived(cashboxes.find((b) => b.code === "GEN") ?? null);
-    const quickCashboxes = $derived(
-        cashboxes.filter((b) => b.isQuick && b.code !== "GEN").slice(0, 4)
-    );
-    const otherCashboxes = $derived(
-        cashboxes.filter((b) => !b.isQuick && b.code !== "GEN")
+    const orderedCashboxes = $derived.by(() => {
+        const gen = cashboxes.find((b) => b.code === "GEN");
+        const rest = cashboxes.filter((b) => b.code !== "GEN");
+        return gen ? [gen, ...rest] : cashboxes;
+    });
+
+    const selectedBox = $derived(
+        cashboxes.find((b) => b.id === selected) ?? genCashbox ?? cashboxes[0] ?? null,
     );
 
-    const selectedIsOther = $derived(!!otherCashboxes.find((b) => b.id === selected));
-    const selectedOther = $derived(otherCashboxes.find((b) => b.id === selected) ?? null);
-    const selectedBox = $derived(cashboxes.find((b) => b.id === selected) ?? null);
+    const filteredCashboxes = $derived.by(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return orderedCashboxes;
 
-    function pickOther(id: string) {
-        onSelect(id);
-        showDropdown = false;
+        return orderedCashboxes.filter((box) => {
+            const name = box.name.toLowerCase();
+            const code = box.code?.toLowerCase() ?? "";
+            const description = box.description?.toLowerCase() ?? "";
+            return name.includes(q) || code.includes(q) || description.includes(q);
+        });
+    });
+
+    $effect(() => {
+        if (!selected && genCashbox) onSelect(genCashbox.id);
+    });
+
+    $effect(() => {
+        if (!showDropdown) return;
+
+        highlightedIndex = Math.max(
+            0,
+            filteredCashboxes.findIndex((box) => box.id === selectedBox?.id),
+        );
+
+        tick().then(() => searchInput?.focus());
+    });
+
+    function openDropdown() {
+        showDropdown = true;
     }
 
     function toggleDropdown(e: MouseEvent | KeyboardEvent) {
         if (e instanceof KeyboardEvent && e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
         e.stopPropagation();
         showDropdown = !showDropdown;
     }
 
-    function balanceTip(box: SelectCashbox) {
-        return `Balance · ${formatBOB(box.balance)}`;
+    function pickCashbox(box: SelectCashbox) {
+        onSelect(box.id);
+        searchQuery = "";
+        showDropdown = false;
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+        if (e.key === "Escape") {
+            e.preventDefault();
+            showDropdown = false;
+            return;
+        }
+
+        if (!showDropdown) {
+            if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+                openDropdown();
+                e.preventDefault();
+            }
+            return;
+        }
+
+        if (filteredCashboxes.length === 0) return;
+
+        switch (e.key) {
+            case "ArrowDown":
+                e.preventDefault();
+                highlightedIndex = Math.min(highlightedIndex + 1, filteredCashboxes.length - 1);
+                break;
+            case "ArrowUp":
+                e.preventDefault();
+                highlightedIndex = Math.max(highlightedIndex - 1, 0);
+                break;
+            case "Enter":
+                e.preventDefault();
+                pickCashbox(filteredCashboxes[highlightedIndex]);
+                break;
+        }
+    }
+
+    function onSearchInput(value: string) {
+        searchQuery = value;
+        highlightedIndex = 0;
     }
 </script>
 
 <svelte:window onclick={() => (showDropdown = false)} />
 
-<div>
-    <div class="flex items-center justify-between mb-2">
-        <p class="text-sm font-medium text-slate-700">
-            Caja <span class="text-red-500">*</span>
-        </p>
-        <!-- Live balance of selected cashbox -->
-        {#if selectedBox}
-            <span class="text-xs text-slate-400 font-mono">
-                Saldo: <span class="font-semibold text-slate-600">{formatBOB(selectedBox.balance)}</span>
+<div class="relative" data-cashbox-dropdown>
+    <label for="cashbox-picker" class="block text-sm font-medium text-slate-700 mb-2">
+        Caja <span class="text-red-500">*</span>
+    </label>
+
+    <button
+        id="cashbox-picker"
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={showDropdown}
+        onclick={toggleDropdown}
+        onkeydown={handleKeyDown}
+        class="w-full rounded-lg border bg-white px-4 py-2.5 text-left transition
+               hover:border-red-300 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-100
+               {error ? 'border-red-500' : 'border-slate-300'}"
+    >
+        <span class="flex items-center gap-3">
+            <span class="shrink-0 rounded-md bg-red-50 p-2 text-red-600">
+                <Vault class="h-4 w-4" />
             </span>
-        {/if}
-    </div>
 
-    <div class="flex items-center gap-1 rounded-xl bg-slate-100 p-1 w-full">
-        <!-- GEN always first -->
-        {#if genCashbox}
-            {@const isSelected = selected === genCashbox.id}
-            <button
-                type="button"
-                onclick={() => onSelect(genCashbox.id)}
-                class="relative flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all
-                {isSelected
-                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}"
-            >
-                <span class="flex items-center justify-center gap-1.5">
-                    <!-- Active dot -->
-                    <span class="h-1.5 w-1.5 rounded-full shrink-0
-                        {isSelected ? 'bg-emerald-500' : 'bg-emerald-400/40'}">
+            <span class="flex min-w-0 flex-1 items-center gap-3">
+                {#if selectedBox}
+                    <span class="flex min-w-0 flex-1 items-center gap-2">
+                        <span class="truncate font-medium text-slate-900">{selectedBox.name}</span>
+                        {#if selectedBox.code}
+                            <span class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
+                                {selectedBox.code}
+                            </span>
+                        {/if}
                     </span>
-                    {genCashbox.name}
-                </span>
-            </button>
-        {/if}
-
-        <!-- Quick cashboxes -->
-        {#each quickCashboxes as box}
-            {@const isSelected = selected === box.id}
-            <button
-                type="button"
-                use:tooltip={balanceTip(box)}
-                onclick={() => onSelect(box.id)}
-                class="flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all
-                {isSelected
-                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}"
-            >
-                {box.name}
-            </button>
-        {/each}
-
-        <!-- Others dropdown -->
-        {#if otherCashboxes.length > 0}
-            <div
-                class="relative"
-                role="none"
-                onclick={(e) => e.stopPropagation()}
-                onkeydown={(e) => e.stopPropagation()}
-            >
-                {#if selectedIsOther && selectedOther}
-                    <button
-                        type="button"
-                        onclick={toggleDropdown}
-                        onkeydown={toggleDropdown}
-                        class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium bg-white text-slate-900 shadow-sm ring-1 ring-slate-200 transition-all"
-                    >
-                        {selectedOther.name}
-                        <span
-                            role="button"
-                            tabindex="0"
-                            aria-label="Deseleccionar"
-                            onclick={(e) => { e.stopPropagation(); onSelect(genCashbox?.id ?? ""); }}
-                            onkeydown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onSelect(genCashbox?.id ?? ""); } }}
-                            class="rounded-full p-0.5 hover:bg-slate-100 transition-colors cursor-pointer"
-                        >
-                            <X class="h-3 w-3 text-slate-400 hover:text-slate-700" />
-                        </span>
-                    </button>
+                    <span class="shrink-0 text-xs font-mono text-slate-500">
+                        Saldo: <span class="font-semibold text-slate-700">{formatBOB(selectedBox.balance)}</span>
+                    </span>
                 {:else}
-                    <button
-                        type="button"
-                        onclick={toggleDropdown}
-                        onkeydown={toggleDropdown}
-                        class="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-all text-slate-500 hover:text-slate-700 hover:bg-white/50"
-                    >
-                        <Plus class="h-3.5 w-3.5" />
-                        Otra
-                        <ChevronDown class="h-3 w-3 opacity-50 transition-transform {showDropdown ? 'rotate-180' : ''}" />
-                    </button>
+                    <span class="font-medium text-slate-500">Seleccione una caja</span>
                 {/if}
+            </span>
 
-                {#if showDropdown}
-                    <div class="absolute z-20 right-0 top-full mt-1.5 min-w-48 rounded-lg border border-slate-200 bg-white shadow-lg">
-                        <p class="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                            Otras cajas
-                        </p>
-                        <ul class="max-h-52 overflow-y-auto pb-1">
-                            {#each otherCashboxes as box}
-                                <li>
-                                    <button
-                                        type="button"
-                                        onclick={() => pickOther(box.id)}
-                                        class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-slate-50
-                                        {selected === box.id ? 'font-semibold text-slate-900 bg-slate-50' : 'text-slate-600'}"
-                                    >
-                                        <Vault class="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                        <div class="flex-1 min-w-0">
-                                            <p class="truncate">{box.name}</p>
-                                            <p class="text-[10px] text-slate-400 font-mono">{formatBOB(box.balance)}</p>
-                                        </div>
+            <ChevronDown class="h-4 w-4 shrink-0 text-slate-400 transition-transform {showDropdown ? 'rotate-180' : ''}" />
+        </span>
+    </button>
+
+    {#if showDropdown}
+        <div
+            class="absolute z-20 mt-2 w-full overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+            onclick={(e) => e.stopPropagation()}
+            onkeydown={(e) => e.stopPropagation()}
+        >
+            <div class="border-b border-slate-100 p-2">
+                <div class="search-control search-control-buttonless min-h-10">
+                    <span class="search-control-icon">
+                        <Search class="h-4 w-4" />
+                    </span>
+                    <input
+                        bind:this={searchInput}
+                        type="text"
+                        value={searchQuery}
+                        oninput={(e) => onSearchInput((e.target as HTMLInputElement).value)}
+                        onkeydown={handleKeyDown}
+                        placeholder="Buscar caja..."
+                        class="search-control-input min-h-10 py-2"
+                    />
+                </div>
+            </div>
+
+            {#if filteredCashboxes.length > 0}
+                <ul role="listbox" aria-label="Cajas" class="max-h-64 overflow-y-auto py-1">
+                    {#each filteredCashboxes as box, idx (box.id)}
+                        {@const isSelected = selectedBox?.id === box.id}
+                        <li>
+                            <button
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onclick={() => pickCashbox(box)}
+                                class="flex w-full items-center gap-3 px-3 py-2.5 text-left transition
+                                       {idx === highlightedIndex ? 'bg-red-50' : 'hover:bg-red-50'}
+                                       {isSelected ? 'text-slate-900' : 'text-slate-600'}"
+                            >
+                                <span class="shrink-0 rounded-md bg-slate-100 p-1.5 text-slate-500">
+                                    <Vault class="h-4 w-4" />
+                                </span>
+
+                                <span class="flex min-w-0 flex-1 items-center gap-3">
+                                    <span class="flex min-w-0 flex-1 items-center gap-2">
+                                        <span class="truncate text-sm font-medium">{box.name}</span>
                                         {#if box.code}
-                                            <span class="rounded px-1.5 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-500">
+                                            <span class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
                                                 {box.code}
                                             </span>
                                         {/if}
-                                    </button>
-                                </li>
-                            {/each}
-                        </ul>
-                    </div>
-                {/if}
-            </div>
-        {/if}
-    </div>
+                                    </span>
+                                    <span class="shrink-0 text-[11px] font-mono text-slate-400">
+                                        Saldo: {formatBOB(box.balance)}
+                                    </span>
+                                </span>
+
+                                {#if isSelected}
+                                    <Check class="h-4 w-4 shrink-0 text-red-600" />
+                                {/if}
+                            </button>
+                        </li>
+                    {/each}
+                </ul>
+            {:else}
+                <div class="px-4 py-6 text-center text-sm text-slate-500">
+                    No hay cajas para "{searchQuery}"
+                </div>
+            {/if}
+        </div>
+    {/if}
 
     {#if error}
-        <p class="mt-1.5 text-xs text-red-600">{error}</p>
+        <p class="mt-2 flex items-center gap-1 text-sm text-red-600">
+            <CircleAlert class="h-4 w-4 shrink-0" />{error}
+        </p>
     {/if}
 </div>

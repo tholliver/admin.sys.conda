@@ -208,7 +208,7 @@
                 <div in:fade={{ duration: 150 }} class="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
                     <TriangleAlert class="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                     <p class="text-xs text-amber-800">
-                        El monto supera el saldo disponible
+                        El monto supera Saldo act.
                         (<span class="font-semibold">{formatBOB(String(w.selectedCashbox.balance ?? "0"))}</span>).
                         Se te pedirá confirmar la deuda.
                     </p>

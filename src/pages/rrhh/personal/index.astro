@@ -9,7 +9,7 @@ import {
 import { employeeFiltersSchema } from "@/lib/schemas/rrhh.schemas";
 import { Users, UserCheck, Search, Funnel, X } from "@lucide/astro";
 import { db } from "@/db";
-import { sectors } from "@/db/schema";
+import { cashboxes } from "@/db/schema";
 import { asc } from "drizzle-orm";
 import CreateEmployeeDialog from "@/components/svelte/rrhh/CreateEmployeeDialog.svelte";
 import EditEmployeeDialog from "@/components/svelte/rrhh/EditEmployeeDialog.svelte";
@@ -25,13 +25,13 @@ const canEdit = (["ADMIN"] as const).includes(user.role as any);
 const rawFilters = Object.fromEntries(Astro.url.searchParams);
 const filters = employeeFiltersSchema.parse(rawFilters);
 
-const [result, counts, allSectors] = await Promise.all([
+const [result, counts, allCashboxes] = await Promise.all([
     getEmployees(filters),
     getEmployeeCountByType(),
     db
-        .select({ id: sectors.id, name: sectors.name })
-        .from(sectors)
-        .orderBy(asc(sectors.name)),
+        .select({ id: cashboxes.id, name: cashboxes.name })
+        .from(cashboxes)
+        .orderBy(asc(cashboxes.name)),
 ]);
 
 const buildUrl = (overrides: Record<string, any>) => {
@@ -86,7 +86,7 @@ const STATUS_COLORS: Record<string, string> = {
             canEdit && (
                 <div class="flex items-center gap-2">
                     <CreateEmployeeDialog
-                        sectors={allSectors}
+                        cashboxes={allCashboxes}
                         directorioCount={counts.directorio}
                         plantaCount={counts.planta}
                         maxDirectorio={MAX_DIRECTORIO}
@@ -132,17 +132,17 @@ const STATUS_COLORS: Record<string, string> = {
             </select>
         </div>
         <div>
-            <label class="block text-xs font-medium text-slate-600 mb-1">Sector</label>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Caja</label>
             <select
-                name="sectorId"
+                name="cashboxId"
                 onchange="this.form.requestSubmit()"
                 class="text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-                <option value="">Todos</option>
+                <option value="">Todas</option>
                 {
-                    allSectors.map((s) => (
-                        <option value={s.id} selected={filters.sectorId === s.id}>
-                            {s.name}
+                    allCashboxes.map((c) => (
+                        <option value={c.id} selected={filters.cashboxId === c.id}>
+                            {c.name}
                         </option>
                     ))
                 }
@@ -169,7 +169,7 @@ const STATUS_COLORS: Record<string, string> = {
             <Funnel class="h-3.5 w-3.5" />
             Filtrar
         </button>
-        { (filters.search || filters.type !== "all" || filters.sectorId || filters.status !== "all") && (
+        { (filters.search || filters.type !== "all" || filters.cashboxId || filters.status !== "all") && (
             <a
                 title="Limpiar filtros"
                 href="/rrhh/personal"
@@ -193,7 +193,7 @@ const STATUS_COLORS: Record<string, string> = {
                     <tr>
                         <th class="py-3 px-5 font-medium">Personal</th>
                         <th class="py-3 px-4 font-medium">Tipo / Cargo</th>
-                        <th class="py-3 px-4 font-medium">Sector</th>
+                        <th class="py-3 px-4 font-medium">Caja</th>
                         <th class="py-3 px-4 font-medium text-right"
                             >Salario Base</th
                         >
@@ -249,7 +249,7 @@ const STATUS_COLORS: Record<string, string> = {
                                         </p>
                                     </td>
                                     <td class="py-3.5 px-4 text-slate-700 text-xs">
-                                        {emp.sectorName}
+                                        {emp.cashboxName}
                                     </td>
                                     <td class="py-3.5 px-4 text-right font-mono text-slate-700">
                                         Bs{" "}
@@ -276,7 +276,7 @@ const STATUS_COLORS: Record<string, string> = {
                                         <td class="py-3.5 px-4 text-right">
                                             <div class="flex items-center justify-end gap-2">
                                                 <EditEmployeeDialog
-                                                    sectors={allSectors}
+                                                    cashboxes={allCashboxes}
                                                     directorioCount={
                                                         counts.directorio
                                                     }
@@ -296,7 +296,7 @@ const STATUS_COLORS: Record<string, string> = {
                                                         address: emp.address,
                                                         chargeTitle:
                                                             emp.chargeTitle,
-                                                        sectorId: emp.sectorId,
+                                                        cashboxId: emp.cashboxId,
                                                         hireDate: toDateInput(
                                                             emp.hireDate,
                                                         ),

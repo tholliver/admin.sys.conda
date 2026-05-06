@@ -12,7 +12,6 @@ import {
     currentPeriod,
     formatPeriod,
 } from "@/services/rrhh/rrhh.service";
-import { getSectorCashboxLinks } from "@/services/rrhh/rrhh.service";
 import { feeFiltersSchema } from "@/lib/schemas/rrhh.schemas";
 import PayFeeDialog from "@/components/svelte/rrhh/PayFeeDialog.svelte";
 import {
@@ -81,10 +80,9 @@ const nextPeriod = (() => {
 
 const isFuturePeriod = period > today;
 
-const [fees, summary, cashboxLinks, overdue] = await Promise.all([
+const [fees, summary, overdue] = await Promise.all([
     getFeesWithEmployees({ ...filters, period }),
     getFeeSummaryByPeriod(period),
-    getSectorCashboxLinks(),
     getOverdueFeesSummary(today),
 ]);
 
@@ -98,25 +96,15 @@ const pendingCount = Number(pendingRow?.total ?? 0);
 const partialCount = Number(partialRow?.total ?? 0);
 const allPaid      = totalFees > 0 && pendingCount === 0 && partialCount === 0;
 
-// Cashbox lookup by sectorId — used to show balance in PayFeeDialog
-const cashboxBySector = new Map(
-    cashboxLinks
-        .filter((l) => l.cashboxId && l.cashboxName)
-        .map((l) => [
-            l.sectorId,
-            {
-                id:      l.cashboxId!,
-                name:    l.cashboxName!,
-                balance: Number(l.cashboxBalance ?? 0),
-            },
-        ]),
-);
-
-// Helper: get cashbox for a fee's employee sector (null = no linked cashbox)
+// Cashbox lookup by employee's cashboxId
 const feeGetCashbox = (fee: (typeof fees)[number]) => {
-    const sectorId = fee.employee.sectorId ?? null;
-    if (sectorId == null) return null;
-    return cashboxBySector.get(sectorId) ?? null;
+    const cb = fee.employee.cashboxId ?? null;
+    if (cb == null) return null;
+    return {
+        id: cb,
+        name: fee.employee.cashboxName,
+        balance: 0,
+    };
 };
 
 // Split overdue (pending from past periods) from current-period rows
@@ -396,7 +384,7 @@ const bsFormat = (n: number) =>
                         <tr>
                             <th class="py-3 px-5 text-left font-medium">Personal</th>
                             <th class="py-3 px-4 text-left font-medium">Período</th>
-                            <th class="py-3 px-4 text-left font-medium">Sector</th>
+                            <th class="py-3 px-4 text-left font-medium">Caja</th>
                             <th class="py-3 px-4 text-right font-medium">Monto</th>
                             {canEdit && (
                                 <th class="py-3 px-4 text-right font-medium">Acción</th>
@@ -417,7 +405,7 @@ const bsFormat = (n: number) =>
                                     </span>
                                 </td>
                                 <td class="py-3.5 px-4 text-xs text-slate-600">
-                                    {fee.employee.sectorName}
+                                    {fee.employee.cashboxName}
                                 </td>
                                 <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
                                     {bsFormat(Number(fee.amount))}
@@ -434,8 +422,8 @@ const bsFormat = (n: number) =>
                                                 employee: {
                                                     fullName:    fee.employee.fullName,
                                                     ci:          fee.employee.ci,
-                                                    sectorId:    fee.employee.sectorId,
-                                                    sectorName:  fee.employee.sectorName,
+                                                    cashboxId:   fee.employee.cashboxId,
+                                                    cashboxName: fee.employee.cashboxName,
                                                     chargeTitle: fee.employee.chargeTitle,
                                                 },
                                             }}
@@ -468,7 +456,7 @@ const bsFormat = (n: number) =>
                     <tr>
                         <th class="py-3 px-5 text-left font-medium">Personal</th>
                         <th class="py-3 px-4 text-left font-medium">Tipo / Cargo</th>
-                        <th class="py-3 px-4 text-left font-medium">Sector</th>
+                        <th class="py-3 px-4 text-left font-medium">Caja</th>
                         <th class="py-3 px-4 text-right font-medium">Monto</th>
                         <th class="py-3 px-4 text-center font-medium">Estado</th>
                         {canEdit && (
@@ -516,7 +504,7 @@ const bsFormat = (n: number) =>
                                     <p class="text-xs text-slate-500 mt-0.5">{fee.employee.chargeTitle}</p>
                                 </td>
                                 <td class="py-3.5 px-4 text-xs text-slate-600">
-                                    {fee.employee.sectorName}
+                                    {fee.employee.cashboxName}
                                 </td>
                                 <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
                                     {bsFormat(Number(fee.amount))}
@@ -544,8 +532,8 @@ const bsFormat = (n: number) =>
                                                     employee: {
                                                         fullName:    fee.employee.fullName,
                                                         ci:          fee.employee.ci,
-                                                        sectorId:    fee.employee.sectorId,
-                                                        sectorName:  fee.employee.sectorName,
+                                                        cashboxId:   fee.employee.cashboxId,
+                                                        cashboxName: fee.employee.cashboxName,
                                                         chargeTitle: fee.employee.chargeTitle,
                                                     },
                                                 }}

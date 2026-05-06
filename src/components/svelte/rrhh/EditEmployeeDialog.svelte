@@ -3,11 +3,11 @@
     import { actions, isInputError } from "astro:actions";
     import { CircleAlert, CircleCheck, X } from "@lucide/svelte";
     import EmployeeForm from "@/components/svelte/rrhh/EmployeeForm.svelte";
-    import type { SelectSector } from "@/db/schema";
+    import type { SelectCashbox } from "@/db/schema";
     import type { EmployeeFormData } from "./employeeFormTypes";
 
     interface Props {
-        sectors: Pick<SelectSector, "id" | "name">[];
+        cashboxes: Pick<SelectCashbox, "id" | "name">[];
         directorioCount: number;
         plantaCount: number;
         maxDirectorio: number;
@@ -18,7 +18,7 @@
     }
 
     let {
-        sectors,
+        cashboxes,
         directorioCount,
         plantaCount,
         maxDirectorio,
@@ -43,11 +43,6 @@
         successMsg = null;
     }
 
-    function normalizeSectorId(value: string | number | undefined) {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-    }
-
     async function handleSubmit(data: EmployeeFormData) {
         fieldErrors = {};
         serverError = null;
@@ -61,8 +56,7 @@
         if (data.phone) fd.set("phone", data.phone);
         if (data.address) fd.set("address", data.address);
         fd.set("chargeTitle", data.chargeTitle);
-        const sid = Number(data.sectorId);
-        if (Number.isFinite(sid) && sid > 0) fd.set("sectorId", String(sid));
+        if (data.cashboxId) fd.set("cashboxId", data.cashboxId);
         fd.set("hireDate", data.hireDate ?? "");
         fd.set("baseSalary", String(data.baseSalary));
         if (data.notes) fd.set("notes", data.notes);
@@ -146,7 +140,7 @@
             {#key formKey}
                 <EmployeeForm
                     {formId}
-                    {sectors}
+                    cashboxes={cashboxes}
                     {directorioCount}
                     {plantaCount}
                     {maxDirectorio}

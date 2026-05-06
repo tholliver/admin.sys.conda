@@ -2,11 +2,11 @@
     import { z } from "zod";
     import { CircleAlert, CircleCheck, Calendar } from "@lucide/svelte";
     import { ZodForm } from "@/lib/form/create-zod-form.svelte";
-    import type { SelectSector } from "@/db/schema";
+    import type { SelectCashbox } from "@/db/schema";
     import type { EmployeeFormData } from "./employeeFormTypes";
 
     interface Props {
-        sectors: Pick<SelectSector, "id" | "name">[];
+        cashboxes: Pick<SelectCashbox, "id" | "name">[];
         directorioCount: number;
         plantaCount: number;
         maxDirectorio: number;
@@ -45,7 +45,7 @@
         phone: z.string().optional(),
         address: z.string().optional(),
         chargeTitle: z.string().min(2, "Cargo requerido"),
-        sectorId: z.string(),
+        cashboxId: z.string().optional(),
         hireDate: z.string().min(1, "Fecha de ingreso requerida"),
         baseSalary: z.string().min(1, "Salario requerido"),
         notes: z.string().optional(),
@@ -54,7 +54,7 @@
     type EmployeeFormValues = z.infer<typeof employeeFormSchema>;
 
     let {
-        sectors,
+        cashboxes,
         directorioCount,
         plantaCount,
         maxDirectorio,
@@ -76,7 +76,7 @@
                 phone: "",
                 address: "",
                 chargeTitle: "",
-                sectorId: "",
+                cashboxId: "",
                 hireDate: "",
                 baseSalary: "",
                 notes: "",
@@ -91,7 +91,7 @@
             phone: initial.phone ?? "",
             address: initial.address ?? "",
             chargeTitle: initial.chargeTitle ?? "",
-            sectorId: initial.sectorId ? String(initial.sectorId) : "",
+            cashboxId: initial.cashboxId ?? "",
             hireDate: initial.hireDate ?? "",
             baseSalary:
                 typeof initial.baseSalary === "number"
@@ -122,7 +122,7 @@
     const onSubmit = form.handleSubmit(async (values) => {
         const payload: EmployeeFormData = {
             ...values,
-            sectorId: values.sectorId ?? "",
+            cashboxId: values.cashboxId || null,
             id: initial?.id,
         };
 
@@ -314,32 +314,32 @@
             {/if}
         </div>
 
-        <!-- Sector -->
+        <!-- Caja -->
         <div>
-            <label for="sectorId" class="block text-sm font-medium text-slate-700 mb-1">
-                Sector *
+            <label for="cashboxId" class="block text-sm font-medium text-slate-700 mb-1">
+                Caja <span class="text-slate-400 font-normal text-xs">(Opcional)</span>
             </label>
             <select
-                name="sectorId"
-                value={form.values.sectorId}
+                name="cashboxId"
+                value={form.values.cashboxId}
                 onchange={(e) =>
-                    form.setValue("sectorId", e.currentTarget.value, {
+                    form.setValue("cashboxId", e.currentTarget.value, {
                         validate: false,
                     })}
-                onblur={() => form.onBlur("sectorId")}
+                onblur={() => form.onBlur("cashboxId")}
                 class="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500
-                {fieldError('sectorId')
+                {fieldError('cashboxId')
                     ? 'border-red-400'
                     : 'border-slate-200'}"
             >
-                <option value="">— Seleccionar sector —</option>
-                {#each sectors as s}
-                    <option value={String(s.id)}>{s.name}</option>
+                <option value="">— Sin asignar —</option>
+                {#each cashboxes as c}
+                    <option value={String(c.id)}>{c.name}</option>
                 {/each}
             </select>
-            {#if fieldError("sectorId")}
+            {#if fieldError("cashboxId")}
                 <p class="mt-1 text-xs text-red-600">
-                    {fieldError("sectorId")}
+                    {fieldError("cashboxId")}
                 </p>
             {/if}
         </div>

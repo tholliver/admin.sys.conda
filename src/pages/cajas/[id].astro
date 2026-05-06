@@ -35,7 +35,7 @@ const [
   overdraftTransactions,
   overdraftSum,
 ] = await Promise.all([
-  db.select({ id: cashboxes.id, name: cashboxes.name, description: cashboxes.description, isActive: sectors.isActive })
+  db.select({ id: cashboxes.id, name: cashboxes.name, description: cashboxes.description })
     .from(cashboxes)
     .where(eq(cashboxes.id, id!))
     .orderBy(asc(cashboxes.name)),
@@ -104,7 +104,7 @@ for (const emp of sectorEmployees) {
 const balance = Number(cashbox.balance ?? 0);
 const totalSalary = sectorEmployees.reduce((s, e) => s + Number(e.baseSalary ?? 0), 0);
 const canCover = balance >= totalSalary;
-const activeSectors = cashboxSectors.filter((s) => s.isActive);
+const activeSectors = cashboxDetails.filter((s) => s.isActive);
 const isActive = cashbox.status === "activo";
 const totalOverdraft = Number(overdraftSum[0]?.total ?? 0);
 
@@ -340,10 +340,10 @@ const statusClass: Record<string, string> = {
   <div>
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-slate-800">Sectores vinculados</h2>
-      <a href="/rrhh/sectores"
+      <!-- <a href="/rrhh/sectores"
         class="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">
         <ArrowRightLeft class="h-3.5 w-3.5" /> Gestionar sectores en RRHH
-      </a>
+      </a> -->
     </div>
 
     {cashboxDetails.length === 0 ? (
@@ -379,7 +379,7 @@ const statusClass: Record<string, string> = {
                       <Building2 class="h-3.5 w-3.5 text-slate-400 shrink-0" />
                       <div>
                         <p class="font-semibold text-slate-800">{cashB.name}</p>
-                        {cashB.description && <p class="text-slate-400 truncate max-w-[200px]">{sector.description}</p>}
+                        {cashB.description && <p class="text-slate-400 truncate max-w-[200px]">{cashB.description}</p>}
                       </div>
                     </div>
                   </td>

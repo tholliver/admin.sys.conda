@@ -2,7 +2,7 @@
 // src/pages/reportes/excel.astro
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { db } from "@/db";
-import { cashboxes, sectors } from "@/db/schema";
+import { cashboxes } from "@/db/schema";
 import { eq, isNull } from "drizzle-orm";
 import { FileSpreadsheet, Download, BookOpen, Wallet, Building2, CalendarRange, Scale } from "@lucide/astro";
 
@@ -14,12 +14,6 @@ const allCashboxes = await db
   .from(cashboxes)
   .where(isNull(cashboxes.deletedAt))
   .orderBy(cashboxes.name);
-
-const allSectors = await db
-  .select({ id: sectors.id, name: sectors.name })
-  .from(sectors)
-  .where(eq(sectors.isActive, true))
-  .orderBy(sectors.name);
 
 const nowBo = new Date(new Date().toLocaleString("en-US", { timeZone: "America/La_Paz" }));
 const defaultFrom = `${nowBo.getFullYear()}-${String(nowBo.getMonth() + 1).padStart(2, "0")}-01`;
@@ -89,34 +83,6 @@ const defaultTo   = new Date(nowBo.getFullYear(), nowBo.getMonth() + 1, 0).toISO
           </div>
           <p class="form-hint">Incluye todas las cajas activas con hoja resumen + detalle.</p>
           <button type="submit" class="btn-download btn-download--green"><Download size={16} /> Descargar Reporte por Caja</button>
-        </form>
-      </div>
-
-      <!-- ③ Gastos por Sector -->
-      <div class="report-card">
-        <div class="card-header">
-          <div class="card-icon card-icon--amber"><Building2 size={22} /></div>
-          <div>
-            <h2 class="card-title">Gastos por Sector</h2>
-            <p class="card-desc">Ingresos y egresos agrupados por sector organizacional. Incluye movimientos sin sector.</p>
-          </div>
-        </div>
-        <form class="report-form" data-tipo="por_sector">
-          <div class="form-row">
-            <label class="form-label"><CalendarRange size={14} /> Desde
-              <input type="date" name="from" value={defaultFrom} required class="form-input" />
-            </label>
-            <label class="form-label"><CalendarRange size={14} /> Hasta
-              <input type="date" name="to" value={defaultTo} required class="form-input" />
-            </label>
-          </div>
-          <label class="form-label"><Building2 size={14} /> Filtrar por Sector (opcional)
-            <select name="id" class="form-input">
-              <option value="">Todos los sectores</option>
-              {allSectors.map((s) => <option value={String(s.id)}>{s.name}</option>)}
-            </select>
-          </label>
-          <button type="submit" class="btn-download btn-download--amber"><Download size={16} /> Descargar Reporte por Sector</button>
         </form>
       </div>
 

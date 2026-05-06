@@ -52,7 +52,7 @@
     const C = $derived(
         accentColor === "green"
             ? {
-                  focus:       "border-green-400 ring-2 ring-green-100",
+                  focusBorder: "border-2 border-green-400",
                   idle:        "border-slate-200",
                   confirm:     "bg-green-50 border-green-200 text-green-900",
                   confirmIcon: "text-green-600",
@@ -62,7 +62,7 @@
                   segHover:    "hover:bg-green-50/60",
               }
             : {
-                  focus:       "border-red-400 ring-2 ring-red-100",
+                  focusBorder: "border-2 border-red-400",
                   idle:        "border-slate-200",
                   confirm:     "bg-red-50 border-red-200 text-red-900",
                   confirmIcon: "text-red-600",
@@ -382,25 +382,23 @@
 
     <!-- Big display -->
     <div
-        class="relative flex items-end rounded-xl border transition-all duration-200 select-none overflow-hidden
+        class="focus-ring-field relative flex items-center rounded-xl transition-all duration-200 select-none overflow-hidden
                {error
                    ? 'border-red-500 ring-2 ring-red-100'
                    : activeSeg
-                     ? C.focus
+                     ? C.focusBorder
                      : C.idle}"
-        style="min-height:72px; background:#fff;"
+        style="min-height:64px; background:#fff;"
     >
-        <!-- Currency label -->
-        <span
-            class="absolute left-4 top-3 text-xs font-semibold tracking-widest uppercase"
-            style="color:#94a3b8;"
-        >Bs.</span>
+        <span class="shrink-0 pl-4 pr-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            Bs.
+        </span>
 
         <!-- ── Enteros segment ── -->
         <button
             type="button"
             onmousedown={handleEnterosPointerDown}
-            class="flex items-end justify-end pl-14 pr-1 pb-3 pt-6 flex-1 min-w-0
+            class="flex min-w-0 flex-1 items-center justify-end py-3 pr-1
                    rounded-none transition-colors duration-100 {C.segHover}"
             aria-label="Editar parte entera"
             tabindex="-1"
@@ -426,7 +424,7 @@
 
         <!-- Separator comma -->
         <span
-            class="pb-3 font-bold text-slate-400"
+            class="font-bold text-slate-400"
             style="font-size:{enterosFontSize}; line-height:1;"
         >,</span>
 
@@ -434,7 +432,7 @@
         <button
             type="button"
             onmousedown={handleDecimalsPointerDown}
-            class="flex items-end pl-1 pr-4 pb-3 pt-6 min-w-16 rounded-none transition-colors duration-100 {C.segHover}"
+            class="flex min-w-16 items-center py-3 pl-1 pr-4 rounded-none transition-colors duration-100 {C.segHover}"
             aria-label="Editar centavos"
             tabindex="-1"
         >

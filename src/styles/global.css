@@ -36,6 +36,7 @@
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.623 0.214 259.815);
+  --focus-ring-size: 0px;
 
   /* Charts */
   --chart-1: oklch(0.646 0.222 41.116);
@@ -103,6 +104,7 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.488 0.243 264.376);
+  --focus-ring-size: 0px;
 
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
@@ -408,6 +410,40 @@
         ring-color: var(--destructive);
       }
     }
+  }
+}
+
+@layer components {
+  .focus-ring-field {
+    @apply border border-slate-300 transition;
+  }
+
+  .focus-ring-field:focus-within {
+    box-shadow: none;
+  }
+
+  .search-control {
+    @apply relative flex min-h-12 w-full items-center rounded-lg border border-slate-300 bg-slate-100 shadow-sm transition;
+  }
+
+  .search-control:focus-within {
+    @apply border-primary ring-2 ring-primary;
+  }
+
+  .search-control-icon {
+    @apply pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-slate-400;
+  }
+
+  .search-control-input {
+    @apply block h-full min-h-12 w-full rounded-lg bg-transparent py-3 ps-9 pe-24 text-sm text-slate-900 placeholder:text-slate-500 focus:outline-none;
+  }
+
+  .search-control-button {
+    @apply absolute end-1.5 bottom-1.5 rounded-md border border-transparent bg-primary px-3 py-1.5 text-xs font-medium leading-5 text-primary-foreground shadow-sm transition hover:brightness-95 focus:outline-none focus:ring-4 focus:ring-primary/25;
+  }
+
+  .search-control-buttonless .search-control-input {
+    @apply pe-3;
   }
 }
 

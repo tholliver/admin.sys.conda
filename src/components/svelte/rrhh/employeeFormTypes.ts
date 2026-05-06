@@ -7,7 +7,7 @@ export type EmployeeFormData = {
     phone?: string | null;
     address?: string | null;
     chargeTitle: string;
-    sectorId: number | string;
+    cashboxId: string | null;
     hireDate?: string | null;
     baseSalary: number | string;
     notes?: string | null;

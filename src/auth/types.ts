@@ -19,5 +19,5 @@ export type AuthUser = {
   passwordResetAt?: string | null | undefined;
 };
 
-export const USER_ROLES = ["ADMIN", "GEN", "ACTS", "ACCO", "ADMON", "AUX", "USER"] as const;
+export const USER_ROLES = ["ADMIN"] as const;
 export type UserRole = (typeof USER_ROLES)[number];

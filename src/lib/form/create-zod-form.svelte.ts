@@ -84,8 +84,7 @@ export class ZodForm<TSchema extends ZodObject<any>> {
       this.touch(field);
     }
 
-    const shouldValidate =
-      options.validate ?? (this.#validateMode === "onChange" || this.#validateMode === "onBlur");
+    const shouldValidate = options.validate ?? this.#validateMode === "onChange";
 
     if (shouldValidate) {
       this.validateField(field);

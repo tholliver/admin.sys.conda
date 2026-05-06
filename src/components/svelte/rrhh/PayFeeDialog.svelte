@@ -24,8 +24,8 @@
         employee: {
             fullName: string;
             ci: string;
-            sectorName: string;
-            sectorId: number | null;
+            cashboxName: string;
+            cashboxId: string | null;
             chargeTitle: string;
         };
     }
@@ -118,7 +118,7 @@
                     {fee.employee.fullName}
                 </p>
                 <p class="text-xs text-slate-500 mt-0.5">
-                    {fee.employee.chargeTitle} · {fee.employee.sectorName}
+                    {fee.employee.chargeTitle} · {fee.employee.cashboxName}
                 </p>
             </div>
 
@@ -181,7 +181,7 @@
                 <div class="flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800">
                     <CircleAlert class="size-3.5 shrink-0 text-amber-500 mt-px" />
                     <span>
-                        El sector <strong>{fee.employee.sectorName}</strong> no tiene una caja vinculada.
+                        <strong>{fee.employee.fullName}</strong> no tiene una caja vinculada.
                         El pago usará la caja general.
                     </span>
                 </div>

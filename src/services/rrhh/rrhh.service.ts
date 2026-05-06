@@ -212,6 +212,7 @@ export async function getFeesWithEmployees(filters: FeeFilters = {} as FeeFilter
       ...r.employee,
       fullName: getEmployeeFullName(r.employee),
       cashboxName: r.cashboxName ?? "Sin caja",
+      cashboxId: r.employee.cashboxId,
     },
   }));
 }
