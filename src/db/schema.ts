@@ -102,8 +102,8 @@ export const verification = authSchema.table("verification", {
 
 export const transactionTypeEnum     = pgEnum("transaction_type",      ["deposit", "withdraw"]);
 export const categoryTypeEnum        = pgEnum("category_type",         ["income", "outcome"]);
-export const transactionStatusEnum = pgEnum("transaction_status", ["pendiente", "completado", "fallido", "cancelado"]);
-export const cashBoxStatusEnum = pgEnum("cashbox_status", ["activo", "inactivo", "suspendido", "archivado"]);
+export const transactionStatusEnum   = pgEnum("transaction_status",    ["pendiente", "completado", "fallido", "cancelado"]);
+export const cashBoxStatusEnum       = pgEnum("cashbox_status",        ["activo", "inactivo", "suspendido", "archivado"]);
 export const contractorStatusEnum    = pgEnum("contractor_status",     ["activo", "inactivo"]);
 export const employeeTypeEnum        = pgEnum("employee_type",         ["directorio", "planta"]);
 export const employeeStatusEnum      = pgEnum("employee_status",       ["activo", "suspendido", "baja", "licencia"]);
@@ -113,12 +113,10 @@ export const tenantStatusEnum        = pgEnum("tenant_status",         ["activo"
 export const rentPaymentStatusEnum   = pgEnum("rent_payment_status",   ["pagado", "pendiente", "parcial", "anulado"]);
 
 // linkedEntityId points to the obligation row (employee_fees.id, tenant_payments.id, contractor_payments.id)
-// "employee_payment" is gone — replaced by "employee_fee" (direct link, no bridge table)
 export const linkedEntityTypeEnum = pgEnum("linked_entity_type", [
   "employee_fee",
   "tenant_payment",
   "contractor_payment",
-  "sector",
 ]);
 
 export type EmployeeType        = (typeof employeeTypeEnum.enumValues)[number];
@@ -157,7 +155,7 @@ export const cashboxes = financeSchema.table("cashboxes", {
 export const invoiceRanges = pgTable("invoice_ranges", {
   id:                  uuid("id").primaryKey().default(sql`uuidv7()`),
   category:            varchar("category",            { length: 50 }).notNull().unique(),
-  prefix:              varchar("prefix",              { length: 10 }),          // keep — drives label format
+  prefix:              varchar("prefix",              { length: 10 }),
   rangeStart:          bigint("range_start",          { mode: "number" }).notNull(),
   rangeEnd:            bigint("range_end",             { mode: "number" }).notNull(),
   current:             bigint("current",              { mode: "number" }).notNull(),
@@ -217,30 +215,16 @@ export const auditLogs = financeSchema.table("audit_logs", {
   index("idx_audit_created_at").on(t.createdAt),
 ]);
 
-// ── Sectors (declared before transactions — transactions has a sectorId FK) ──
-export const sectors = pgTable("sectors", {
-  id:          serial("id").primaryKey(),
-  cashboxId:   uuid("cashbox_id").references(() => cashboxes.id, { onDelete: "restrict" }),
-  name:        varchar("name", { length: 100 }).notNull().unique(),
-  description: text("description"),
-  isActive:    boolean("is_active").notNull().default(true),
-  createdAt:   timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt:   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-}, (t) => [
-  index("idx_sectors_cashbox").on(t.cashboxId),
-]);
-
 // ── Transactions — THE LEDGER ──────────────────────────────────────────
 // Every peso in or out lives here. All obligation tables point here via transactionId.
 // linkedEntityId is an integer matching the PK of the corresponding obligation table:
-//   employee_fee      → employee_fees.id
-//   tenant_payment    → tenant_payments.id
+//   employee_fee       → employee_fees.id
+//   tenant_payment     → tenant_payments.id
 //   contractor_payment → contractor_payments.id
 export const transactions = financeSchema.table("transactions", {
   id:                  uuid("id").primaryKey().default(sql`uuidv7()`),
   cashboxId:           uuid("affiliation_id").notNull().references(() => cashboxes.id, { onDelete: "restrict" }),
   categoryId:          uuid("category_id").notNull().references(() => transactionCategories.id, { onDelete: "restrict" }),
-  sectorId:            integer("sector_id").references(() => sectors.id, { onDelete: "set null" }),
   type:                transactionTypeEnum("type").notNull(),
   amount:              numeric("amount", { mode: "string", precision: 15, scale: 2 }).notNull(),
   concept:             varchar("concept", { length: 255 }).notNull(),
@@ -267,7 +251,6 @@ export const transactions = financeSchema.table("transactions", {
 }, (t) => [
   index("idx_tx_cashbox").on(t.cashboxId),
   index("idx_tx_category").on(t.categoryId),
-  index("idx_tx_sector").on(t.sectorId),
   index("idx_tx_type").on(t.type),
   index("idx_tx_status").on(t.status),
   index("idx_tx_created_at").on(t.createdAt),
@@ -294,7 +277,7 @@ export const employees = pgTable("employees", {
   address:         varchar("address",      { length: 200 }),
   employeeType:    employeeTypeEnum("employee_type").notNull(),
   chargeTitle:     varchar("charge_title", { length: 120 }).notNull(),
-  sectorId:        integer("sector_id").references(() => sectors.id, { onDelete: "set null" }),
+  cashboxId:       uuid("cashbox_id").references(() => cashboxes.id, { onDelete: "set null" }),
   hireDate:        date("hire_date",        { mode: "date" }).notNull(),
   terminationDate: date("termination_date", { mode: "date" }),
   baseSalary:      numeric("base_salary", { mode: "number", precision: 12, scale: 2 }).notNull(),
@@ -307,7 +290,7 @@ export const employees = pgTable("employees", {
   updatedAt:       timestamp("updated_at",       { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
   index("idx_employees_ci").on(t.ci),
-  index("idx_employees_sector").on(t.sectorId),
+  index("idx_employees_cashbox").on(t.cashboxId),
   index("idx_employees_type").on(t.employeeType),
   index("idx_employees_status").on(t.status),
   index("idx_employees_uuid").on(t.uuid),
@@ -329,7 +312,6 @@ export const employeeFees = pgTable("employee_fees", {
   status:        feePaymentStatusEnum("status").notNull().default("pendiente"),
   dueDate:       date("due_date", { mode: "date" }),
   paymentMethod: salaryPaymentMethodEnum("payment_method").default("efectivo"),
-  // ✂ transactionId removed
   createdAt:     timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:     timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
@@ -382,7 +364,6 @@ export const tenantPayments = pgTable("tenant_payments", {
   dueDate:       date("due_date", { mode: "date" }),
   receiptNumber: varchar("receipt_number", { length: 30 }),
   notes:         text("notes"),
-  // ✂ transactionId removed
   createdAt:     timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt:     timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (t) => [
@@ -457,27 +438,21 @@ export const accountRelations = relations(account, ({ one }) => ({
 
 export const cashboxesRelations = relations(cashboxes, ({ many }) => ({
   transactions: many(transactions),
-  sectors:      many(sectors),
-}));
-
-export const sectorsRelations = relations(sectors, ({ one, many }) => ({
-  cashbox:   one(cashboxes, { fields: [sectors.cashboxId], references: [cashboxes.id] }),
-  employees: many(employees),
+  employees:    many(employees),
 }));
 
 export const employeesRelations = relations(employees, ({ one, many }) => ({
-  sector: one(sectors, { fields: [employees.sectorId], references: [sectors.id] }),
-  fees:   many(employeeFees),
+  cashbox: one(cashboxes, { fields: [employees.cashboxId], references: [cashboxes.id] }),
+  fees:    many(employeeFees),
 }));
 
 export const employeeFeesRelations = relations(employeeFees, ({ one }) => ({
-  employee:    one(employees,    { fields: [employeeFees.employeeId],    references: [employees.id] }),
+  employee: one(employees, { fields: [employeeFees.employeeId], references: [employees.id] }),
 }));
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
   cashbox:      one(cashboxes,             { fields: [transactions.cashboxId],      references: [cashboxes.id] }),
   category:     one(transactionCategories, { fields: [transactions.categoryId],     references: [transactionCategories.id] }),
-  sector:       one(sectors,               { fields: [transactions.sectorId],       references: [sectors.id] }),
   invoiceRange: one(invoiceRanges,         { fields: [transactions.invoiceRangeId], references: [invoiceRanges.id] }),
   employeeFee:  one(employeeFees, {
     fields:     [transactions.linkedEntityId],
@@ -494,7 +469,7 @@ export const tenantsRelations = relations(tenants, ({ many }) => ({
 }));
 
 export const tenantPaymentsRelations = relations(tenantPayments, ({ one }) => ({
-  tenant:      one(tenants,      { fields: [tenantPayments.tenantId],      references: [tenants.id] }),
+  tenant: one(tenants, { fields: [tenantPayments.tenantId], references: [tenants.id] }),
 }));
 
 export const contractorsRelations = relations(contractors, ({ many }) => ({
@@ -522,15 +497,11 @@ export type InsertTransaction = typeof transactions.$inferInsert;
 export type SelectTransactionCategories = typeof transactionCategories.$inferSelect;
 export type InsertTransactionCategories = typeof transactionCategories.$inferInsert;
 
-export type SelectSector = typeof sectors.$inferSelect;
-export type InsertSector = typeof sectors.$inferInsert;
-
 export type SelectEmployee = typeof employees.$inferSelect;
 export type InsertEmployee = typeof employees.$inferInsert;
 
 export type SelectEmployeeFee = typeof employeeFees.$inferSelect;
 export type InsertEmployeeFee = typeof employeeFees.$inferInsert;
-// SelectEmployeePayment removed — use SelectEmployeeFee + its linked transaction
 
 export type SelectContractor = typeof contractors.$inferSelect;
 export type InsertContractor = typeof contractors.$inferInsert;
@@ -547,18 +518,17 @@ export type InsertTenantPayment = typeof tenantPayments.$inferInsert;
 // ── Composite / helper types ───────────────────────────────────────────
 
 export type EmployeeWithFullName = SelectEmployee & {
-  fullName:    string;
-  sectorName?: string;
+  fullName:     string;
+  cashboxName?: string;
 };
 
 export type FeeWithEmployee = SelectEmployeeFee & {
   employee: SelectEmployee;
 };
 
-export type SectorSalarySummary = {
-  sectorId:           number;
-  sectorName:         string;
+export type CashboxSalarySummary = {
   cashboxId:          string;
+  cashboxName:        string;
   cashboxBalance:     string;
   totalEmployees:     number;
   totalMonthlySalary: number;

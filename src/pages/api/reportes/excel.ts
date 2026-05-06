@@ -3,7 +3,7 @@ import type { APIRoute } from "astro";
 import ExcelJS from "exceljs";
 import { db } from "@/db";
 import {
-  transactions, cashboxes, sectors, transactionCategories,
+  transactions, cashboxes, transactionCategories,
   employeeFees, employees, tenantPayments, tenants,
 } from "@/db/schema";
 import { and, between, eq, isNull, or, inArray, sum, sql } from "drizzle-orm";
@@ -85,13 +85,12 @@ function addTitle(ws: ExcelJS.Worksheet, title: string, subtitle: string, cols: 
 }
 
 // ─── Query helpers ────────────────────────────────────────────────────────────
-async function fetchTransactions(from: string, to: string, cashboxId?: string, sectorId?: number) {
+async function fetchTransactions(from: string, to: string, cashboxId?: string) {
   const fromDate = new Date(`${from}T00:00:00-04:00`);
   const toDate   = new Date(`${to}T23:59:59-04:00`);
 
   const conditions = [between(transactions.createdAt, fromDate, toDate)];
   if (cashboxId) conditions.push(eq(transactions.cashboxId, cashboxId));
-  if (sectorId)  conditions.push(eq(transactions.sectorId, sectorId));
 
   return db
     .select({
@@ -109,12 +108,10 @@ async function fetchTransactions(from: string, to: string, cashboxId?: string, s
       categoryName: transactionCategories.name,
       categoryCode: transactionCategories.code,
       categoryType: transactionCategories.type,
-      sectorName:   sectors.name,
     })
     .from(transactions)
     .leftJoin(cashboxes,             eq(transactions.cashboxId,  cashboxes.id))
     .leftJoin(transactionCategories, eq(transactions.categoryId, transactionCategories.id))
-    .leftJoin(sectors,               eq(transactions.sectorId,   sectors.id))
     .where(and(...conditions))
     .orderBy(transactions.createdAt);
 }
@@ -281,99 +278,7 @@ async function buildPorCaja(wb: ExcelJS.Workbook, from: string, to: string) {
   }
 }
 
-// ─── 3. POR SECTOR ────────────────────────────────────────────────────────────
-async function buildPorSector(wb: ExcelJS.Workbook, from: string, to: string, sectorId?: number) {
-  const allTx = await fetchTransactions(from, to, undefined, sectorId);
-
-  // Group by sector (null = sin sector)
-  const bySector = new Map<string, typeof allTx>();
-  for (const tx of allTx) {
-    const key = tx.sectorName ?? "SIN SECTOR";
-    if (!bySector.has(key)) bySector.set(key, []);
-    bySector.get(key)!.push(tx);
-  }
-
-  // Summary sheet
-  const summary = wb.addWorksheet("Resumen por Sector");
-  const SC = 5;
-  setWidths(summary, [10, 36, 20, 20, 20]);
-  addTitle(summary, "RESUMEN POR SECTOR", `Período: ${from} al ${to}`, SC);
-  summary.getRow(5).values = ["", "Sector", "Total Ingresos (Bs.)", "Total Egresos (Bs.)", "Resultado (Bs.)"];
-  headerStyle(summary, 5, SC);
-
-  let sRow = 6;
-  let grandIn = 0, grandOut = 0;
-
-  for (const [name, txs] of bySector) {
-    const income  = txs.filter(t => t.type === "deposit").reduce((s, t)  => s + parseFloat(t.amount ?? "0"), 0);
-    const outcome = txs.filter(t => t.type === "withdraw").reduce((s, t) => s + parseFloat(t.amount ?? "0"), 0);
-    grandIn  += income;
-    grandOut += outcome;
-
-    const r = summary.getRow(sRow);
-    r.values = ["", name, income, outcome, income - outcome];
-    for (let c = 1; c <= SC; c++) {
-      const cell = r.getCell(c);
-      cell.font   = { name: "Arial", size: 9 };
-      cell.border = thinBorder();
-      cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: sRow % 2 === 0 ? "FFFFFF" : C.altRow } };
-      if (c >= 3) { cell.numFmt = bsFormat; cell.alignment = { horizontal: "right" }; }
-    }
-    sRow++;
-  }
-
-  const gt = summary.getRow(sRow);
-  gt.values = ["", "TOTAL GENERAL", grandIn, grandOut, grandIn - grandOut];
-  for (let c = 1; c <= SC; c++) {
-    const cell = gt.getCell(c);
-    cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: C.totalBg } };
-    cell.font   = { name: "Arial", bold: true, size: 9, color: { argb: C.totalFg } };
-    cell.border = thinBorder();
-    if (c >= 3) { cell.numFmt = bsFormat; cell.alignment = { horizontal: "right" }; }
-  }
-
-  // Detail per sector
-  for (const [name, txs] of bySector) {
-    const safeName = name.replace(/[\\/*?[\]]/g, "_").slice(0, 31);
-    const ws = wb.addWorksheet(safeName);
-    const COLS = 8;
-    setWidths(ws, [12, 32, 22, 22, 14, 16, 16, 16]);
-    addTitle(ws, `DETALLE SECTOR: ${name}`, `Período: ${from} al ${to}`, COLS);
-    ws.getRow(5).values = ["", "Fecha", "Concepto / Categoría", "Caja", "Referencia", "Tipo", "Importe (Bs.)", "Saldo (Bs.)"];
-    headerStyle(ws, 5, COLS);
-
-    let dRow = 6;
-    txs.forEach((tx, i) => {
-      const amount  = parseFloat(tx.amount ?? "0");
-      const balance = parseFloat(tx.balanceAfter ?? "0");
-      const isIn    = tx.type === "deposit";
-      const r = ws.getRow(dRow);
-      r.values = [
-        i + 1,
-        dateStr(new Date(tx.createdAt)),
-        `${tx.categoryName ?? "—"}${tx.concept ? ` · ${tx.concept}` : ""}`,
-        `[${tx.cashboxCode ?? ""}] ${tx.cashboxName ?? ""}`,
-        tx.invoiceNumber ? `#${tx.invoiceNumber}` : tx.externalReference ?? "—",
-        isIn ? "INGRESO" : "EGRESO",
-        amount,
-        balance,
-      ];
-      for (let c = 1; c <= COLS; c++) {
-        const cell = r.getCell(c);
-        cell.font   = { name: "Arial", size: 9 };
-        cell.border = thinBorder();
-        cell.fill   = { type: "pattern", pattern: "solid", fgColor: { argb: isIn ? C.incomeBg : (i % 2 === 0 ? "FFFFFF" : C.altRow) } };
-        if (c === 6) cell.font = { name: "Arial", size: 9, bold: true, color: { argb: isIn ? C.incomeFg : C.outcomeFg } };
-        if (c >= 7) { cell.numFmt = bsFormat; cell.alignment = { horizontal: "right" }; }
-      }
-      dRow++;
-    });
-
-    ws.views = [{ state: "frozen", ySplit: 5 }];
-  }
-}
-
-// ─── 4. ESTADO DE RESULTADOS (P&L) ────────────────────────────────────────────
+// ─── 3. ESTADO DE RESULTADOS (P&L) ────────────────────────────────────────────
 async function buildEstadoResultados(wb: ExcelJS.Workbook, from: string, to: string) {
   const fromDate = new Date(`${from}T00:00:00-04:00`);
   const toDate   = new Date(`${to}T23:59:59-04:00`);
@@ -652,9 +557,6 @@ export const GET: APIRoute = async ({ request, locals }) => {
     } else if (tipo === "por_caja") {
       await buildPorCaja(wb, from, to);
       filename = `gastos_por_caja_${from}_${to}.xlsx`;
-    } else if (tipo === "por_sector") {
-      await buildPorSector(wb, from, to, id ? parseInt(id) : undefined);
-      filename = `gastos_por_sector_${from}_${to}.xlsx`;
     } else if (tipo === "balance_general") {
       await buildEstadoResultados(wb, from, to);
       await buildBalanceGeneral(wb, from, to);

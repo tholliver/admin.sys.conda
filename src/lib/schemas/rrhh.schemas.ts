@@ -47,7 +47,7 @@ export const createEmployeeSchema = z.object({
     .string()
     .min(2, "Cargo requerido")
     .max(120, "Cargo demasiado largo"),
-  sectorId: z.coerce.number().int().positive("Sector inválido").optional(),
+  cashboxId: z.string().uuid("Caja inválida").optional(),
   hireDate: z.coerce.date({ message: "Fecha de ingreso requerida" }),
   baseSalary: z.coerce.number().pipe(salarySchema),
   status: z
@@ -88,7 +88,7 @@ export type CreateEmployeeFeeInput = z.infer<typeof createEmployeeFeeSchema>;
 /** Bulk-generate fees for all active employees in a given period */
 export const bulkGenerateFeesSchema = z.object({
   period: periodSchema,
-  sectorId: z.coerce.number().int().positive().optional(), // null = all sectors
+  cashboxId: z.string().uuid().optional(), // null = all cashboxes
   overwrite: z.boolean().default(false),
 });
 
@@ -114,9 +114,9 @@ export type PayEmployeeFeeInput = z.infer<typeof payEmployeeFeeSchema>;
 
 export const employeeFiltersSchema = z.object({
   type: z.enum(["directorio", "planta", "all"]).default("all"),
-  sectorId: z.preprocess(
+  cashboxId: z.preprocess(
     (value) => (value === "" || value == null ? undefined : value),
-    z.coerce.number().int().positive().optional(),
+    z.string().uuid().optional(),
   ),
   status: z
     .enum(["activo", "suspendido", "baja", "licencia", "all"])
@@ -130,9 +130,9 @@ export type EmployeeFilters = z.infer<typeof employeeFiltersSchema>;
 
 export const feeFiltersSchema = z.object({
   period: periodSchema.optional(),
-  sectorId: z.preprocess(
+  cashboxId: z.preprocess(
     (value) => (value === "" || value == null ? undefined : value),
-    z.coerce.number().int().positive().optional(),
+    z.string().uuid().optional(),
   ),
   employeeId: z.preprocess(
     (value) => (value === "" || value == null ? undefined : value),

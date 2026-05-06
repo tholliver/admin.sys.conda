@@ -1,7 +1,6 @@
 ---
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import BackupCreatePill from "@/components/svelte/sys/BackupCreatePill.svelte";
-import BackupDownloadPill from "@/components/svelte/sys/BackupDownloadPill.svelte";
 import BackupRestorePill from "@/components/svelte/sys/BackupRestorePill.svelte";
 import BackupTable from "@/components/svelte/sys/BackupTable.svelte";
 import {
@@ -156,9 +155,8 @@ const lastBackupDateStr = lastBackupDate ? formatDate(lastBackupDate, "medium") 
         </div>
 
         <!-- ── Action bar ────────────────────────────────────────────────── -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
             <BackupCreatePill pgReady={systemInfo.postgresInstalled} client:load />
-            <BackupDownloadPill latestFilename={latestBackup?.filename ?? null} client:load />
             <BackupRestorePill pgReady={systemInfo.postgresInstalled} client:load />
         </div>
 

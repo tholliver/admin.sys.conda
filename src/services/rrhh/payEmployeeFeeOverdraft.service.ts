@@ -5,7 +5,7 @@
 
 import { db } from "@/db";
 import {
-    cashboxes, employees, employeeFees, sectors,
+    cashboxes, employees, employeeFees,
     transactions, transactionCategories,
 } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -34,7 +34,7 @@ export async function payEmployeeFeeWithOverdraft(
     const [feeRow] = await db
         .select({
             fee:              employeeFees,
-            employeeSectorId: employees.sectorId,
+            employeeCashboxId: employees.cashboxId,
             employeeName:     employees.fullName,
         })
         .from(employeeFees)
@@ -43,7 +43,7 @@ export async function payEmployeeFeeWithOverdraft(
         .limit(1);
 
     if (!feeRow) throw new Error("Cuota no encontrada.");
-    const { fee, employeeSectorId, employeeName } = feeRow;
+    const { fee, employeeCashboxId, employeeName } = feeRow;
 
     if (fee.status === "pagado") throw new Error("Esta cuota ya fue pagada.");
 
@@ -75,37 +75,24 @@ export async function payEmployeeFeeWithOverdraft(
     type CashboxRow = { id: string; name: string; balance: string | null; status: string | null };
     let resolvedCashbox: CashboxRow;
 
-    const [linked] = await db
-        .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
-        .from(sectors)
-        .innerJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
-        .where(eq(sectors.id, Number(employeeSectorId)))
-        .limit(1);
+    if (employeeCashboxId) {
+        const [linked] = await db
+            .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
+            .from(cashboxes)
+            .where(eq(cashboxes.id, employeeCashboxId))
+            .limit(1);
 
-    if (!linked) {
-        if (employeeSectorId == null) {
-            const [general] = await db
-                .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
-                .from(cashboxes)
-                .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "activo")))
-                .limit(1);
-            if (!general) throw new Error('No existe caja general activa con código "GEN".');
-            resolvedCashbox = general;
-        } else {
-            const [fallback] = await db
-                .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
-                .from(sectors)
-                .innerJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
-                .where(eq(sectors.id, employeeSectorId))
-                .limit(1);
-            if (!fallback) throw new Error(`El sector de "${employeeName}" no tiene caja vinculada.`);
-            if (fallback.status !== "activo") throw new Error(`La caja de "${employeeName}" está inactiva.`);
-            resolvedCashbox = fallback;
-        }
-    } else {
-        if (linked.status !== "activo")
-            throw new Error(`La caja vinculada al sector de "${employeeName}" está inactiva.`);
+        if (!linked) throw new Error(`El empleado "${employeeName}" no tiene una caja vinculada válida.`);
+        if (linked.status !== "activo") throw new Error(`La caja de "${employeeName}" está inactiva.`);
         resolvedCashbox = linked;
+    } else {
+        const [general] = await db
+            .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
+            .from(cashboxes)
+            .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "activo")))
+            .limit(1);
+        if (!general) throw new Error('No existe caja general activa con código "GEN".');
+        resolvedCashbox = general;
     }
 
     // ── Balance check ────────────────────────────────────────────────────────
@@ -132,7 +119,6 @@ export async function payEmployeeFeeWithOverdraft(
             .values({
                 cashboxId:       resolvedCashbox.id,
                 categoryId:      salaryCategory.id,
-                sectorId:        employeeSectorId ?? null,
                 type:            "withdraw",
                 amount:          amountToPay.toFixed(2),
                 concept:         `Pago de salario ${fee.period} - ${employeeName}`,

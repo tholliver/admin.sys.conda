@@ -2,7 +2,7 @@
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { actions } from "astro:actions";
 import { db } from "@/db";
-import { cashboxes, sectors, employees, transactionCategories, transactions } from "@/db/schema";
+import { cashboxes, employees, transactionCategories, transactions } from "@/db/schema";
 import { eq, asc, and, desc, gt, sum as sqlSum } from "drizzle-orm";
 import {
   Wallet,
@@ -27,7 +27,7 @@ const [cashbox] = await db.select().from(cashboxes).where(eq(cashboxes.id, id!))
 if (!cashbox) return Astro.redirect("/cajas");
 
 const [
-  cashboxSectors,
+  cashboxDetails,
   sectorEmployees,
   incomeCategories,
   outcomeCategories,
@@ -35,21 +35,21 @@ const [
   overdraftTransactions,
   overdraftSum,
 ] = await Promise.all([
-  db.select({ id: sectors.id, name: sectors.name, description: sectors.description, isActive: sectors.isActive })
-    .from(sectors)
-    .where(eq(sectors.cashboxId, id!))
-    .orderBy(asc(sectors.name)),
+  db.select({ id: cashboxes.id, name: cashboxes.name, description: cashboxes.description, isActive: sectors.isActive })
+    .from(cashboxes)
+    .where(eq(cashboxes.id, id!))
+    .orderBy(asc(cashboxes.name)),
 
   db.select({
-      sectorId: employees.sectorId,
+      cashboxId: cashboxes.id,
       employeeId: employees.id,
       fullName: employees.fullName,
       chargeTitle: employees.chargeTitle,
       baseSalary: employees.baseSalary,
     })
     .from(employees)
-    .innerJoin(sectors, eq(sectors.id, employees.sectorId))
-    .where(and(eq(employees.status, "activo"), eq(sectors.cashboxId, id!))),
+    .innerJoin(cashboxes, eq(cashboxes.id, employees.cashboxId))
+    .where(and(eq(employees.status, "activo"), eq(cashboxes.id, id!))),
 
   db.select({ id: transactionCategories.id, name: transactionCategories.name, code: transactionCategories.code })
     .from(transactionCategories)
@@ -96,7 +96,7 @@ const [
 
 const empBySector = new Map<number, typeof sectorEmployees>();
 for (const emp of sectorEmployees) {
-  const key = Number(emp.sectorId);
+  const key = Number(emp.cashboxId);
   if (!empBySector.has(key)) empBySector.set(key, []);
   empBySector.get(key)!.push(emp);
 }
@@ -346,7 +346,7 @@ const statusClass: Record<string, string> = {
       </a>
     </div>
 
-    {cashboxSectors.length === 0 ? (
+    {cashboxDetails.length === 0 ? (
       <div class="rounded-xl border-2 border-dashed border-slate-200 p-10 text-center text-slate-400">
         <Building2 class="h-8 w-8 mx-auto mb-2 opacity-30" />
         <p class="text-sm">Esta caja no tiene sectores vinculados.</p>
@@ -367,19 +367,19 @@ const statusClass: Record<string, string> = {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            {cashboxSectors.map((sector) => {
-              const emps = empBySector.get(sector.id) ?? [];
+            {cashboxDetails.map((cashB) => {
+              const emps = empBySector.get(cashB.id) ?? [];
               const sectorSalary = emps.reduce((s, e) => s + Number(e.baseSalary ?? 0), 0);
               const sectorCoverage = sectorSalary > 0 ? Math.min((balance / sectorSalary) * 100, 100) : 100;
               const covers = balance >= sectorSalary;
               return (
-                <tr class:list={["hover:bg-slate-50/70 transition-colors", !sector.isActive && "opacity-50"]}>
+                <tr class:list={["hover:bg-slate-50/70 transition-colors", !cashB.isActive && "opacity-50"]}>
                   <td class="px-4 py-3">
                     <div class="flex items-center gap-2">
                       <Building2 class="h-3.5 w-3.5 text-slate-400 shrink-0" />
                       <div>
-                        <p class="font-semibold text-slate-800">{sector.name}</p>
-                        {sector.description && <p class="text-slate-400 truncate max-w-[200px]">{sector.description}</p>}
+                        <p class="font-semibold text-slate-800">{cashB.name}</p>
+                        {cashB.description && <p class="text-slate-400 truncate max-w-[200px]">{sector.description}</p>}
                       </div>
                     </div>
                   </td>
@@ -405,9 +405,9 @@ const statusClass: Record<string, string> = {
                   <td class="px-4 py-3 text-center">
                     <span class:list={[
                       "text-[10px] font-semibold px-2 py-0.5 rounded-full",
-                      sector.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400",
+                      cashB.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400",
                     ]}>
-                      {sector.isActive ? "Activo" : "Inactivo"}
+                      {cashB.isActive ? "Activo" : "Inactivo"}
                     </span>
                   </td>
                 </tr>

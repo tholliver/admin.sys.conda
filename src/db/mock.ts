@@ -100,33 +100,6 @@ export async function seedCashbox() {
   } catch { log.warn("Cashbox already exists, skipping"); }
 }
 
-export async function seedSectors() {
-  log.section("SECTORS");
-  try {
-    const allCashboxes = await db
-      .select({ id: schema.cashboxes.id, code: schema.cashboxes.code })
-      .from(schema.cashboxes);
-
-    if (allCashboxes.length === 0) {
-      log.warn("No cashboxes found, skipping sectors");
-      return;
-    }
-
-    const sortedCashboxes = allCashboxes.sort((a, b) =>
-      a.code.localeCompare(b.code),
-    );
-
-    const sectorsToInsert = SECTORS_DATA.map((sector, index) => ({
-      ...sector,
-      cashboxId: sortedCashboxes[index % sortedCashboxes.length]!.id,
-    }));
-
-    await db.insert(schema.sectors).values(sectorsToInsert);
-    await db.execute(sql`SELECT setval('sectors_id_seq', COALESCE((SELECT MAX(id)+1 FROM sectors), 1), false)`);
-    log.ok(`${SECTORS_DATA.length} sectors inserted`);
-  } catch (error) { log.warn(`Sectors already exist, skipping, ${error}`); }
-}
-
 export const INVOICE_RANGES_DATA = [
   // ── Non-system ranges — used by manual cash desk (ingresos form) ──────────
   { code: "REN", category: "Recibos Generales", prefix: "REC", rangeStart: 1, rangeEnd: 9999, current: 0, isSystem: false, authorizationNumber: "REC-00000001", expirationDate: new Date("2026-12-31"), isActive: true },
@@ -175,9 +148,9 @@ export const TRANSACTION_CATEGORIES = [
   { code: "OUT-019", name: "Otros Gastos de Operación",                            type: "outcome", icon: "clipboard-list",    description: "Gastos operativos no clasificados",                   sortOrder: 20,  isSystem: false, invoiceRangeCode: null   },
   { code: "OUT-020", name: "Ayudas Sociales",                                      type: "outcome", icon: "handshake",         description: "Ayudas y aportes sociales",                           sortOrder: 6,   isSystem: false, invoiceRangeCode: null   },
   { code: "OUT-021", name: "Otros Gastos",                                         type: "outcome", icon: "credit-card",       description: "Egresos no clasificados",                             sortOrder: 21,  isSystem: false, invoiceRangeCode: null   },
-  { code: "TRANSFER",    name: "Transferencias internas",             type: "outcome", icon: "arrow-right-left", description: "Cuenta de sistema para transferencias entre cajas.",   sortOrder: 0, isSystem: true, invoiceRangeCode: null },
-  { code: "TRANSFER_IN", name: "Ingreso por Transferencia Interna",  type: "income",  icon: "arrow-right-left", description: "Fondos recibidos desde otra caja o sector.",          sortOrder: 0, isSystem: true, invoiceRangeCode: null },
-  { code: "CONTRATISTA", name: "Pago a contratistas",                type: "outcome", icon: "handshake",        description: "Cuenta de sistema para pagos a contratistas.",        sortOrder: 0, isSystem: true, invoiceRangeCode: null },
+  { code: "TRANSFER",    name: "Transferencias internas",             type: "outcome", icon: "arrow-right-left", description: "Cuenta para transferencias entre cajas y/o salidas",   sortOrder: 0, isSystem: true, invoiceRangeCode: null },
+  { code: "TRANSFER_IN", name: "Ingreso por Transferencia Interna",  type: "income",  icon: "arrow-right-left", description: "Fondos recibidos desde otra caja o sector",          sortOrder: 0, isSystem: true, invoiceRangeCode: null },
+  { code: "CONTRATISTA", name: "Pago a contratistas",                type: "outcome", icon: "handshake",        description: "Cuenta de sistema para pagos a contratistas",        sortOrder: 0, isSystem: true, invoiceRangeCode: null },
 ];
 
 export const SYS_USERS = [
@@ -216,39 +189,7 @@ export const CASHBOXES_DATA = [
   { name: "Caja Chata Tolva",      code: "CHT", description: "Caja para Chata Tolva",                           balance: "0", creditLimit: "0", status: "activo" as const },
 ];
 
-export const SECTORS_DATA = [
-  { id: 1,  name: "1ER GRUPO",          description: "......", isActive: true, cashboxCode: "GRP" },
-  { id: 2,  name: "2DO GRUPO",          description: "......", isActive: true, cashboxCode: "GRP" },
-  { id: 3,  name: "3ER GRUPO",          description: "......", isActive: true, cashboxCode: "GRP" },
-  { id: 4,  name: "4TO GRUPO",          description: "......", isActive: true, cashboxCode: "GRP" },
-  { id: 5,  name: "RADIO MOVIL",        description: "......", isActive: true, cashboxCode: "RMV" },
-  { id: 6,  name: "PUERTO VILLARROEL",  description: "......", isActive: true, cashboxCode: "PVL" },
-  { id: 7,  name: "TAXIS VALLE SACTA",  description: "......", isActive: true, cashboxCode: "TVS" },
-  { id: 8,  name: "MOTOS VALLE SACTA",  description: "......", isActive: true, cashboxCode: "MVS" },
-  { id: 9,  name: "TAXIS AYOPAYA",      description: "......", isActive: true, cashboxCode: "TAY" },
-  { id: 10, name: "MOTO AYOPAYA",       description: "......", isActive: true, cashboxCode: "MAY" },
-  { id: 11, name: "TAXI VALLE TUNARI",  description: "......", isActive: true, cashboxCode: "TVT" },
-  { id: 12, name: "MOTOS VALLE TUNARI", description: "......", isActive: true, cashboxCode: "MVT" },
-  { id: 13, name: "TAXI SENDA VI",      description: "......", isActive: true, cashboxCode: "TS6" },
-  { id: 14, name: "MOTOS SENDA VI",     description: "......", isActive: true, cashboxCode: "MS6" },
-  { id: 15, name: "TAXI SENDA V",       description: "......", isActive: true, cashboxCode: "TS5" },
-  { id: 16, name: "MOTO SENDA V",       description: "......", isActive: true, cashboxCode: "MS5" },
-  { id: 17, name: "TAXI ISRAEL",        description: "......", isActive: true, cashboxCode: "TIS" },
-  { id: 18, name: "MINIBUSES",          description: "......", isActive: true, cashboxCode: "MIN" },
-  { id: 19, name: "TAXI MARIPOSAS",     description: "......", isActive: true, cashboxCode: "TMA" },
-  { id: 20, name: "MOTO MARIPOSAS",     description: "......", isActive: true, cashboxCode: "MMA" },
-  { id: 21, name: "NUEVA ESTRELLA",     description: "......", isActive: true, cashboxCode: "NES" },
-  { id: 22, name: "MOTO CENTRAL",       description: "......", isActive: true, cashboxCode: "MCT" },
-  { id: 23, name: "CAMIONETAS",         description: "......", isActive: true, cashboxCode: "CMT" },
-  { id: 24, name: "MICROS",             description: "......", isActive: true, cashboxCode: "MIC" },
-  { id: 25, name: "BUSES",              description: "......", isActive: true, cashboxCode: "BUS" },
-  { id: 26, name: "CAMIONES",           description: "......", isActive: true, cashboxCode: "CAM" },
-  { id: 27, name: "VOLQUETAS",          description: "......", isActive: true, cashboxCode: "VOL" },
-  { id: 28, name: "CHATA TOLVA",        description: "......", isActive: true, cashboxCode: "CHT" },
-];
-
 await seedCashbox();
-await seedSectors();
 await seedCategories();
 await seedInvoiceRanges();  // ranges first — categories link to them
 await seedUsers();

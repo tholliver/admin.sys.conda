@@ -9,7 +9,6 @@
  */
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { getFullAudit } from "@/services/audit.service";
-import { getSectorCashboxLinks } from "@/services/rrhh/rrhh.service";
 import { CheckCircle, Users, Building, FileWarning, ExternalLink, CreditCard } from "@lucide/astro";
 import { formatBOB } from "@/utils/formatters";
 
@@ -19,7 +18,7 @@ if (!user) return Astro.redirect("/login");
 const ALLOWED = ["ADMIN", "ADMON", "ACTS", "ACCO"] as const;
 if (!ALLOWED.includes(user.role as any)) return Astro.redirect("/panel");
 
-const [audit] = await Promise.all([getFullAudit(), getSectorCashboxLinks()]);
+const [audit] = await Promise.all([getFullAudit()]);
 
 const {
     employeeGaps,

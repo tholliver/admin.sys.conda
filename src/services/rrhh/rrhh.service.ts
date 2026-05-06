@@ -1,12 +1,10 @@
 import { db } from "@/db";
 import {
-  sectors,
   cashboxes,
   employees,
   employeeFees,
   transactionCategories,
   type SelectEmployee,
-  type SectorSalarySummary,
   transactions,
 } from "@/db/schema";
 import {
@@ -56,7 +54,7 @@ export function currentPeriod(): string {
 // --- Employee Queries ---------------------------------------------------------
 
 export async function getEmployees(filters: EmployeeFilters = {} as EmployeeFilters) {
-  const { type = "all", sectorId, status = "all", search, page = 1, pageSize = 20 } = filters;
+  const { type = "all", status = "all", search, page = 1, pageSize = 20 } = filters;
 
   const conditions = [];
 
@@ -65,9 +63,6 @@ export async function getEmployees(filters: EmployeeFilters = {} as EmployeeFilt
   }
   if (status !== "all") {
     conditions.push(eq(employees.status, status as any));
-  }
-  if (sectorId) {
-    conditions.push(eq(employees.sectorId, sectorId));
   }
   if (search) {
     const term = `%${search}%`;
@@ -82,10 +77,10 @@ export async function getEmployees(filters: EmployeeFilters = {} as EmployeeFilt
     db
       .select({
         employee: employees,
-        sectorName: sectors.name,
+        cashboxName: cashboxes.name,
       })
       .from(employees)
-      .leftJoin(sectors, eq(sectors.id, employees.sectorId))
+      .leftJoin(cashboxes, eq(cashboxes.id, employees.cashboxId))
       .where(where)
       .orderBy(asc(employees.fullName))
       .limit(pageSize)
@@ -101,7 +96,7 @@ export async function getEmployees(filters: EmployeeFilters = {} as EmployeeFilt
     data: rows.map((r) => ({
       ...r.employee,
       fullName: getEmployeeFullName(r.employee),
-      sectorName: r.sectorName ?? "---",
+      cashboxName: r.cashboxName ?? "---",
     })),
     total: Number(total),
     page,
@@ -114,10 +109,10 @@ export async function getEmployeeById(id: number) {
   const row = await db
     .select({
       employee: employees,
-      sectorName: sectors.name,
+      cashboxName: cashboxes.name,
     })
     .from(employees)
-    .leftJoin(sectors, eq(sectors.id, employees.sectorId))
+    .leftJoin(cashboxes, eq(cashboxes.id, employees.cashboxId))
     .where(eq(employees.id, id))
     .limit(1);
 
@@ -126,7 +121,7 @@ export async function getEmployeeById(id: number) {
   return {
     ...row[0].employee,
     fullName: getEmployeeFullName(row[0].employee),
-    sectorName: row[0].sectorName ?? "Sin sector",
+    cashboxName: row[0].cashboxName ?? "Sin caja",
   };
 }
 
@@ -185,17 +180,15 @@ export async function updateEmployee(data: UpdateEmployeeInput) {
 // --- Fee Queries --------------------------------------------------------------
 
 export async function getFeesWithEmployees(filters: FeeFilters = {} as FeeFilters) {
-  const { period, sectorId, employeeId, status = "all", employeeType = "all" } = filters;
+  const { period, cashboxId, employeeId, status = "all", employeeType = "all" } = filters;
 
   const conditions = [];
 
   if (period) conditions.push(eq(employeeFees.period, period));
   if (status !== "all") conditions.push(eq(employeeFees.status, status as any));
-  if (sectorId) conditions.push(eq(employees.sectorId, sectorId));
+  if (cashboxId) conditions.push(eq(employees.cashboxId, cashboxId));
   if (employeeId) conditions.push(eq(employeeFees.employeeId, employeeId));
   if (employeeType !== "all") {
-    // Some data may store employeeType in uppercase (e.g. DIRECTORIO).
-    // Apply a case-insensitive comparison to ensure we don't miss active directorio staff.
     conditions.push(
       sql`LOWER(${employees.employeeType}) = ${String(employeeType).toLowerCase()}`
     );
@@ -205,11 +198,11 @@ export async function getFeesWithEmployees(filters: FeeFilters = {} as FeeFilter
     .select({
       fee: employeeFees,
       employee: employees,
-      sectorName: sectors.name,
+      cashboxName: cashboxes.name,
     })
     .from(employeeFees)
     .innerJoin(employees, eq(employees.id, employeeFees.employeeId))
-    .leftJoin(sectors, eq(sectors.id, employees.sectorId))
+    .leftJoin(cashboxes, eq(cashboxes.id, employees.cashboxId))
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(asc(employees.fullName), asc(employeeFees.period));
 
@@ -218,7 +211,7 @@ export async function getFeesWithEmployees(filters: FeeFilters = {} as FeeFilter
     employee: {
       ...r.employee,
       fullName: getEmployeeFullName(r.employee),
-      sectorName: r.sectorName ?? "Sin sector",
+      cashboxName: r.cashboxName ?? "Sin caja",
     },
   }));
 }
@@ -271,30 +264,26 @@ export async function createEmployeeFee(data: CreateEmployeeFeeInput) {
  */
 
  export async function bulkGenerateFees(data: BulkGenerateFeesInput) {
-   const { period, sectorId, overwrite } = data;
+   const { period, cashboxId, overwrite } = data;
 
    const conditions: any[] = [eq(employees.status, "activo")];
-   if (sectorId) conditions.push(eq(employees.sectorId, sectorId));
+   if (cashboxId) conditions.push(eq(employees.cashboxId, cashboxId));
 
   const activeEmployees = await db
     .select({
       employee: employees,
-      cashboxId: sectors.cashboxId,
     })
     .from(employees)
-    .leftJoin(sectors, eq(sectors.id, employees.sectorId))
     .where(and(...conditions));
 
    if (activeEmployees.length === 0) {
      return { created: 0, skippedDuplicate: 0, skippedNoCashbox: 0, noCashboxEmployees: [], errors: [] };
    }
 
-   // Split: employees with and without a linked cashbox
-   const withCashbox = activeEmployees.filter((e) => !!e.cashboxId);
-   const noCashbox = activeEmployees.filter((e) => !e.cashboxId);
+   const withCashbox = activeEmployees.filter((e) => !!e.employee.cashboxId);
+   const noCashbox = activeEmployees.filter((e) => !e.employee.cashboxId);
    const noCashboxEmployees = noCashbox.map((e) => e.employee.fullName);
 
-   // Find existing fees for this period (only among those with a cashbox)
    const existingIds = overwrite
      ? []
      : (
@@ -317,11 +306,11 @@ export async function createEmployeeFee(data: CreateEmployeeFeeInput) {
    const errors: string[] = [];
 
    if (toCreate.length > 0) {
-     const values = toCreate.map(({ employee, cashboxId }) => ({
+     const values = toCreate.map(({ employee }) => ({
        employeeId: employee.id,
        period,
        amount: employee.baseSalary,
-       cashboxId: cashboxId!,
+       cashboxId: employee.cashboxId!,
        status: "pendiente" as const,
      }));
 
@@ -343,7 +332,7 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
   const feeRow = await db
     .select({
       fee: employeeFees,
-      employeeSectorId: employees.sectorId,
+      employeeCashboxId: employees.cashboxId,
       employeeName: employees.fullName,
     })
     .from(employeeFees)
@@ -353,7 +342,7 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
 
   if (!feeRow[0]) throw new Error("Cuota no encontrada.");
 
-  const { fee, employeeSectorId, employeeName } = feeRow[0];
+  const { fee, employeeCashboxId, employeeName } = feeRow[0];
   if (fee.status === "pagado") throw new Error("Esta cuota ya fue pagada.");
 
   if (data.createTransaction === false) {
@@ -385,51 +374,32 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
     throw new Error('No existe la categoria activa "OUT-014" para registrar pago salarial.');
   }
 
-  // Resolve cashbox by sector (direct FK on sectors)
   let resolvedCashbox: { id: string; name: string; balance: string | null; status: string | null };
 
-  const linked = await db
-    .select({
-      id: cashboxes.id,
-      name: cashboxes.name,
-      balance: cashboxes.balance,
-      status: cashboxes.status,
-    })
-    .from(sectors)
-    .innerJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
-    .where(eq(sectors.id, Number(employeeSectorId)))
-    .limit(1);
+  if (employeeCashboxId) {
+    const linked = await db
+      .select({
+        id: cashboxes.id,
+        name: cashboxes.name,
+        balance: cashboxes.balance,
+        status: cashboxes.status,
+      })
+      .from(cashboxes)
+      .where(eq(cashboxes.id, employeeCashboxId))
+      .limit(1);
 
-  if (!linked[0]) {
-    if (employeeSectorId == null) {
-      const general = await db
-        .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
-        .from(cashboxes)
-        .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "activo")))
-        .limit(1);
-
-      if (!general[0]) throw new Error('No existe una caja general activa con codigo "GEN".');
-      resolvedCashbox = general[0];
-    } else {
-      const linked = await db
-        .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
-        .from(sectors)
-        .innerJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
-        .where(eq(sectors.id, employeeSectorId))
-        .limit(1);
-
-      if (!linked[0]) throw new Error(`El sector del empleado "${employeeName}" no tiene una caja vinculada.`);
-      if (linked[0].status !== "activo") throw new Error(`La caja vinculada al sector del empleado "${employeeName}" esta inactiva.`);
-      resolvedCashbox = linked[0];
-    }
-  } else {
-    if (linked[0].status !== "activo") {
-      throw new Error(
-        `La caja vinculada al sector del empleado "${employeeName}" esta inactiva.`
-      );
-    }
-
+    if (!linked[0]) throw new Error(`El empleado "${employeeName}" no tiene una caja vinculada valida.`);
+    if (linked[0].status !== "activo") throw new Error(`La caja vinculada al empleado "${employeeName}" esta inactiva.`);
     resolvedCashbox = linked[0];
+  } else {
+    const general = await db
+      .select({ id: cashboxes.id, name: cashboxes.name, balance: cashboxes.balance, status: cashboxes.status })
+      .from(cashboxes)
+      .where(and(eq(cashboxes.code, "GEN"), eq(cashboxes.status, "activo")))
+      .limit(1);
+
+    if (!general[0]) throw new Error('No existe una caja general activa con codigo "GEN".');
+    resolvedCashbox = general[0];
   }
 
   const availableBalance = Number(resolvedCashbox.balance ?? 0);
@@ -446,7 +416,6 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
       .values({
         cashboxId: resolvedCashbox.id,
         categoryId: salaryCategory.id,
-        sectorId: employeeSectorId ?? null,
         type: "withdraw",
         amount: amountToPay.toFixed(2),
         concept: `Pago de salario ${fee.period} - ${employeeName}`,
@@ -483,79 +452,6 @@ export async function payEmployeeFee(data: PayEmployeeFeeInput, processedByUserI
 
   return payment;
 }
-// --- Sector Cashbox -----------------------------------------------------------
-
-export async function getSectorCashboxLinks() {
-  return db
-    .select({
-      sectorId: sectors.id,
-      sectorName: sectors.name,
-      sectorIsActive: sectors.isActive,
-      cashboxId: sectors.cashboxId,
-      cashboxName: cashboxes.name,
-      cashboxBalance: cashboxes.balance,
-      cashboxStatus: cashboxes.status,
-    })
-    .from(sectors)
-    .leftJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
-    .orderBy(asc(sectors.name));
-}
-
-export async function getSectorSalarySummary(): Promise<SectorSalarySummary[]> {
-  const rows = await db
-    .select({
-      sectorId: sectors.id,
-      sectorName: sectors.name,
-      cashboxId: sectors.cashboxId,
-      cashboxBalance: cashboxes.balance,
-      totalEmployees: count(employees.id),
-      totalMonthlySalary: sum(employees.baseSalary),
-    })
-    .from(sectors)
-    .leftJoin(cashboxes, eq(cashboxes.id, sectors.cashboxId))
-    .leftJoin(
-      employees,
-      and(eq(employees.sectorId, sectors.id), eq(employees.status, "activo"))
-    )
-    .groupBy(
-      sectors.id,
-      sectors.name,
-      sectors.cashboxId,
-      cashboxes.balance
-    )
-    .orderBy(asc(sectors.name));
-
-  // Get pending fees counts per sector
-  const pendingRows = await db
-    .select({
-      sectorId: employees.sectorId,
-      pendingFees: count(),
-      pendingAmount: sum(employeeFees.amount),
-    })
-    .from(employeeFees)
-    .innerJoin(employees, eq(employees.id, employeeFees.employeeId))
-    .where(eq(employeeFees.status, "pendiente"))
-    .groupBy(employees.sectorId);
-
-  const pendingMap = new Map(
-    pendingRows.map((r) => [
-      r.sectorId,
-      { count: Number(r.pendingFees), amount: Number(r.pendingAmount ?? 0) },
-    ])
-  );
-
-  return rows.map((r) => ({
-    sectorId: r.sectorId,
-    sectorName: r.sectorName,
-    cashboxId: r.cashboxId ?? "",
-    cashboxBalance: r.cashboxBalance ?? "0",
-    totalEmployees: Number(r.totalEmployees),
-    totalMonthlySalary: Number(r.totalMonthlySalary ?? 0),
-    pendingFees: pendingMap.get(r.sectorId)?.count ?? 0,
-    pendingAmount: pendingMap.get(r.sectorId)?.amount ?? 0,
-  }));
-}
-
 // --- Overdue Fees (past periods with pending status) --------------------------
 
 /**
