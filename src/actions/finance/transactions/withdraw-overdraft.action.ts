@@ -91,7 +91,10 @@ export const withdrawOverdraft = defineAction({
                 .returning();
 
             await tx.execute(
-                sql`UPDATE finance.cashboxes SET balance = ${newBalance}, updated_at = NOW() WHERE id = ${cashbox.id}`,
+                sql`UPDATE finance.cashboxes
+                    SET balance = ${newBalance},
+                        cumulative_debt = cumulative_debt + ${isOverdraft ? overdraftAmount : "0.00"}
+                    WHERE id = ${cashbox.id}`,
             );
 
             if (resolvedRangeId && invoiceNumber) {

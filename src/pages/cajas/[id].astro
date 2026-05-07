@@ -3,7 +3,7 @@ import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { actions } from "astro:actions";
 import { db } from "@/db";
 import { cashboxes, employees, transactionCategories, transactions } from "@/db/schema";
-import { eq, asc, and, desc, gt, sum as sqlSum } from "drizzle-orm";
+import { eq, asc, and, desc, gt, sql } from "drizzle-orm";
 import {
   Wallet,
   Building2,
@@ -12,7 +12,6 @@ import {
   CirclePause,
   CirclePlay,
   Pencil,
-  ArrowRightLeft,
   AlertCircle,
 } from "@lucide/astro";
 import CashboxOperationsDialog from "@/components/svelte/CashboxOperationsDialog.svelte";
@@ -27,19 +26,13 @@ const [cashbox] = await db.select().from(cashboxes).where(eq(cashboxes.id, id!))
 if (!cashbox) return Astro.redirect("/cajas");
 
 const [
-  cashboxDetails,
   sectorEmployees,
   incomeCategories,
   outcomeCategories,
   recentTransactions,
   overdraftTransactions,
-  overdraftSum,
+  [debtRow],
 ] = await Promise.all([
-  db.select({ id: cashboxes.id, name: cashboxes.name, description: cashboxes.description })
-    .from(cashboxes)
-    .where(eq(cashboxes.id, id!))
-    .orderBy(asc(cashboxes.name)),
-
   db.select({
       cashboxId: cashboxes.id,
       employeeId: employees.id,
@@ -89,29 +82,30 @@ const [
     .where(and(eq(transactions.cashboxId, id!), gt(transactions.overdraftAmount, "0")))
     .orderBy(desc(transactions.createdAt)),
 
-  db.select({ total: sqlSum(transactions.overdraftAmount) })
+  // ← Fix: sum overdraftAmount from transactions, not from cashbox schema
+  db.select({
+      cumulativeDebt: sql<number>`COALESCE(SUM(${transactions.overdraftAmount}), 0)`,
+    })
     .from(transactions)
     .where(and(eq(transactions.cashboxId, id!), gt(transactions.overdraftAmount, "0"))),
 ]);
 
-const empBySector = new Map<number, typeof sectorEmployees>();
-for (const emp of sectorEmployees) {
-  const key = Number(emp.cashboxId);
-  if (!empBySector.has(key)) empBySector.set(key, []);
-  empBySector.get(key)!.push(emp);
-}
+const balance      = Number(cashbox.balance ?? 0);
+const totalSalary  = sectorEmployees.reduce((s, e) => s + Number(e.baseSalary ?? 0), 0);
+const canCover     = balance >= totalSalary;
+const isActive     = cashbox.status === "activo";
+const totalOverdraft = Number(debtRow?.cumulativeDebt ?? 0);
 
-const balance = Number(cashbox.balance ?? 0);
-const totalSalary = sectorEmployees.reduce((s, e) => s + Number(e.baseSalary ?? 0), 0);
-const canCover = balance >= totalSalary;
-const activeSectors = cashboxDetails.filter((s) => s.isActive);
-const isActive = cashbox.status === "activo";
-const totalOverdraft = Number(overdraftSum[0]?.total ?? 0);
-
-const fmtBs = (n: number) => `Bs ${n.toLocaleString("es-BO", { minimumFractionDigits: 2 })}`;
+const fmtBs   = (n: number) => `Bs ${n.toLocaleString("es-BO", { minimumFractionDigits: 2 })}`;
 const fmtDate = (d: Date | string) =>
   new Date(d).toLocaleDateString("es-BO", { day: "2-digit", month: "short", year: "numeric" });
 
+const statusLabel: Record<string, string> = {
+  completado: "Completado",
+  pendiente:  "Pendiente",
+  fallido:    "Fallido",
+  cancelado:  "Cancelado",
+};
 const statusClass: Record<string, string> = {
   completado: "bg-emerald-100 text-emerald-700",
   pendiente:  "bg-amber-100 text-amber-700",
@@ -132,8 +126,11 @@ const statusClass: Record<string, string> = {
         <Wallet class="h-5 w-5 text-slate-400" />
         <h1 class="text-xl font-bold text-slate-900">{cashbox.name}</h1>
         <span class="font-mono text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{cashbox.code}</span>
-        <span class:list={["text-xs font-semibold px-2 py-0.5 rounded-full", isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"]}>
-          {cashbox.status}
+        <span class:list={[
+          "text-xs font-semibold px-2 py-0.5 rounded-full",
+          isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"
+        ]}>
+          {isActive ? "activo" : "inactivo"}
         </span>
       </div>
       <p class:list={["text-2xl font-bold tabular-nums mt-1", canCover ? "text-emerald-600" : "text-red-600"]}>
@@ -147,29 +144,39 @@ const statusClass: Record<string, string> = {
           cashboxId={cashbox.id}
           cashboxName={cashbox.name}
           currentBalance={balance}
+          cumulativeDebt={totalOverdraft}
           monthlySalary={totalSalary}
           incomeCategories={incomeCategories as any}
           outcomeCategories={outcomeCategories as any}
           client:load
         />
       )}
-      <a href={`/cajas/${id}/editar`}
-        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+      <a
+        href={`/cajas/${id}/editar`}
+        class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+      >
         <Pencil class="h-3.5 w-3.5" /> Editar
       </a>
-      <form method="post" action={actions.finance.toggleCashboxStatus}
+      <form
+        method="post"
+        action={actions.finance.toggleCashboxStatus}
         onsubmit={`return confirm(${JSON.stringify(isActive
-          ? `¿Desactivar la caja "${cashbox.name}"?`
-          : `¿Reactivar la caja "${cashbox.name}"?`)})`}>
+          ? `¿Pausar la caja "${cashbox.name}"? No se podrán registrar nuevos movimientos.`
+          : `¿Reactivar la caja "${cashbox.name}"?`)})`}
+      >
         <input type="hidden" name="cashboxId" value={cashbox.id} />
         <input type="hidden" name="status" value={isActive ? "inactivo" : "activo"} />
-        <button type="submit" class:list={[
-          "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-          isActive ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
-                   : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-        ]}>
+        <button
+          type="submit"
+          class:list={[
+            "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+            isActive
+              ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+          ]}
+        >
           {isActive ? <CirclePause class="h-3.5 w-3.5" /> : <CirclePlay class="h-3.5 w-3.5" />}
-          {isActive ? "Desactivar" : "Reactivar"}
+          {isActive ? "Pausar" : "Reactivar"}
         </button>
       </form>
     </div>
@@ -179,53 +186,55 @@ const statusClass: Record<string, string> = {
   {!canCover && totalSalary > 0 && (
     <div class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
       <TriangleAlert class="h-4 w-4 shrink-0" />
-      Faltan {fmtBs(totalSalary - balance)} para cubrir la masa salarial total.
+      Faltan <strong class="mx-1">{fmtBs(totalSalary - balance)}</strong> para poder pagar la planilla de este mes.
     </div>
   )}
   {!isActive && (
     <div class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
       <TriangleAlert class="h-4 w-4 shrink-0" />
-      Esta caja está inactiva. No se pueden registrar transacciones ni vincular sectores.
+      Esta caja está pausada. No se pueden registrar pagos ni vincular empleados hasta reactivarla.
     </div>
   )}
 
   {/* ── Metric strip ── */}
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p class="text-xs text-slate-500">Sectores activos</p>
-      <p class="text-2xl font-bold text-slate-900 mt-0.5">{activeSectors.length}</p>
+      <p class="text-xs text-slate-500">Sectores vinculados</p>
+      <p class="text-2xl font-bold text-slate-900 mt-0.5">{sectorEmployees.length > 0 ? "—" : "0"}</p>
     </div>
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p class="text-xs text-slate-500">Personal</p>
+      <p class="text-xs text-slate-500">Empleados activos</p>
       <p class="text-2xl font-bold text-slate-900 mt-0.5">{sectorEmployees.length}</p>
     </div>
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p class="text-xs text-slate-500">Masa salarial</p>
+      <p class="text-xs text-slate-500">Planilla mensual</p>
       <p class:list={["text-lg font-bold tabular-nums mt-0.5", canCover ? "text-slate-900" : "text-red-600"]}>
-        {fmtBs(totalSalary)}
+        {totalSalary > 0 ? fmtBs(totalSalary) : <span class="text-slate-300">—</span>}
       </p>
     </div>
     <div class:list={[
       "rounded-xl border p-4 shadow-sm",
       totalOverdraft > 0 ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white",
     ]}>
-      <p class:list={["text-xs", totalOverdraft > 0 ? "text-amber-700" : "text-slate-500"]}>Descubierto acum.</p>
-      <p class:list={["text-lg font-bold tabular-nums mt-0.5", totalOverdraft > 0 ? "text-amber-700" : "text-slate-400"]}>
-        {totalOverdraft > 0 ? fmtBs(totalOverdraft) : "—"}
+      <p class:list={["text-xs", totalOverdraft > 0 ? "text-amber-700" : "text-slate-500"]}>
+        Deuda pendiente
+      </p>
+      <p class:list={["text-lg font-bold tabular-nums mt-0.5", totalOverdraft > 0 ? "text-amber-700" : "text-emerald-500"]}>
+        {totalOverdraft > 0 ? fmtBs(totalOverdraft) : "Al día ✓"}
       </p>
     </div>
   </div>
 
-  {/* ── Overdraft report ── */}
+  {/* ── Overdraft table ── */}
   {overdraftTransactions.length > 0 && (
     <div class="rounded-xl border border-amber-200 bg-white overflow-hidden shadow-sm">
       <div class="flex items-center justify-between px-5 py-3 bg-amber-50 border-b border-amber-200">
         <div class="flex items-center gap-2">
           <AlertCircle class="h-4 w-4 text-amber-600 shrink-0" />
-          <span class="text-sm font-semibold text-amber-800">Movimientos en descubierto</span>
-          <span class="text-xs text-amber-600">— egresos que superaron el saldo disponible</span>
+          <span class="text-sm font-semibold text-amber-800">Pagos realizados sin saldo suficiente</span>
+          <span class="hidden sm:inline text-xs text-amber-500">— el monto faltante quedó como deuda</span>
         </div>
-        <span class="text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">
+        <span class="text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full shrink-0">
           {overdraftTransactions.length} {overdraftTransactions.length === 1 ? "registro" : "registros"}
         </span>
       </div>
@@ -233,9 +242,9 @@ const statusClass: Record<string, string> = {
         <thead>
           <tr class="border-b border-slate-100 bg-slate-50">
             <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
-            <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Concepto</th>
-            <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Monto</th>
-            <th class="text-right px-4 py-2.5 font-semibold text-amber-600 uppercase tracking-wide">Descubierto</th>
+            <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Descripción</th>
+            <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Monto pagado</th>
+            <th class="text-right px-4 py-2.5 font-semibold text-amber-600 uppercase tracking-wide">Monto en deuda</th>
             <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Autorizado por</th>
             <th class="text-center px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
           </tr>
@@ -249,10 +258,12 @@ const statusClass: Record<string, string> = {
               <td class="px-4 py-2.5 text-right tabular-nums font-semibold text-amber-700">
                 {fmtBs(Number(tx.overdraftAmount))}
               </td>
-              <td class="px-4 py-2.5 text-slate-500">{tx.authorizedBy ?? <span class="text-slate-300">—</span>}</td>
+              <td class="px-4 py-2.5 text-slate-500">
+                {tx.authorizedBy ?? <span class="text-slate-300">—</span>}
+              </td>
               <td class="px-4 py-2.5 text-center">
                 <span class:list={["text-[10px] font-semibold px-2 py-0.5 rounded-full", statusClass[tx.status] ?? "bg-slate-100 text-slate-500"]}>
-                  {tx.status}
+                  {statusLabel[tx.status] ?? tx.status}
                 </span>
               </td>
             </tr>
@@ -260,8 +271,12 @@ const statusClass: Record<string, string> = {
         </tbody>
         <tfoot>
           <tr class="border-t border-amber-200 bg-amber-50">
-            <td colspan="3" class="px-4 py-2.5 text-xs font-semibold text-amber-800 text-right">Total descubierto</td>
-            <td class="px-4 py-2.5 text-right tabular-nums font-bold text-amber-800">{fmtBs(totalOverdraft)}</td>
+            <td colspan="3" class="px-4 py-2.5 text-xs font-semibold text-amber-800 text-right">
+              Total en deuda
+            </td>
+            <td class="px-4 py-2.5 text-right tabular-nums font-bold text-amber-800">
+              {fmtBs(totalOverdraft)}
+            </td>
             <td colspan="2" />
           </tr>
         </tfoot>
@@ -273,28 +288,33 @@ const statusClass: Record<string, string> = {
   <div class="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
     <div class="flex items-center justify-between px-5 py-3 border-b border-slate-100">
       <span class="text-sm font-semibold text-slate-800">Últimas transacciones</span>
-      <a href={`/cajas/${id}/transacciones`}
-        class="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">
+      <a
+        href={`/cajas/${id}/transacciones`}
+        class="text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors"
+      >
         Ver todas →
       </a>
     </div>
     {recentTransactions.length === 0 ? (
-      <p class="py-10 text-center text-sm text-slate-400">Sin transacciones registradas.</p>
+      <p class="py-10 text-center text-sm text-slate-400">
+        Aún no hay movimientos en esta caja.
+      </p>
     ) : (
       <table class="w-full text-xs">
         <thead>
           <tr class="border-b border-slate-100 bg-slate-50">
             <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
-            <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Concepto</th>
-            <th class="text-center px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Tipo</th>
+            <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Descripción</th>
+            <th class="text-center px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Movimiento</th>
             <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Monto</th>
-            <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Saldo post-tx</th>
+            <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Saldo tras el pago</th>
             <th class="text-center px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           {recentTransactions.map((tx) => {
             const isOverdraft = Number(tx.overdraftAmount ?? 0) > 0;
+            const isIncome    = tx.type === "income";
             return (
               <tr class:list={["hover:bg-slate-50/70 transition-colors", isOverdraft && "bg-amber-50/30"]}>
                 <td class="px-4 py-2.5 text-slate-500 whitespace-nowrap">{fmtDate(tx.createdAt)}</td>
@@ -302,30 +322,32 @@ const statusClass: Record<string, string> = {
                   {tx.concept}
                   {isOverdraft && (
                     <span class="ml-1.5 text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
-                      descubierto
+                      sin saldo
                     </span>
                   )}
                 </td>
                 <td class="px-4 py-2.5 text-center">
                   <span class:list={[
                     "text-[10px] font-semibold px-2 py-0.5 rounded-full",
-                    tx.type === "deposit" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700",
+                    isIncome ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700",
                   ]}>
-                    {tx.type === "deposit" ? "ingreso" : "egreso"}
+                    {isIncome ? "ingreso" : "egreso"}
                   </span>
                 </td>
                 <td class:list={[
                   "px-4 py-2.5 text-right tabular-nums font-semibold",
-                  tx.type === "deposit" ? "text-emerald-700" : "text-red-600",
+                  isIncome ? "text-emerald-700" : "text-red-600",
                 ]}>
-                  {tx.type === "deposit" ? "+" : "-"}{fmtBs(Number(tx.amount))}
+                  {isIncome ? "+" : "−"}{fmtBs(Number(tx.amount))}
                 </td>
                 <td class="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                  {tx.balanceAfter != null ? fmtBs(Number(tx.balanceAfter)) : <span class="text-slate-300">—</span>}
+                  {tx.balanceAfter != null
+                    ? fmtBs(Number(tx.balanceAfter))
+                    : <span class="text-slate-300">—</span>}
                 </td>
                 <td class="px-4 py-2.5 text-center">
                   <span class:list={["text-[10px] font-semibold px-2 py-0.5 rounded-full", statusClass[tx.status] ?? "bg-slate-100 text-slate-500"]}>
-                    {tx.status}
+                    {statusLabel[tx.status] ?? tx.status}
                   </span>
                 </td>
               </tr>
@@ -336,22 +358,18 @@ const statusClass: Record<string, string> = {
     )}
   </div>
 
-  {/* ── Sectors (compact table) ── */}
+  {/* ── Linked sectors ── */}
   <div>
     <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-slate-800">Sectores vinculados</h2>
-      <!-- <a href="/rrhh/sectores"
-        class="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors">
-        <ArrowRightLeft class="h-3.5 w-3.5" /> Gestionar sectores en RRHH
-      </a> -->
     </div>
 
-    {cashboxDetails.length === 0 ? (
+    {sectorEmployees.length === 0 ? (
       <div class="rounded-xl border-2 border-dashed border-slate-200 p-10 text-center text-slate-400">
         <Building2 class="h-8 w-8 mx-auto mb-2 opacity-30" />
-        <p class="text-sm">Esta caja no tiene sectores vinculados.</p>
+        <p class="text-sm">Esta caja no tiene sectores ni empleados vinculados.</p>
         <a href="/rrhh/sectores" class="mt-2 inline-block text-xs text-blue-500 hover:underline">
-          Ir a RRHH → Sectores para crear o vincular
+          Ir a RRHH → Sectores para vincular
         </a>
       </div>
     ) : (
@@ -359,61 +377,36 @@ const statusClass: Record<string, string> = {
         <table class="w-full text-xs">
           <thead>
             <tr class="border-b border-slate-100 bg-slate-50">
-              <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Sector</th>
-              <th class="text-center px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Personal</th>
-              <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Masa salarial</th>
-              <th class="text-center px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Cobertura</th>
-              <th class="text-center px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
+              <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Empleado</th>
+              <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Cargo</th>
+              <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Salario mensual</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            {cashboxDetails.map((cashB) => {
-              const emps = empBySector.get(cashB.id) ?? [];
-              const sectorSalary = emps.reduce((s, e) => s + Number(e.baseSalary ?? 0), 0);
-              const sectorCoverage = sectorSalary > 0 ? Math.min((balance / sectorSalary) * 100, 100) : 100;
-              const covers = balance >= sectorSalary;
-              return (
-                <tr class:list={["hover:bg-slate-50/70 transition-colors", !cashB.isActive && "opacity-50"]}>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-2">
-                      <Building2 class="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                      <div>
-                        <p class="font-semibold text-slate-800">{cashB.name}</p>
-                        {cashB.description && <p class="text-slate-400 truncate max-w-[200px]">{cashB.description}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-700 font-bold">
-                      {emps.length}
-                    </span>
-                  </td>
-                  <td class="px-4 py-3 text-right tabular-nums text-slate-700 font-medium">
-                    {sectorSalary > 0 ? fmtBs(sectorSalary) : <span class="text-slate-300">—</span>}
-                  </td>
-                  <td class="px-4 py-3">
-                    <div class="flex items-center gap-2 justify-center">
-                      <div class="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                        <div class:list={["h-full rounded-full", covers ? "bg-emerald-400" : "bg-red-400"]}
-                          style={`width:${Math.round(sectorCoverage)}%`} />
-                      </div>
-                      <span class:list={["font-semibold tabular-nums w-8 text-right", covers ? "text-emerald-600" : "text-red-500"]}>
-                        {sectorSalary > 0 ? `${Math.round(sectorCoverage)}%` : "—"}
-                      </span>
-                    </div>
-                  </td>
-                  <td class="px-4 py-3 text-center">
-                    <span class:list={[
-                      "text-[10px] font-semibold px-2 py-0.5 rounded-full",
-                      cashB.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400",
-                    ]}>
-                      {cashB.isActive ? "Activo" : "Inactivo"}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
+            {sectorEmployees.map((emp) => (
+              <tr class="hover:bg-slate-50/70 transition-colors">
+                <td class="px-4 py-3">
+                  <p class="font-semibold text-slate-800">{emp.fullName}</p>
+                </td>
+                <td class="px-4 py-3 text-slate-500">
+                  {emp.chargeTitle ?? <span class="text-slate-300">—</span>}
+                </td>
+                <td class="px-4 py-3 text-right tabular-nums font-medium text-slate-700">
+                  {fmtBs(Number(emp.baseSalary ?? 0))}
+                </td>
+              </tr>
+            ))}
           </tbody>
+          <tfoot>
+            <tr class="border-t border-slate-200 bg-slate-50">
+              <td colspan="2" class="px-4 py-2.5 text-xs font-semibold text-slate-600 text-right">
+                Total planilla
+              </td>
+              <td class="px-4 py-2.5 text-right tabular-nums font-bold text-slate-800">
+                {fmtBs(totalSalary)}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     )}

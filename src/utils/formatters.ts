@@ -2,6 +2,7 @@ import { Currency, type CurrencyType } from "@/lib/schemas/currency.schemas";
 
 export type NumberInput = number | string | null | undefined;
 
+
 const toNumber = (value: NumberInput) => {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
@@ -71,6 +72,58 @@ export const formatTransactionCurrency = (
   type: "deposit" | "withdraw",
 ) => `${type === "deposit" ? "+" : "-"}${formatBOB(amount)}`;
 
+
+// ADD ONS FOR FORMAT
+// ── Compact formatters (for cards/summaries/dashboards) ──────────────
+
+const COMPACT_FORMATTER = new Intl.NumberFormat("es", {
+  notation: "compact",
+  compactDisplay: "short",
+  maximumFractionDigits: 1,
+});
+
+const compactSymbols: [string, string][] = [
+  ["B.", "B."],   // preserve BOB prefix if manually prepended
+  ["mil", " mil"],
+  ["M", " M"],
+  ["B", " B"],    // billones (es locale)
+  ["k", " k"],    // fallback
+];
+
+const normalizeCompact = (formatted: string) => {
+  // "es" locale uses "mil", "M", "B" — just normalize spacing
+  return formatted
+    .replace(/(\d)(mil)/, "$1 mil")
+    .replace(/(\d)(M)/, "$1 M")
+    .replace(/(\d)(B)/, "$1 B");
+};
+
+export const formatCompact = (value: NumberInput): string => {
+  const n = toNumber(value);
+  return normalizeCompact(COMPACT_FORMATTER.format(n));
+};
+
+// With currency prefix — Bolivian standard is "Bs." prefix
+export const formatCompactBOB = (value: NumberInput): string =>
+  `Bs. ${formatCompact(value)}`;
+
+export const formatCompactUSD = (value: NumberInput): string =>
+  `$${formatCompact(value)}`;
+
+// ── Range helper — auto-switch full ↔ compact ────────────────────────
+// < 10,000     → full:    "9.850,00"
+// ≥ 10,000     → compact: "15 mil" | "2,3 M"
+export const formatSmartBOB = (value: NumberInput): string => {
+  const n = toNumber(value);
+  if (Math.abs(n) >= 10_000) return formatCompactBOB(n);
+  return formatBOB(n);               // your existing full formatter
+};
+
+export const formatSmartNumber = (value: NumberInput): string => {
+  const n = toNumber(value);
+  if (Math.abs(n) >= 10_000) return formatCompact(n);
+  return formatNumber(n);            // your existing formatter
+};
 
 // -------------------------- UI -------------------------------------
 //
@@ -163,3 +216,7 @@ export const formatCashBoxStatus = (status: string | CashBoxStatus) =>
 
 export const formatCategoryType = (type: string | CategoryType) =>
   CATEGORY_TYPE_MAP[type as CategoryType] ?? UNKNOWN;
+
+//
+//
+//

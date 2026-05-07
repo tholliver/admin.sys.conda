@@ -226,7 +226,7 @@ export function createCashboxOperationsStore(
         fd.set("concept", (values as any).concept.trim());
         if ((values as any).notes?.trim()) fd.set("notes", (values as any).notes.trim());
 
-        const result = await actions.finance.transfer(fd);
+        const result = await actions.finance.cashboxTransfer(fd);
         if (isInputError(result?.error)) { transferForm.setErrors(result.error.fields as any); return; }
         if (result?.error) { serverError = result.error.message ?? "Error al transferir."; return; }
         if (result?.data?.success) {

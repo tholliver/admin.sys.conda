@@ -3,13 +3,9 @@
     import {
         ArrowDownToLine,
         ArrowLeftRight,
-        BadgeCheck,
         CircleAlert,
         CircleCheck,
-        ShieldCheck,
-        TriangleAlert,
         X,
-        Zap,
     } from "@lucide/svelte";
     import { tooltip } from "@/lib/actions/tooltip";
     import { formatBOB } from "@/utils/formatters";
@@ -21,26 +17,22 @@
         cashboxId:        string;
         cashboxName:      string;
         currentBalance:   number;
-        cumulativeDebt?:  number;   // ← new: persisted debt from schema
         monthlySalary?:   number;
         incomeCategories:  CategoryOption[];
         outcomeCategories: CategoryOption[];
         allCashboxes?:    CashboxOption[];
         defaultMode?:     "deposit" | "transfer";
-        triggerDepositClass?: string;
     }
 
     let {
         cashboxId,
         cashboxName,
         currentBalance,
-        cumulativeDebt   = 0,
         monthlySalary    = 0,
         incomeCategories,
         outcomeCategories,
         allCashboxes     = [],
         defaultMode      = "deposit",
-        triggerDepositClass = "inline-flex items-center justify-center w-7 h-7 rounded border border-transparent text-slate-400 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-600 transition-colors",
     }: Props = $props();
 
     // ── 2 tabs only ──────────────────────────────────────────────────────────
@@ -64,57 +56,25 @@
     );
 
     // ── Debt coverage toggle state ───────────────────────────────────────────
-    let coverDebt = $state(cumulativeDebt > 0); // default ON if debt exists
-
-    const hasDebt        = $derived(cumulativeDebt > 0);
     const amountNum      = $derived(parseFloat(store.form.values.amount) || 0);
-
-    // How much of this deposit goes to clearing debt vs adding to balance
-    const debtCleared    = $derived(
-        coverDebt && hasDebt
-            ? Math.min(amountNum, cumulativeDebt)
-            : 0
-    );
-    const addedToBalance = $derived(
-        coverDebt && hasDebt
-            ? Math.max(0, amountNum - cumulativeDebt)
-            : amountNum
-    );
-    const remainingDebt  = $derived(
-        coverDebt && hasDebt
-            ? Math.max(0, cumulativeDebt - amountNum)
-            : cumulativeDebt
-    );
 
     // ── Submit label ─────────────────────────────────────────────────────────
     const submitLabel = $derived(
         store.isTransfer
             ? { idle: "Transferir",  busy: "Transfiriendo...", cls: "bg-blue-600 hover:bg-blue-700" }
-            : coverDebt && hasDebt && amountNum > 0
-            ? { idle: "Depositar y cubrir deuda", busy: "Procesando...", cls: "bg-amber-600 hover:bg-amber-700" }
-            : { idle: "Depositar",   busy: "Depositando...",  cls: "bg-emerald-600 hover:bg-emerald-700" }
+            : { idle: "Depositar",   busy: "Depositando...",   cls: "bg-emerald-600 hover:bg-emerald-700" }
     );
 </script>
 
 <!-- ── Trigger ──────────────────────────────────────────────────────────── -->
 <button
     type="button"
-    use:tooltip={{
-        content: hasDebt
-            ? `Depositar · Deuda pendiente: ${formatBOB(cumulativeDebt)}`
-            : "Depositar en caja",
-        side: "top"
-    }}
+    use:tooltip={{ content: "Depositar en caja", side: "top" }}
     onclick={() => store.open("deposit")}
-    class={hasDebt
-        ? "inline-flex items-center justify-center w-7 h-7 rounded border border-amber-300 bg-amber-50 text-amber-600 hover:border-amber-400 hover:bg-amber-100 transition-colors"
-        : triggerDepositClass}
+    class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
 >
-    {#if hasDebt}
-        <ShieldCheck class="h-4 w-4" />
-    {:else}
-        <ArrowDownToLine class="h-4 w-4" />
-    {/if}
+    <ArrowDownToLine class="h-3.5 w-3.5 shrink-0" />
+    <span>Depositar</span>
 </button>
 
 <!-- ── Dialog ───────────────────────────────────────────────────────────── -->
@@ -156,55 +116,17 @@
             </div>
 
             <!-- ── Balance + debt summary strip ── -->
-            <div class="mb-4 rounded-xl border bg-slate-50 divide-y divide-slate-100 text-xs overflow-hidden
-                {hasDebt ? 'border-amber-200' : 'border-slate-100'}">
-
+            <div class="mb-4 rounded-xl border border-slate-100 bg-slate-50 divide-y divide-slate-100 text-xs overflow-hidden">
                 <div class="flex justify-between items-center px-4 py-2.5">
                     <span class="text-slate-500">Saldo actual</span>
                     <span class="font-bold text-slate-800 tabular-nums">{formatBOB(currentBalance)}</span>
                 </div>
-
-                {#if hasDebt}
-                    <div class="flex justify-between items-center px-4 py-2.5 bg-amber-50">
-                        <span class="flex items-center gap-1.5 text-amber-700 font-medium">
-                            <TriangleAlert class="h-3.5 w-3.5" />
-                            Deuda acumulada
-                        </span>
-                        <span class="font-bold text-amber-700 tabular-nums">{formatBOB(cumulativeDebt)}</span>
+                {#if amountNum > 0 && store.isDeposit}
+                    <div class="flex justify-between items-center px-4 py-2.5 border-t border-slate-100">
+                        <span class="text-slate-500">Saldo tras depósito</span>
+                        <span class="font-bold text-emerald-600 tabular-nums">{formatBOB(currentBalance + amountNum)}</span>
                     </div>
                 {/if}
-
-                {#if amountNum > 0 && store.isDeposit}
-                    {#if coverDebt && hasDebt}
-                        <!-- Coverage breakdown — only shown when toggle is ON -->
-                        {#if debtCleared > 0}
-                            <div class="flex justify-between items-center px-4 py-2.5 bg-amber-50/60 border-t border-amber-100">
-                                <span class="text-amber-600">Cubre deuda</span>
-                                <span class="font-semibold text-amber-700 tabular-nums">−{formatBOB(debtCleared)}</span>
-                            </div>
-                        {/if}
-                        {#if addedToBalance > 0}
-                            <div class="flex justify-between items-center px-4 py-2.5 border-t border-slate-100">
-                                <span class="text-emerald-600">Añade al saldo</span>
-                                <span class="font-semibold text-emerald-700 tabular-nums">+{formatBOB(addedToBalance)}</span>
-                            </div>
-                        {/if}
-                        <div class="flex justify-between items-center px-4 py-2.5 border-t border-amber-100 bg-amber-50">
-                            <span class="font-semibold text-amber-800">Deuda restante</span>
-                            <span class="font-bold tabular-nums {remainingDebt === 0 ? 'text-emerald-700' : 'text-amber-700'}">
-                                {remainingDebt === 0 ? "✓ Saldada" : formatBOB(remainingDebt)}
-                            </span>
-                        </div>
-                    {:else}
-                        <div class="flex justify-between items-center px-4 py-2.5 border-t border-slate-100">
-                            <span class="text-slate-500">Saldo tras depósito</span>
-                            <span class="font-bold text-emerald-600 tabular-nums">
-                                {formatBOB(currentBalance + amountNum)}
-                            </span>
-                        </div>
-                    {/if}
-                {/if}
-
                 {#if store.isTransfer && store.selectedDestCashbox && amountNum > 0}
                     <div class="flex justify-between items-center px-4 py-2.5 border-t border-slate-100">
                         <span class="text-slate-500">Destino: {store.selectedDestCashbox.name}</span>
@@ -232,7 +154,7 @@
 
                 <!-- Amount -->
                 <div>
-                    {#if store.isDeposit && hasDebt && store.gap > 0}
+                    {#if store.isDeposit && store.gap > 0}
                         <div class="flex justify-end mb-1">
                             <button
                                 type="button"
@@ -255,67 +177,6 @@
                         onChange={(v) => store.form.setValue("amount", v)}
                     />
                 </div>
-
-                <!-- ── DEBT COVERAGE TOGGLE — only in deposit mode when debt exists ── -->
-                {#if store.isDeposit && hasDebt}
-                    <label class="flex cursor-pointer select-none overflow-hidden rounded-xl border-2 transition-all
-                        {coverDebt
-                            ? 'border-amber-400 bg-gradient-to-r from-amber-50 to-orange-50 shadow-sm shadow-amber-100'
-                            : 'border-slate-200 bg-slate-50 hover:border-slate-300'}">
-
-                        <span class="flex flex-1 items-start gap-3 p-3">
-                            <span class="mt-0.5 shrink-0 rounded-lg p-2
-                                {coverDebt ? 'bg-amber-200 text-amber-800' : 'bg-slate-200 text-slate-500'}">
-                                <ShieldCheck class="h-4 w-4" />
-                            </span>
-                            <span class="flex flex-col gap-0.5">
-                                <span class="text-sm font-semibold
-                                    {coverDebt ? 'text-amber-900' : 'text-slate-600'}">
-                                    Cubrir deuda acumulada
-                                </span>
-                                <span class="text-xs {coverDebt ? 'text-amber-700' : 'text-slate-400'}">
-                                    {#if coverDebt}
-                                        Este depósito reducirá la deuda de <strong>{formatBOB(cumulativeDebt)}</strong> primero
-                                    {:else}
-                                        Activar para que este depósito abone la deuda pendiente
-                                    {/if}
-                                </span>
-                            </span>
-                        </span>
-
-                        <!-- Custom toggle -->
-                        <span class="flex items-center pr-4">
-                            <span class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors
-                                {coverDebt ? 'bg-amber-500' : 'bg-slate-300'}">
-                                <span class="inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform
-                                    {coverDebt ? 'translate-x-6' : 'translate-x-1'}">
-                                </span>
-                            </span>
-                            <input
-                                type="checkbox"
-                                class="sr-only"
-                                bind:checked={coverDebt}
-                                aria-label="Cubrir deuda acumulada"
-                            />
-                        </span>
-                    </label>
-
-                    <!-- ── When fully covered — celebration banner ── -->
-                    {#if coverDebt && amountNum >= cumulativeDebt && amountNum > 0}
-                        <div class="flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-50 to-teal-50 px-4 py-3 shadow-sm shadow-emerald-100">
-                            <BadgeCheck class="h-5 w-5 shrink-0 text-emerald-600" />
-                            <div class="flex-1">
-                                <p class="text-sm font-bold text-emerald-800">¡Deuda completamente saldada!</p>
-                                <p class="text-xs text-emerald-600">
-                                    Se cubrirán {formatBOB(cumulativeDebt)} de deuda
-                                    {#if addedToBalance > 0}
-                                        y se añadirán {formatBOB(addedToBalance)} al saldo
-                                    {/if}
-                                </p>
-                            </div>
-                        </div>
-                    {/if}
-                {/if}
 
                 <!-- Transfer fields -->
                 {#if store.isTransfer}
