@@ -1,0 +1,14 @@
+---
+import ReportePDFWidget from "@/components/svelte/ReportePDFWidget.svelte";
+
+import { db } from "@/db";
+import { cashboxes } from "@/db/schema";
+import { isNull } from "drizzle-orm";
+
+const allCashboxes = await db
+    .select({ id: cashboxes.id, name: cashboxes.name, code: cashboxes.code, status: cashboxes.status, isQuick: cashboxes.isQuick })
+    .from(cashboxes)
+    .where(isNull(cashboxes.deletedAt));
+---
+
+<ReportePDFWidget cashboxes={allCashboxes} client:load />

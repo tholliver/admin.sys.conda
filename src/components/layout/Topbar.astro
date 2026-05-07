@@ -1,11 +1,12 @@
 ---
+import { db } from "@/db";
+import { employees, employeeFees, tenants, tenantPayments } from "@/db/schema";
+import { and, eq, isNull, inArray, count } from "drizzle-orm";
 import { PanelLeft } from "@lucide/astro";
 import NavLinks from "@/components/svelte/widgets/NavLinks.svelte";
 import GenerateDebtsWidget from "@/components/svelte/GenerateDebtsWidget.svelte";
 import { getHoursSinceLastBackup } from "@/lib/server/backup.service";
-import { db } from "@/db";
-import { employees, employeeFees, tenants, tenantPayments } from "@/db/schema";
-import { and, eq, isNull, inArray, count } from "drizzle-orm";
+import NavReportWidget from "@/components/NavReportWidget.astro";
 
 const { title, user } = Astro.props;
 
@@ -112,6 +113,7 @@ const showWidget = canSeeAlerts && (
 
         <!-- ── Nav anchors (own component) ─────────────────────────────────── -->
         <div class="topbar-actions">
+            <NavReportWidget />
             <NavLinks client:load />
             {showWidget && (
                 <GenerateDebtsWidget

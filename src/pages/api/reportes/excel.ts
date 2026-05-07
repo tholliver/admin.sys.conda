@@ -63,7 +63,7 @@ function setWidths(ws: ExcelJS.Worksheet, widths: number[]) {
 function addTitle(ws: ExcelJS.Worksheet, title: string, subtitle: string, cols: number) {
   ws.mergeCells(1, 1, 1, cols);
   const t = ws.getCell("A1");
-  t.value = "SINDICATO DE TRABAJADORES DEL TRANSPORTE CARRASCO";
+  t.value = "TRANS CARRASCO TROPICAL";
   t.font  = { name: "Arial", bold: true, size: 13, color: { argb: C.headerBg } };
   t.alignment = { horizontal: "center" };
 
