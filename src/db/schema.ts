@@ -141,7 +141,6 @@ export const cashboxes = financeSchema.table("cashboxes", {
   description: text("description"),
   balance:     numeric("balance", { mode: "string", precision: 15, scale: 2 }).default("0").notNull(),
   creditLimit: numeric("credit_limit",  { mode: "string", precision: 15, scale: 2 }).default("0"),
-  cumulativeDebt:  numeric("cumulative_debt", { mode: "string", precision: 15, scale: 2 }).default("0").notNull(),
   isQuick: boolean("is_quick").default(false).notNull(),
   status:      cashBoxStatusEnum("status").default("activo"),
   createdAt:   timestamp("created_at").defaultNow().notNull(),
@@ -150,7 +149,6 @@ export const cashboxes = financeSchema.table("cashboxes", {
 }, (t) => [
   index("idx_cashbox_code").on(t.code),
   check("balance_not_negative", sql`${t.balance} >= 0`),
-  check("cumulative_debt_not_negative", sql`${t.cumulativeDebt} >= 0`),
 ]);
 
 // ── Invoice ranges (talonarios) ───────────────────────────────────────
@@ -225,7 +223,7 @@ export const auditLogs = financeSchema.table("audit_logs", {
 //   contractor_payment → contractor_payments.id
 export const transactions = financeSchema.table("transactions", {
   id:                  uuid("id").primaryKey().default(sql`uuidv7()`),
-  cashboxId:           uuid("affiliation_id").notNull().references(() => cashboxes.id, { onDelete: "restrict" }),
+  cashboxId:           uuid("cashbox_id").notNull().references(() => cashboxes.id, { onDelete: "restrict" }),
   categoryId:          uuid("category_id").notNull().references(() => transactionCategories.id, { onDelete: "restrict" }),
   type:                transactionTypeEnum("type").notNull(),
   amount:              numeric("amount", { mode: "string", precision: 15, scale: 2 }).notNull(),
@@ -236,15 +234,11 @@ export const transactions = financeSchema.table("transactions", {
   // External reference only (bank wire ID, external receipt, etc.) — not for invoice numbers
   externalReference:   varchar("external_reference", { length: 255 }),
   authorizedBy:        varchar("authorized_by", { length: 255 }),
-  overdraftAmount:     numeric("overdraft_amount", { precision: 12, scale: 2 }).default("0"),
   createdByUserId:     varchar("created_by_user_id", { length: 255 }).notNull(),
   status:              transactionStatusEnum("status").notNull().default("pendiente"),
   balanceAfter:        numeric("balance_after", { mode: "string", precision: 15, scale: 2 }),
   // Single escape hatch: void reason, extra notes, any future JSON keys
   metadata:            text("metadata"),
-  // Transfer cross-reference: both legs share transferPairId
-  transferToCashboxId: uuid("transfer_to_cashbox_id"),
-  transferPairId:      uuid("transfer_pair_id"),
   // Polymorphic FK to obligation tables (employee_fees, tenant_payments, contractor_payments)
   linkedEntityType:    linkedEntityTypeEnum("linked_entity_type"),
   linkedEntityId:      integer("linked_entity_id"),
@@ -256,8 +250,6 @@ export const transactions = financeSchema.table("transactions", {
   index("idx_tx_type").on(t.type),
   index("idx_tx_status").on(t.status),
   index("idx_tx_created_at").on(t.createdAt),
-  index("idx_tx_transfer_pair").on(t.transferPairId),
-  index("idx_tx_transfer_to_cashbox").on(t.transferToCashboxId),
   index("idx_tx_linked_entity").on(t.linkedEntityType, t.linkedEntityId),
   index("idx_tx_invoice_range").on(t.invoiceRangeId),
   index("idx_tx_invoice_number").on(t.invoiceRangeId, t.invoiceNumber),

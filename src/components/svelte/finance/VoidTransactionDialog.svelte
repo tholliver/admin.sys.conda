@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Ban, CircleAlert, ArrowLeftRight, TriangleAlert } from "@lucide/svelte";
+    import { Ban, CircleAlert } from "@lucide/svelte";
     import { actions, isInputError } from "astro:actions";
     import Dialog from "@/components/svelte/Dialog.svelte";
 
@@ -7,20 +7,12 @@
         transactionId: string;
         concept: string;
         amount: string;
-        // Pass true when this transaction has a transferPairId (both legs will be voided)
-        isTransfer?: boolean;
-        // Human-readable names of the two cashboxes involved, only used when isTransfer=true
-        fromCashboxName?: string;
-        toCashboxName?: string;
     }
 
     let {
         transactionId,
         concept,
         amount,
-        isTransfer = false,
-        fromCashboxName,
-        toCashboxName,
     }: Props = $props();
 
     let isOpen = $state(false);
@@ -89,10 +81,8 @@
     bind:isOpen
     onClose={handleClose}
     size="sm"
-    title={isTransfer ? "Anular Transferencia" : "Anular Transacción"}
-    description={isTransfer
-        ? "Se revertirán ambas cajas involucradas en la transferencia."
-        : "Esta acción es irreversible. El saldo de la caja será revertido."}
+    title="Anular Transacción"
+    description="Esta acción es irreversible. El saldo de GEN será revertido."
     testId={`void-dialog-${transactionId}`}
 >
     {#snippet trigger({ open })}
@@ -127,28 +117,6 @@
             <p class="text-sm font-semibold text-amber-900 truncate">{concept}</p>
             <p class="text-base font-bold text-amber-700">{formattedAmount}</p>
         </div>
-
-        <!-- Transfer-specific warning: both cashboxes will be affected -->
-        {#if isTransfer}
-            <div class="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 space-y-2">
-                <div class="flex items-center gap-2">
-                    <TriangleAlert class="h-4 w-4 text-orange-600 shrink-0" />
-                    <p class="text-sm font-semibold text-orange-900">
-                        Se revertirán <span class="underline">dos cajas</span>
-                    </p>
-                </div>
-                {#if fromCashboxName && toCashboxName}
-                    <div class="flex items-center gap-2 text-sm text-orange-800 pl-6">
-                        <span class="font-medium">{fromCashboxName}</span>
-                        <ArrowLeftRight class="h-3.5 w-3.5 shrink-0" />
-                        <span class="font-medium">{toCashboxName}</span>
-                    </div>
-                {/if}
-                <p class="text-xs text-orange-700 pl-6">
-                    Ambas cajas quedarán exactamente como estaban antes de la transferencia.
-                </p>
-            </div>
-        {/if}
 
         <!-- Reason input -->
         <div>
@@ -194,7 +162,7 @@
                 <span>Anulando...</span>
             {:else}
                 <Ban class="h-4 w-4" />
-                <span>{isTransfer ? "Anular Transferencia" : "Confirmar Anulación"}</span>
+                <span>Confirmar Anulación</span>
             {/if}
         </button>
     {/snippet}

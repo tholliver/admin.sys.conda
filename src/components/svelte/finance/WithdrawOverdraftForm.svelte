@@ -1,7 +1,7 @@
 <script lang="ts">
     import { fade } from "svelte/transition";
     import type { SelectCashbox, SelectTransactionCategories } from "@/db/schema";
-    import { CircleAlert, CircleCheck, Minus, TriangleAlert, X } from "@lucide/svelte";
+    import { CircleAlert, Minus, TriangleAlert, X } from "@lucide/svelte";
     import Dialog from "@/components/svelte/Dialog.svelte";
     import AmountInput from "./AmountInput.svelte";
     import { formatBOB } from "@/utils/formatters";
@@ -10,7 +10,6 @@
     import CashboxPicker     from "./withdraw/CashboxPicker.svelte";
     import ConceptPicker     from "./withdraw/ConceptPicker.svelte";
     import InvoiceBookBanner from "./InvoiceBookBanner.svelte";
-    import OverdraftConfirmDialog from "./OverdraftConfirmDialog.svelte";
     import NotesAutocomplete from "./NotesAutocomplete.svelte";
 
     interface EmployeeOption {
@@ -23,9 +22,10 @@
         concepts:   SelectTransactionCategories[];
         cashboxes:  SelectCashbox[];
         employees?: EmployeeOption[];
+        genBalance?: number;
     }
 
-    let { concepts, cashboxes, employees = [] }: Props = $props();
+    let { concepts, cashboxes, employees = [], genBalance = 0 }: Props = $props();
 
     const w = createWithdrawOverdraftStore(cashboxes, concepts);
 </script>
@@ -83,7 +83,7 @@
             <div class="space-y-4">
                 <div class="bg-slate-50 rounded-lg p-4 space-y-2.5">
                     <div class="flex justify-between items-start">
-                        <span class="text-sm text-slate-600">Caja:</span>
+                        <span class="text-sm text-slate-600">Centro de costo:</span>
                         <span class="text-sm font-medium text-slate-900">{w.selectedCashbox?.name}</span>
                     </div>
                     <div class="flex justify-between items-start">
@@ -146,20 +146,6 @@
         </Dialog>
     {/if}
 
-    <!-- ── Debt confirm dialog ─────────────────────────────────────────────── -->
-    {#if w.debtConfirm}
-        <OverdraftConfirmDialog
-            cashboxName={w.debtConfirm.cashboxName}
-            concept={w.selectedConcept?.name ?? "Egreso"}
-            available={w.debtConfirm.available}
-            requested={w.debtConfirm.requested}
-            deficit={w.debtConfirm.deficit}
-            isSubmitting={w.isSubmitting}
-            onConfirm={w.confirmDebt}
-            onCancel={w.cancelDebt}
-        />
-    {/if}
-
     <!-- ── Form ───────────────────────────────────────────────────────────── -->
     <form method="POST" onsubmit={w.handleInitialSubmit} class="space-y-5">
         <CashboxPicker
@@ -203,14 +189,17 @@
                 error={w.inputErrors.amount}
             />
 
-            <!-- Proactive balance warning -->
-            {#if w.selectedCashbox && w.amount && parseFloat(w.amount) > parseFloat(String(w.selectedCashbox.balance ?? "0"))}
+            <div class="mt-2 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                <span class="text-slate-500">Saldo disponible (GEN)</span>
+                <span class="font-bold text-slate-800 tabular-nums">{formatBOB(String(genBalance))}</span>
+            </div>
+
+            {#if w.amount && parseFloat(w.amount) > genBalance}
                 <div in:fade={{ duration: 150 }} class="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
                     <TriangleAlert class="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                     <p class="text-xs text-amber-800">
-                        El monto supera Saldo act.
-                        (<span class="font-semibold">{formatBOB(String(w.selectedCashbox.balance ?? "0"))}</span>).
-                        Se te pedirá confirmar la deuda.
+                        El monto supera el saldo disponible en GEN
+                        (<span class="font-semibold">{formatBOB(String(genBalance))}</span>).
                     </p>
                 </div>
             {/if}

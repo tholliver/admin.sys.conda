@@ -41,6 +41,7 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
     let selectedConcept = $state<ConceptWithRange | null>(null);
     let amount = $state("");
     let reference = $state("");
+    let selectedCashboxId = $state("");
     let searchQuery = $state("");
     let showDropdown = $state(false);
     let highlightedIndex = $state(0);
@@ -174,6 +175,7 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         const fd = new FormData();
         fd.append("categoryId", selectedConcept.id);
         fd.append("amount", amount);
+        if (selectedCashboxId) fd.append("cashboxId", selectedCashboxId);
 
         if (invoicePreview && needsInvoice(selectedConcept)) {
             fd.append("invoiceRangeId", invoicePreview.rangeId);
@@ -214,6 +216,7 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         selectedConcept = null;
         amount = "";
         reference = "";
+        selectedCashboxId = "";
         searchQuery = "";
         highlightedIndex = 0;
         inputErrors = {};
@@ -227,6 +230,8 @@ export function createDepositStore(concepts: SelectTransactionCategories[], defa
         set amount(v) { amount = v; },
         get reference() { return reference; },
         set reference(v) { reference = v; },
+        get selectedCashboxId() { return selectedCashboxId; },
+        set selectedCashboxId(v) { selectedCashboxId = v; },
         get searchQuery() { return searchQuery; },
         set searchQuery(v) { searchQuery = v; },
         get showDropdown() { return showDropdown; },

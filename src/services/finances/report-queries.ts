@@ -148,13 +148,12 @@ export async function getDailyReport(
         .from(cashboxes)
         .where(isNull(cashboxes.deletedAt));
 
-    // Get daily summary — exclude internal transfer legs (transferPairId IS NOT NULL)
     const [dailySummary] = await db
         .select({
-            totalIncome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'deposit' AND ${transactions.transferPairId} IS NULL THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
-            totalOutcome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'withdraw' AND ${transactions.transferPairId} IS NULL THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
-            incomeCount: sql<number>`COUNT(CASE WHEN ${transactions.type} = 'deposit' AND ${transactions.transferPairId} IS NULL THEN 1 END)`,
-            outcomeCount: sql<number>`COUNT(CASE WHEN ${transactions.type} = 'withdraw' AND ${transactions.transferPairId} IS NULL THEN 1 END)`,
+            totalIncome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'deposit' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+            totalOutcome: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'withdraw' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+            incomeCount: sql<number>`COUNT(CASE WHEN ${transactions.type} = 'deposit' THEN 1 END)`,
+            outcomeCount: sql<number>`COUNT(CASE WHEN ${transactions.type} = 'withdraw' THEN 1 END)`,
             totalTransactions: sql<number>`COUNT(*)`,
         })
         .from(transactions)
@@ -200,8 +199,7 @@ export async function getDailyTransactionsByCategory(date: Date = new Date()) {
             and(
                 gte(transactions.createdAt, startOfDay),
                 lte(transactions.createdAt, endOfDay),
-                eq(transactions.status, "completado"),
-                isNull(transactions.transferPairId)
+                eq(transactions.status, "completado")
             )
         )
         .groupBy(
@@ -227,7 +225,6 @@ export async function getDailyTransactionsList(date: Date = new Date()) {
             categoryName: transactionCategories.name,
             createdAt: transactions.createdAt,
             authorizedBy: transactions.authorizedBy,
-            transferPairId: transactions.transferPairId,
         })
         .from(transactions)
         .innerJoin(

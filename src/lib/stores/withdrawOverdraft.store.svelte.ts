@@ -1,31 +1,10 @@
 // src/lib/stores/withdrawOverdraft.store.svelte.ts
-// Wraps createWithdrawStore — adds debt-confirm state + user-editable notes.
+// Wraps createWithdrawStore — adds user-editable notes.
 // WithdrawForm stays UNTOUCHED. Use WithdrawOverdraftForm.svelte instead.
 
 import { actions, isInputError } from "astro:actions";
 import type { SelectCashbox, SelectTransactionCategories } from "@/db/schema";
 import { createWithdrawStore } from "./withdraw.store.svelte";
-
-export interface DebtConfirmState {
-    available:   number;
-    requested:   number;
-    deficit:     number;
-    cashboxName: string;
-}
-
-// Sentinel prefix the action embeds in the error message
-const INSUFFICIENT_PREFIX = "__INSUFFICIENT_FUNDS__";
-
-function parseInsufficientFundsMessage(msg: string): DebtConfirmState | null {
-    if (!msg.startsWith(INSUFFICIENT_PREFIX)) return null;
-    const [, available, requested, deficit, cashboxName] = msg.split(":");
-    return {
-        available:   parseFloat(available),
-        requested:   parseFloat(requested),
-        deficit:     parseFloat(deficit),
-        cashboxName: cashboxName ?? "Caja",
-    };
-}
 
 export function createWithdrawOverdraftStore(
     cashboxes: SelectCashbox[],
@@ -34,9 +13,7 @@ export function createWithdrawOverdraftStore(
     // Base store — all original logic lives here
     const base = createWithdrawStore(cashboxes, concepts);
 
-    // ── Additional overdraft state ────────────────────────────────────────────
-    let debtConfirm  = $state<DebtConfirmState | null>(null);
-    let isSubmitting = $state(false); // shadow — we need our own for overdraft path
+    let isSubmitting = $state(false);
     let notes        = $state("");    // user-editable notes with employee autocomplete
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -47,8 +24,6 @@ export function createWithdrawOverdraftStore(
     }
 
     // ── Override confirmWithdraw ──────────────────────────────────────────────
-    // First attempt uses the normal `withdraw` action.
-    // If insufficient → parse the error → show debt dialog instead of error banner.
     async function confirmWithdraw() {
         const fd = new FormData();
         fd.append("cashboxId",  base.cashboxId);
@@ -84,13 +59,13 @@ export function createWithdrawOverdraftStore(
             }
 
             if (result?.error) {
-                const parsed = parseInsufficientFundsMessage(result.error.message ?? "");
-                if (parsed) {
-                    // Show debt dialog instead of error banner
-                    debtConfirm = parsed;
-                    return;
+                const msg = result.error.message ?? "";
+                if (msg.startsWith("__INSUFFICIENT_FUNDS__")) {
+                    const [, available, requested, deficit, cashboxName] = msg.split(":");
+                    base.serverError = `Saldo insuficiente en ${cashboxName}. Disponible: Bs ${available}. Requerido: Bs ${requested}. Déficit: Bs ${deficit}.`;
+                } else {
+                    base.serverError = msg;
                 }
-                base.serverError = result.error.message ?? "Error al procesar el egreso.";
                 return;
             }
 
@@ -100,59 +75,6 @@ export function createWithdrawOverdraftStore(
             }
         } catch (err) {
             base.serverError = err instanceof Error ? err.message : "Error inesperado.";
-        } finally {
-            isSubmitting = false;
-        }
-    }
-
-    // ── Debt dialog actions ───────────────────────────────────────────────────
-    function cancelDebt() {
-        debtConfirm = null;
-    }
-
-    async function confirmDebt() {
-        if (!debtConfirm || !base.selectedConcept) return;
-
-        const fd = new FormData();
-        fd.append("cashboxId",  base.cashboxId);
-        fd.append("categoryId", base.selectedConcept.id);
-        fd.append("amount",     base.amount);
-
-        const trimmedRef = base.reference.trim();
-        fd.append("justification", buildNotes("Egreso (con deuda)", base.selectedConcept.name, trimmedRef));
-
-        if (base.authorizedBy.trim()) fd.append("authorizedBy", base.authorizedBy.trim());
-
-        if (base.invoicePreview && base.showInvoiceField) {
-            fd.append("invoiceRangeId", base.invoicePreview.rangeId);
-        } else if (trimmedRef) {
-            fd.append("externalReference", trimmedRef);
-        }
-
-        isSubmitting = true;
-        base.serverError = null;
-
-        try {
-            const result = await actions.finance.withdrawOverdraft(fd);
-
-            if (result?.error) {
-                debtConfirm = null;
-                base.serverError = result.error.message ?? "Error al registrar la deuda.";
-                return;
-            }
-
-            if (result?.data?.success) {
-                debtConfirm = null;
-                base.successMessage = result.data as any;
-            }
-        } catch (err: any) {
-            const msg = err?.message ?? "";
-            const parsed = parseInsufficientFundsMessage(msg);
-            if (parsed) {
-                debtConfirm = parsed;
-            } else {
-                base.serverError = msg || "Error inesperado.";
-            }
         } finally {
             isSubmitting = false;
         }
@@ -190,8 +112,6 @@ export function createWithdrawOverdraftStore(
         // ── Notes (employee autocomplete) ────────────────────────────────────
         get notes()            { return notes; },
         set notes(v)           { notes = v; },
-        // ── Overdraft-only ───────────────────────────────────────────────────
-        get debtConfirm()      { return debtConfirm; },
         get isSubmitting()     { return isSubmitting; },
         // ── Actions ──────────────────────────────────────────────────────────
         selectConcept:        base.selectConcept,
@@ -201,8 +121,6 @@ export function createWithdrawOverdraftStore(
         handleInitialSubmit:  base.handleInitialSubmit,
         confirmWithdraw,
         cancelConfirm:        base.cancelConfirm,
-        cancelDebt,
-        confirmDebt,
         resetForm:            base.resetForm,
     };
 }

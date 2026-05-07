@@ -1,19 +1,22 @@
 ---
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { db } from "@/db";
-import { cashboxes, employees, transactionCategories } from "@/db/schema";
-import { eq, asc, count, sum, and } from "drizzle-orm";
+import { cashboxes, employees } from "@/db/schema";
+import { eq, asc, count, sum } from "drizzle-orm";
 import { actions } from "astro:actions";
 import { Wallet } from "@lucide/astro";
 import CreateCashboxDialog from "@/components/svelte/dialogs/CreateCashboxDialog.svelte";
-import CashboxOperationsDialog from "@/components/svelte/CashboxOperationsDialog.svelte";
-import CoverDebtDialog from "@/components/svelte/finance/CoverDebtDialog.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
 if (!["ADMIN"].includes(user.role ?? "")) return Astro.redirect("/");
 
-const [allCashboxes, employeeStats, incomeCategories, outcomeCategories] = await Promise.all([
+const [genCashbox, allCashboxes, employeeStats] = await Promise.all([
+  db.select({ balance: cashboxes.balance })
+    .from(cashboxes)
+    .where(eq(cashboxes.code, "GEN"))
+    .then((r) => r[0]),
+
   db.select({
     id: cashboxes.id,
     name: cashboxes.name,
@@ -22,7 +25,6 @@ const [allCashboxes, employeeStats, incomeCategories, outcomeCategories] = await
     status: cashboxes.status,
     description: cashboxes.description,
     isQuick: cashboxes.isQuick,
-    cumulativeDebt: cashboxes.cumulativeDebt,
   })
     .from(cashboxes)
     .where(eq(cashboxes.status, "activo"))
@@ -37,37 +39,24 @@ const [allCashboxes, employeeStats, incomeCategories, outcomeCategories] = await
     .where(eq(employees.status, "activo"))
     .groupBy(employees.cashboxId),
 
-  db.select({ id: transactionCategories.id, name: transactionCategories.name, code: transactionCategories.code })
-    .from(transactionCategories)
-    .where(and(eq(transactionCategories.type, "income"), eq(transactionCategories.status, true)))
-    .orderBy(asc(transactionCategories.sortOrder)),
-
-  db.select({ id: transactionCategories.id, name: transactionCategories.name, code: transactionCategories.code })
-    .from(transactionCategories)
-    .where(and(eq(transactionCategories.type, "outcome"), eq(transactionCategories.status, true)))
-    .orderBy(asc(transactionCategories.sortOrder)),
 ]);
-
-const debtMap = new Map(
-  allCashboxes.map((c) => [c.id, Number(c.cumulativeDebt ?? 0)])
-);
 
 const employeeMap = new Map(
   employeeStats.map((e) => [e.cashboxId, { count: e.employeeCount, salary: Number(e.totalSalary ?? 0) }]),
 );
 
-const totalBalance = allCashboxes.reduce((s, b) => s + Number(b.balance ?? 0), 0);
+const genBalance = Number(genCashbox?.balance ?? 0);
 const totalSalary  = [...employeeMap.values()].reduce((s, e) => s + e.salary, 0);
 const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocaleString("es-BO", { minimumFractionDigits: 2 });
 ---
 
-<FinanceLayout title="Cajas" user={user}>
+<FinanceLayout title="Centros de Costo" user={user}>
 
   {/* ── Header ── */}
   <div class="flex items-start justify-between gap-4">
     <div>
-      <h1 class="text-xl font-bold text-slate-900">Cajas</h1>
-      <p class="text-sm text-slate-500 mt-0.5">Cada caja centraliza su presupuesto y personal.</p>
+      <h1 class="text-xl font-bold text-slate-900">Centros de Costo</h1>
+      <p class="text-sm text-slate-500 mt-0.5">Centros de costo para reportar gastos e ingresos por área.</p>
     </div>
     <CreateCashboxDialog client:load />
   </div>
@@ -75,13 +64,13 @@ const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocale
   {/* ── Summary strip ── */}
   <div class="grid grid-cols-3 gap-3">
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p class="text-xs text-slate-500">Cajas activas</p>
+      <p class="text-xs text-slate-500">Centros de costo activos</p>
       <p class="text-2xl font-bold text-slate-900 mt-0.5">{allCashboxes.length}</p>
     </div>
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p class="text-xs text-slate-500">Saldo total</p>
-      <p class:list={["text-lg font-bold tabular-nums mt-0.5", totalBalance >= totalSalary ? "text-emerald-600" : "text-red-600"]}>
-        Bs {fmtK(totalBalance)}
+      <p class="text-xs text-slate-500">Saldo GEN (caja principal)</p>
+      <p class:list={["text-lg font-bold tabular-nums mt-0.5", genBalance >= totalSalary ? "text-emerald-600" : "text-red-600"]}>
+        Bs {fmtK(genBalance)}
       </p>
     </div>
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -95,21 +84,18 @@ const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocale
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b border-slate-100 bg-slate-50">
-          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Caja</th>
-          <th class="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Saldo</th>
+          <th class="text-left px-5 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Centro de costo</th>
           <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Personal</th>
           <th class="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cobertura</th>
-          <th class="px-4 py-3">Operaciones</th>
+          <th class="px-4 py-3">Acciones</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
         {allCashboxes.map((box) => {
-          const balance     = Number(box.balance ?? 0);
           const emp         = employeeMap.get(box.id);
           const salary      = emp?.salary ?? 0;
-          const canCover    = emp ? balance >= salary : true;
-          const coveragePct = salary > 0 ? Math.min((balance / salary) * 100, 100) : 100;
-          const cumulativeDebt = debtMap.get(box.id) ?? 0;
+          const canCover    = emp ? genBalance >= salary : true;
+          const coveragePct = salary > 0 ? Math.min((genBalance / salary) * 100, 100) : 100;
 
           return (
             <tr class="hover:bg-slate-50/70 transition-colors">
@@ -126,18 +112,6 @@ const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocale
                     <p class="text-[11px] text-slate-400 font-mono">{box.code}</p>
                   </div>
                 </a>
-              </td>
-
-              {/* Balance */}
-              <td class="px-4 py-3.5 text-right tabular-nums">
-                <span class:list={["font-bold", canCover ? "text-slate-800" : "text-red-600"]}>
-                  Bs {fmtK(balance)}
-                </span>
-                {!canCover && salary > 0 && (
-                  <p class="text-[10px] text-red-400 tabular-nums">
-                    −Bs {fmtK(salary - balance)}
-                  </p>
-                )}
               </td>
 
               {/* Staff */}
@@ -186,28 +160,12 @@ const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocale
                     </button>
                   </form>
 
-                  {cumulativeDebt > 0 && (
-                    <CoverDebtDialog
-                      cashboxId={box.id}
-                      cashboxName={box.name}
-                      currentBalance={balance}
-                      cumulativeDebt={cumulativeDebt}
-                      incomeCategories={incomeCategories as any}
-                      client:load
-                    />
-                  )}
-
-                  {/* Deposit / egreso */}
-                  <CashboxOperationsDialog
-                      cashboxId={box.id}
-                      cashboxName={box.name}
-                      currentBalance={balance}
-                      monthlySalary={emp?.salary ?? 0}
-                      incomeCategories={incomeCategories as any}
-                      outcomeCategories={outcomeCategories as any}
-                      allCashboxes={allCashboxes as any}
-                      client:load
-                  />
+                  <a
+                    href={`/cajas/${box.id}`}
+                    class="inline-flex items-center rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                  >
+                    Ver →
+                  </a>
                 </div>
               </td>
 
@@ -218,7 +176,7 @@ const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocale
     </table>
 
     {allCashboxes.length === 0 && (
-      <div class="py-16 text-center text-slate-400 text-sm">No hay cajas activas.</div>
+      <div class="py-16 text-center text-slate-400 text-sm">No hay centros de costo activos.</div>
     )}
   </div>
 

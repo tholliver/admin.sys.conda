@@ -2,8 +2,8 @@
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { actions } from "astro:actions";
 import { db } from "@/db";
-import { cashboxes, employees, transactionCategories, transactions } from "@/db/schema";
-import { eq, asc, and, desc, gt, sql } from "drizzle-orm";
+import { cashboxes, employees, transactions } from "@/db/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 import {
   Wallet,
   Building2,
@@ -12,9 +12,7 @@ import {
   CirclePause,
   CirclePlay,
   Pencil,
-  AlertCircle,
 } from "@lucide/astro";
-import CashboxOperationsDialog from "@/components/svelte/CashboxOperationsDialog.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -25,13 +23,12 @@ const { id } = Astro.params;
 const [cashbox] = await db.select().from(cashboxes).where(eq(cashboxes.id, id!));
 if (!cashbox) return Astro.redirect("/cajas");
 
+const isGEN = cashbox.code === "GEN";
+
 const [
   sectorEmployees,
-  incomeCategories,
-  outcomeCategories,
   recentTransactions,
-  overdraftTransactions,
-  [debtRow],
+  [attributedTotals],
 ] = await Promise.all([
   db.select({
       cashboxId: cashboxes.id,
@@ -44,16 +41,6 @@ const [
     .innerJoin(cashboxes, eq(cashboxes.id, employees.cashboxId))
     .where(and(eq(employees.status, "activo"), eq(cashboxes.id, id!))),
 
-  db.select({ id: transactionCategories.id, name: transactionCategories.name, code: transactionCategories.code })
-    .from(transactionCategories)
-    .where(and(eq(transactionCategories.type, "income"), eq(transactionCategories.status, true)))
-    .orderBy(asc(transactionCategories.sortOrder)),
-
-  db.select({ id: transactionCategories.id, name: transactionCategories.name, code: transactionCategories.code })
-    .from(transactionCategories)
-    .where(and(eq(transactionCategories.type, "outcome"), eq(transactionCategories.status, true)))
-    .orderBy(asc(transactionCategories.sortOrder)),
-
   db.select({
       id: transactions.id,
       concept: transactions.concept,
@@ -61,7 +48,6 @@ const [
       amount: transactions.amount,
       balanceAfter: transactions.balanceAfter,
       status: transactions.status,
-      overdraftAmount: transactions.overdraftAmount,
       createdAt: transactions.createdAt,
     })
     .from(transactions)
@@ -70,31 +56,20 @@ const [
     .limit(15),
 
   db.select({
-      id: transactions.id,
-      concept: transactions.concept,
-      amount: transactions.amount,
-      overdraftAmount: transactions.overdraftAmount,
-      authorizedBy: transactions.authorizedBy,
-      status: transactions.status,
-      createdAt: transactions.createdAt,
+      totalIn: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'deposit' AND ${transactions.status} = 'completado' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
+      totalOut: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type} = 'withdraw' AND ${transactions.status} = 'completado' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END), 0)`,
     })
     .from(transactions)
-    .where(and(eq(transactions.cashboxId, id!), gt(transactions.overdraftAmount, "0")))
-    .orderBy(desc(transactions.createdAt)),
-
-  // ← Fix: sum overdraftAmount from transactions, not from cashbox schema
-  db.select({
-      cumulativeDebt: sql<number>`COALESCE(SUM(${transactions.overdraftAmount}), 0)`,
-    })
-    .from(transactions)
-    .where(and(eq(transactions.cashboxId, id!), gt(transactions.overdraftAmount, "0"))),
+    .where(eq(transactions.cashboxId, id!)),
 ]);
 
 const balance      = Number(cashbox.balance ?? 0);
 const totalSalary  = sectorEmployees.reduce((s, e) => s + Number(e.baseSalary ?? 0), 0);
-const canCover     = balance >= totalSalary;
+const canCover     = isGEN ? balance >= totalSalary : true;
 const isActive     = cashbox.status === "activo";
-const totalOverdraft = Number(debtRow?.cumulativeDebt ?? 0);
+const totalIn      = Number(attributedTotals?.totalIn ?? 0);
+const totalOut     = Number(attributedTotals?.totalOut ?? 0);
+const attributedNet = totalIn - totalOut;
 
 const fmtBs   = (n: number) => `Bs ${n.toLocaleString("es-BO", { minimumFractionDigits: 2 })}`;
 const fmtDate = (d: Date | string) =>
@@ -133,24 +108,12 @@ const statusClass: Record<string, string> = {
           {isActive ? "activo" : "inactivo"}
         </span>
       </div>
-      <p class:list={["text-2xl font-bold tabular-nums mt-1", canCover ? "text-emerald-600" : "text-red-600"]}>
-        {fmtBs(balance)}
+      <p class:list={["text-2xl font-bold tabular-nums mt-1", isGEN && canCover ? "text-emerald-600" : isGEN ? "text-red-600" : "text-slate-700"]}>
+        {isGEN ? fmtBs(balance) : "Centro de costo"}
       </p>
     </div>
 
     <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-      {isActive && (
-        <CashboxOperationsDialog
-          cashboxId={cashbox.id}
-          cashboxName={cashbox.name}
-          currentBalance={balance}
-          cumulativeDebt={totalOverdraft}
-          monthlySalary={totalSalary}
-          incomeCategories={incomeCategories as any}
-          outcomeCategories={outcomeCategories as any}
-          client:load
-        />
-      )}
       <a
         href={`/cajas/${id}/editar`}
         class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors"
@@ -183,7 +146,7 @@ const statusClass: Record<string, string> = {
   </div>
 
   {/* ── Alerts ── */}
-  {!canCover && totalSalary > 0 && (
+  {isGEN && !canCover && totalSalary > 0 && (
     <div class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
       <TriangleAlert class="h-4 w-4 shrink-0" />
       Faltan <strong class="mx-1">{fmtBs(totalSalary - balance)}</strong> para poder pagar la planilla de este mes.
@@ -199,10 +162,6 @@ const statusClass: Record<string, string> = {
   {/* ── Metric strip ── */}
   <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p class="text-xs text-slate-500">Sectores vinculados</p>
-      <p class="text-2xl font-bold text-slate-900 mt-0.5">{sectorEmployees.length > 0 ? "—" : "0"}</p>
-    </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <p class="text-xs text-slate-500">Empleados activos</p>
       <p class="text-2xl font-bold text-slate-900 mt-0.5">{sectorEmployees.length}</p>
     </div>
@@ -212,77 +171,24 @@ const statusClass: Record<string, string> = {
         {totalSalary > 0 ? fmtBs(totalSalary) : <span class="text-slate-300">—</span>}
       </p>
     </div>
-    <div class:list={[
-      "rounded-xl border p-4 shadow-sm",
-      totalOverdraft > 0 ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white",
-    ]}>
-      <p class:list={["text-xs", totalOverdraft > 0 ? "text-amber-700" : "text-slate-500"]}>
-        Deuda pendiente
-      </p>
-      <p class:list={["text-lg font-bold tabular-nums mt-0.5", totalOverdraft > 0 ? "text-amber-700" : "text-emerald-500"]}>
-        {totalOverdraft > 0 ? fmtBs(totalOverdraft) : "Al día ✓"}
-      </p>
+    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+      <p class="text-xs text-emerald-700">Total ingresos atribuidos</p>
+      <p class="text-lg font-bold tabular-nums mt-0.5 text-emerald-700">{fmtBs(totalIn)}</p>
+    </div>
+    <div class="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
+      <p class="text-xs text-red-700">Total egresos atribuidos</p>
+      <p class="text-lg font-bold tabular-nums mt-0.5 text-red-700">{fmtBs(totalOut)}</p>
     </div>
   </div>
 
-  {/* ── Overdraft table ── */}
-  {overdraftTransactions.length > 0 && (
-    <div class="rounded-xl border border-amber-200 bg-white overflow-hidden shadow-sm">
-      <div class="flex items-center justify-between px-5 py-3 bg-amber-50 border-b border-amber-200">
-        <div class="flex items-center gap-2">
-          <AlertCircle class="h-4 w-4 text-amber-600 shrink-0" />
-          <span class="text-sm font-semibold text-amber-800">Pagos realizados sin saldo suficiente</span>
-          <span class="hidden sm:inline text-xs text-amber-500">— el monto faltante quedó como deuda</span>
-        </div>
-        <span class="text-xs font-semibold bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full shrink-0">
-          {overdraftTransactions.length} {overdraftTransactions.length === 1 ? "registro" : "registros"}
-        </span>
-      </div>
-      <table class="w-full text-xs">
-        <thead>
-          <tr class="border-b border-slate-100 bg-slate-50">
-            <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Fecha</th>
-            <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Descripción</th>
-            <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Monto pagado</th>
-            <th class="text-right px-4 py-2.5 font-semibold text-amber-600 uppercase tracking-wide">Monto en deuda</th>
-            <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Autorizado por</th>
-            <th class="text-center px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          {overdraftTransactions.map((tx) => (
-            <tr class="bg-amber-50/40 hover:bg-amber-50 transition-colors">
-              <td class="px-4 py-2.5 text-slate-500 whitespace-nowrap">{fmtDate(tx.createdAt)}</td>
-              <td class="px-4 py-2.5 text-slate-800 font-medium">{tx.concept}</td>
-              <td class="px-4 py-2.5 text-right tabular-nums text-slate-700">{fmtBs(Number(tx.amount))}</td>
-              <td class="px-4 py-2.5 text-right tabular-nums font-semibold text-amber-700">
-                {fmtBs(Number(tx.overdraftAmount))}
-              </td>
-              <td class="px-4 py-2.5 text-slate-500">
-                {tx.authorizedBy ?? <span class="text-slate-300">—</span>}
-              </td>
-              <td class="px-4 py-2.5 text-center">
-                <span class:list={["text-[10px] font-semibold px-2 py-0.5 rounded-full", statusClass[tx.status] ?? "bg-slate-100 text-slate-500"]}>
-                  {statusLabel[tx.status] ?? tx.status}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr class="border-t border-amber-200 bg-amber-50">
-            <td colspan="3" class="px-4 py-2.5 text-xs font-semibold text-amber-800 text-right">
-              Total en deuda
-            </td>
-            <td class="px-4 py-2.5 text-right tabular-nums font-bold text-amber-800">
-              {fmtBs(totalOverdraft)}
-            </td>
-            <td colspan="2" />
-          </tr>
-        </tfoot>
-      </table>
+  <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div class="flex items-center justify-between">
+      <p class="text-sm font-semibold text-slate-800">Resumen atribuido</p>
+      <p class:list={["text-sm font-bold tabular-nums", attributedNet >= 0 ? "text-emerald-600" : "text-red-600"]}>
+        Neto: {fmtBs(attributedNet)}
+      </p>
     </div>
-  )}
+  </div>
 
   {/* ── Recent transactions ── */}
   <div class="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
@@ -307,24 +213,18 @@ const statusClass: Record<string, string> = {
             <th class="text-left px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Descripción</th>
             <th class="text-center px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Movimiento</th>
             <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Monto</th>
-            <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Saldo tras el pago</th>
+            {isGEN && <th class="text-right px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Saldo GEN</th>}
             <th class="text-center px-4 py-2.5 font-semibold text-slate-500 uppercase tracking-wide">Estado</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
           {recentTransactions.map((tx) => {
-            const isOverdraft = Number(tx.overdraftAmount ?? 0) > 0;
-            const isIncome    = tx.type === "income";
+            const isIncome    = tx.type === "deposit";
             return (
-              <tr class:list={["hover:bg-slate-50/70 transition-colors", isOverdraft && "bg-amber-50/30"]}>
+              <tr class="hover:bg-slate-50/70 transition-colors">
                 <td class="px-4 py-2.5 text-slate-500 whitespace-nowrap">{fmtDate(tx.createdAt)}</td>
                 <td class="px-4 py-2.5 text-slate-800 font-medium">
                   {tx.concept}
-                  {isOverdraft && (
-                    <span class="ml-1.5 text-[10px] font-semibold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
-                      sin saldo
-                    </span>
-                  )}
                 </td>
                 <td class="px-4 py-2.5 text-center">
                   <span class:list={[
@@ -340,11 +240,13 @@ const statusClass: Record<string, string> = {
                 ]}>
                   {isIncome ? "+" : "−"}{fmtBs(Number(tx.amount))}
                 </td>
-                <td class="px-4 py-2.5 text-right tabular-nums text-slate-500">
-                  {tx.balanceAfter != null
-                    ? fmtBs(Number(tx.balanceAfter))
-                    : <span class="text-slate-300">—</span>}
-                </td>
+                {isGEN && (
+                  <td class="px-4 py-2.5 text-right tabular-nums text-slate-500">
+                    {tx.balanceAfter != null
+                      ? fmtBs(Number(tx.balanceAfter))
+                      : <span class="text-slate-300">—</span>}
+                  </td>
+                )}
                 <td class="px-4 py-2.5 text-center">
                   <span class:list={["text-[10px] font-semibold px-2 py-0.5 rounded-full", statusClass[tx.status] ?? "bg-slate-100 text-slate-500"]}>
                     {statusLabel[tx.status] ?? tx.status}

@@ -71,19 +71,35 @@ export const withdraw = defineAction({
         });
       }
 
-      const [cashbox] = await db.select().from(cashboxes).where(eq(cashboxes.id, input.cashboxId));
+      const [attributedCashbox] = await db.select().from(cashboxes).where(eq(cashboxes.id, input.cashboxId));
 
-      if (!cashbox) {
+      if (!attributedCashbox) {
         throw new ActionError({
           code: "NOT_FOUND",
           message: "No se encontro la caja seleccionada. Contacta al administrador.",
         });
       }
 
+      if (attributedCashbox.status !== "activo") {
+        throw new ActionError({
+          code: "BAD_REQUEST",
+          message: `La caja ${attributedCashbox.name} esta inactiva. Contacta al administrador.`,
+        });
+      }
+
+      const [cashbox] = await db.select().from(cashboxes).where(eq(cashboxes.code, "GEN"));
+
+      if (!cashbox) {
+        throw new ActionError({
+          code: "NOT_FOUND",
+          message: "No se encontro la caja principal de operaciones. Contacta al administrador.",
+        });
+      }
+
       if (cashbox.status !== "activo") {
         throw new ActionError({
           code: "BAD_REQUEST",
-          message: `La caja ${cashbox.name} esta inactiva. Contacta al administrador.`,
+          message: "La caja principal esta inactiva. Contacta al administrador.",
         });
       }
 
@@ -113,7 +129,7 @@ export const withdraw = defineAction({
             authorizedBy: authorizedBy || null,
             invoiceRangeId: resolvedRangeId,
             invoiceNumber:  invoiceNumber,
-            cashboxId: cashbox.id,
+            cashboxId: attributedCashbox.id,
             externalReference: resolvedReference ?? externalReference ?? null,
             metadata: justification?.trim() ? JSON.stringify({ justification: justification.trim() }) : null,
             createdByUserId: user.id,

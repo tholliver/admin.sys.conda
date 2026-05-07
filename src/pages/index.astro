@@ -13,7 +13,6 @@ import {
     BanknoteArrowUp,
     ArrowUpRight,
     ArrowDownLeft,
-    ArrowLeftRight,
     FileText,
     Calendar,
     CalendarRange,
@@ -28,7 +27,6 @@ import {
     getMonthlySummary,
 } from "@/services/finances/box-queries";
 import { LucideExternalLink } from "@lucide/svelte";
-import { isTransferTransaction } from "@/services/finances/transaction-patterns";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -77,7 +75,7 @@ const outPct = 100 - incPct;
                     <p
                         class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1"
                     >
-                        Saldo Actual
+                        Saldo GEN
                     </p>
                     <div class="text-4xl font-bold text-slate-900 tabular-nums">
                         <a
@@ -408,12 +406,7 @@ const outPct = 100 - incPct;
                     <tbody class="divide-y divide-slate-100">
                         {
                             recentTransactions.map((tx) => {
-                                const isTransfer = isTransferTransaction(tx);
-                                const typeLabel = isTransfer
-                                    ? "Traslado"
-                                    : tx.type === "deposit"
-                                      ? "Ingreso"
-                                      : "Egreso";
+                                const typeLabel = tx.type === "deposit" ? "Ingreso" : "Egreso";
 
                                 return (
                                 <tr class="hover:bg-slate-50 transition-colors">
@@ -424,16 +417,12 @@ const outPct = 100 - incPct;
                                                 aria-label={typeLabel}
                                                 class:list={[
                                                     "p-1.5 rounded-full shrink-0",
-                                                    isTransfer
-                                                        ? "bg-violet-100 text-violet-600"
-                                                        : tx.type === "deposit"
+                                                    tx.type === "deposit"
                                                         ? "bg-green-100 text-green-600"
                                                         : "bg-red-100 text-red-600",
                                                 ]}
                                             >
-                                                {isTransfer ? (
-                                                    <ArrowLeftRight class="h-3.5 w-3.5" />
-                                                ) : tx.type === "deposit" ? (
+                                                {tx.type === "deposit" ? (
                                                     <ArrowUpRight class="h-3.5 w-3.5" />
                                                 ) : (
                                                     <ArrowDownLeft class="h-3.5 w-3.5" />

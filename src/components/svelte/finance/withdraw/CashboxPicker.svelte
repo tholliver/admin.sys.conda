@@ -1,15 +1,11 @@
 <script lang="ts">
     import { tick } from "svelte";
-    import { Check, ChevronDown, CircleAlert, Crown, Search, TriangleAlert, Vault } from "@lucide/svelte";
-    import { formatBOB } from "@/utils/formatters";
+    import { Check, ChevronDown, CircleAlert, Crown, Search, Vault } from "@lucide/svelte";
 
-    // Extend to carry cumulativeDebt so the picker can surface it
     interface CashboxItem {
         id:             string;
         name:           string;
         code:           string | null;
-        balance:        string | number | null;
-        cumulativeDebt?: string | number | null;
         description?:   string | null;
     }
 
@@ -28,9 +24,6 @@
     let searchInput      = $state<HTMLInputElement | null>(null);
 
     const isGEN = (box: CashboxItem) => box.code === "GEN";
-
-    const debtOf = (box: CashboxItem) =>
-        parseFloat(String(box.cumulativeDebt ?? "0"));
 
     const orderedCashboxes = $derived.by(() => {
         const gen  = cashboxes.find(isGEN);
@@ -54,9 +47,6 @@
     });
 
     const selectedIsGEN  = $derived(selectedBox ? isGEN(selectedBox) : false);
-    const selectedDebt   = $derived(selectedBox ? debtOf(selectedBox) : 0);
-    const selectedHasDebt = $derived(selectedDebt > 0);
-
     $effect(() => {
         if (!selected && genCashbox) onSelect(genCashbox.id);
     });
@@ -106,6 +96,7 @@
 <div class="relative" data-cashbox-dropdown>
     <label for="cashbox-picker" class="block text-sm font-medium text-slate-700 mb-2">
         Caja <span class="text-red-500">*</span>
+        <span class="block text-xs font-normal text-slate-500">¿A qué caja se atribuye este gasto?</span>
     </label>
 
     <!-- ── Trigger button ── -->
@@ -119,7 +110,6 @@
         class="w-full rounded-lg border text-left transition focus:outline-none focus:ring-2
                {error            ? 'border-red-500 focus:ring-red-100' :
                 selectedIsGEN    ? 'border-violet-300 bg-violet-50 focus:border-violet-500 focus:ring-violet-100 hover:border-violet-400' :
-                selectedHasDebt  ? 'border-amber-300 bg-amber-50  focus:border-amber-500  focus:ring-amber-100  hover:border-amber-400' :
                                    'border-slate-300 bg-white      focus:border-red-500    focus:ring-red-100    hover:border-red-300'}"
     >
         <span class="flex items-center gap-3 px-3 py-2.5">
@@ -127,7 +117,6 @@
             <!-- Icon -->
             <span class="shrink-0 rounded-md p-2
                 {selectedIsGEN   ? 'bg-violet-100 text-violet-700' :
-                 selectedHasDebt ? 'bg-amber-100  text-amber-700'  :
                                    'bg-red-50     text-red-600'}">
                 {#if selectedIsGEN}
                     <Crown class="h-4 w-4" />
@@ -136,13 +125,12 @@
                 {/if}
             </span>
 
-            <!-- Name + balance -->
+            <!-- Name + code -->
             <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                 {#if selectedBox}
                     <span class="flex items-center gap-2">
                         <span class="truncate font-semibold
                             {selectedIsGEN   ? 'text-violet-900' :
-                             selectedHasDebt ? 'text-amber-900'  :
                                               'text-slate-900'}">
                             {selectedBox.name}
                         </span>
@@ -156,19 +144,11 @@
                             </span>
                         {/if}
                     </span>
-                    <span class="flex items-center gap-3 text-[11px] font-mono">
-                        <span class="{selectedIsGEN ? 'text-violet-700' : 'text-slate-500'}">
-                            Saldo: <span class="font-semibold">{formatBOB(String(selectedBox.balance ?? "0"))}</span>
-                        </span>
-                        {#if selectedHasDebt}
-                            <span class="flex items-center gap-1 font-sans text-[11px] font-semibold text-amber-700">
-                                <TriangleAlert class="h-3 w-3" />
-                                Deuda: {formatBOB(String(selectedDebt))}
-                            </span>
-                        {/if}
+                    <span class="text-[11px] font-mono {selectedIsGEN ? 'text-violet-700' : 'text-slate-500'}">
+                        {selectedBox.code}
                     </span>
                 {:else}
-                    <span class="font-medium text-slate-500">Seleccione una caja</span>
+                    <span class="font-medium text-slate-500">Seleccione un centro de costo</span>
                 {/if}
             </span>
 
@@ -193,20 +173,17 @@
                         value={searchQuery}
                         oninput={(e) => { searchQuery = (e.target as HTMLInputElement).value; highlightedIndex = 0; }}
                         onkeydown={handleKeyDown}
-                        placeholder="Buscar caja..."
+                        placeholder="Buscar área..."
                         class="search-control-input min-h-10 py-2"
                     />
                 </div>
             </div>
 
             {#if filteredCashboxes.length > 0}
-                <ul role="listbox" aria-label="Cajas" class="max-h-72 overflow-y-auto py-1">
+                <ul role="listbox" aria-label="Centros de costo" class="max-h-72 overflow-y-auto py-1">
                     {#each filteredCashboxes as box, idx (box.id)}
                         {@const isSelected  = selectedBox?.id === box.id}
                         {@const boxIsGEN    = isGEN(box)}
-                        {@const boxDebt     = debtOf(box)}
-                        {@const boxHasDebt  = boxDebt > 0}
-
                         <li>
                             <!-- GEN gets its own prominent slot -->
                             {#if boxIsGEN}
@@ -228,9 +205,7 @@
                                                 Principal
                                             </span>
                                         </span>
-                                        <span class="font-mono text-[11px] text-violet-700">
-                                            Saldo: <span class="font-semibold">{formatBOB(String(box.balance ?? "0"))}</span>
-                                        </span>
+                                        <span class="font-mono text-[11px] text-violet-700">{box.code}</span>
                                     </span>
                                     {#if isSelected}
                                         <Check class="h-4 w-4 shrink-0 text-violet-600" />
@@ -246,34 +221,22 @@
                                     onclick={() => pickCashbox(box)}
                                     class="flex w-full items-center gap-3 px-3 py-2.5 text-left transition
                                            {idx === highlightedIndex
-                                               ? boxHasDebt ? 'bg-amber-50' : 'bg-red-50'
-                                               : boxHasDebt ? 'hover:bg-amber-50' : 'hover:bg-red-50'}"
+                                               ? 'bg-red-50'
+                                               : 'hover:bg-red-50'}"
                                 >
-                                    <span class="shrink-0 rounded-md p-1.5
-                                        {boxHasDebt ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'}">
+                                    <span class="shrink-0 rounded-md bg-slate-100 p-1.5 text-slate-500">
                                         <Vault class="h-4 w-4" />
                                     </span>
 
                                     <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                                         <span class="flex items-center gap-2">
                                             <span class="truncate text-sm font-medium
-                                                {boxHasDebt ? 'text-amber-900' : 'text-slate-800'}">
+                                                text-slate-800">
                                                 {box.name}
                                             </span>
                                             {#if box.code}
                                                 <span class="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
                                                     {box.code}
-                                                </span>
-                                            {/if}
-                                        </span>
-                                        <span class="flex items-center gap-3 font-mono text-[11px]">
-                                            <span class="text-slate-400">
-                                                Saldo: <span class="font-semibold text-slate-600">{formatBOB(String(box.balance ?? "0"))}</span>
-                                            </span>
-                                            {#if boxHasDebt}
-                                                <span class="flex items-center gap-1 font-sans text-[11px] font-semibold text-amber-600">
-                                                    <TriangleAlert class="h-3 w-3" />
-                                                    Deuda: {formatBOB(String(boxDebt))}
                                                 </span>
                                             {/if}
                                         </span>
@@ -289,7 +252,7 @@
                 </ul>
             {:else}
                 <div class="px-4 py-6 text-center text-sm text-slate-500">
-                    No hay cajas para "{searchQuery}"
+                    No hay áreas para "{searchQuery}"
                 </div>
             {/if}
         </div>

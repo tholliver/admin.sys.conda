@@ -20,6 +20,7 @@ export const deposit = defineAction({
       }, `Monto debe ser entre 0.01 y ${formatBOB(String(ENV.TRANSACTION_LIMITS.DEPOSIT_MAX))}`),
     externalReference: z.string().max(255).optional(),
     invoiceRangeId: z.uuid().optional(),
+    cashboxId: z.uuid("ID de área inválido").optional(),
   }),
   async handler(input, { locals }) {
     try {
@@ -32,7 +33,7 @@ export const deposit = defineAction({
         });
       }
 
-      const { categoryId, amount, externalReference, invoiceRangeId } = input;
+      const { categoryId, amount, externalReference, invoiceRangeId, cashboxId } = input;
 
       const [category] = await db
         .select()
@@ -62,6 +63,23 @@ export const deposit = defineAction({
         throw new ActionError({ code: "BAD_REQUEST", message: "La caja principal esta inactiva. Contacta al administrador." });
       }
 
+      let attributedCashboxId = cashAccount.id;
+      if (cashboxId) {
+        const [attributedCashbox] = await db
+          .select()
+          .from(cashboxes)
+          .where(eq(cashboxes.id, cashboxId));
+
+        if (!attributedCashbox) {
+          throw new ActionError({ code: "NOT_FOUND", message: "La caja seleccionada no existe." });
+        }
+        if (attributedCashbox.status !== "activo") {
+          throw new ActionError({ code: "BAD_REQUEST", message: "La caja seleccionada esta inactiva." });
+        }
+
+        attributedCashboxId = attributedCashbox.id;
+      }
+
       const { reference: resolvedReference, invoiceNumber, resolvedRangeId } =
         await resolveInvoiceReference(category, { manualReference: externalReference, invoiceRangeId });
 
@@ -81,7 +99,7 @@ export const deposit = defineAction({
             amount,
             categoryId,
             concept: category.name,
-            cashboxId: cashAccount.id,
+            cashboxId: attributedCashboxId,
             invoiceRangeId: resolvedRangeId,
             invoiceNumber:  invoiceNumber,
             externalReference: resolvedReference ?? externalReference ?? null,

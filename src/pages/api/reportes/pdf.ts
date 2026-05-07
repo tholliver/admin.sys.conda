@@ -231,7 +231,6 @@ async function queryGlobal() {
       name:           cashboxes.name,
       code:           cashboxes.code,
       balance:        cashboxes.balance,
-      cumulativeDebt: cashboxes.cumulativeDebt,
       creditLimit:    cashboxes.creditLimit,
       isQuick:        cashboxes.isQuick,
       status:         cashboxes.status,

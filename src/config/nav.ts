@@ -11,7 +11,6 @@ import {
     Files,
     Layers,
     Building,
-    ArrowLeftRight,
     Handshake,
     ShieldAlert,
 } from "@lucide/astro";
@@ -37,7 +36,6 @@ export const navGroups: NavGroup[] = [
         links: [
             { label: "Ingresos", href: "/ingresos", icon: BanknoteArrowUp },
             { label: "Egresos", href: "/egresos", icon: BanknoteArrowDown },
-            // { label: "Transferencias", href: "/transferencias", icon: ArrowLeftRight },
             { label: "Cajas", href: "/cajas", icon: Layers },
             { label: "Historial", href: "/historial", icon: History },
             { label: "Reportes", href: "/reportes", icon: Files },

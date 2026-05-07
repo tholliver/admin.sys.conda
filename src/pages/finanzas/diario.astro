@@ -13,7 +13,6 @@ import {
     TrendingDown,
     ArrowUpRight,
     ArrowDownLeft,
-    ArrowLeftRight,
     FileText,
     Download,
 } from "@lucide/astro";
@@ -300,16 +299,12 @@ const outcomeCategories = categoryBreakdown.filter(
                                         <div class="flex items-center gap-2">
                                             <div
                                                 class={`p-1.5 rounded-full ${
-                                                    tx.transferPairId
-                                                        ? "bg-violet-100 text-violet-600"
-                                                        : tx.type === "deposit"
+                                                    tx.type === "deposit"
                                                           ? "bg-green-100 text-green-600"
                                                           : "bg-red-100 text-red-600"
                                                 }`}
                                             >
-                                                {tx.transferPairId ? (
-                                                    <ArrowLeftRight class="h-3 w-3" />
-                                                ) : tx.type === "deposit" ? (
+                                                {tx.type === "deposit" ? (
                                                     <ArrowUpRight class="h-3 w-3" />
                                                 ) : (
                                                     <ArrowDownLeft class="h-3 w-3" />
@@ -318,11 +313,6 @@ const outcomeCategories = categoryBreakdown.filter(
                                             <span class="font-medium text-slate-900">
                                                 {tx.concept}
                                             </span>
-                                            {tx.transferPairId && (
-                                                <span class="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700">
-                                                    Traslado
-                                                </span>
-                                            )}
                                         </div>
                                     </td>
                                     <td class="px-4 py-3 text-slate-600">

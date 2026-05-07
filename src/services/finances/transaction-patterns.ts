@@ -1,20 +1,15 @@
-import { transactions } from "@/db/schema";
-import { isNotNull, isNull } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
-export const realTransactionFilter = isNull(transactions.transferPairId);
-export const internalTransferLegFilter = isNotNull(transactions.transferPairId);
+export const realTransactionFilter = sql`TRUE`;
+export const internalTransferLegFilter = sql`FALSE`;
 
 type TransactionLike = {
-    transferPairId?: string | null;
     type?: string | null;
 };
 
-export const isTransferTransaction = (tx: TransactionLike) =>
-    !!tx.transferPairId;
+export const isTransferTransaction = (_tx: TransactionLike) => false;
 
 export const getTransactionKindLabel = (tx: TransactionLike) =>
-    isTransferTransaction(tx)
-        ? "Traslado"
-        : tx.type === "deposit"
+    tx.type === "deposit"
           ? "Ingreso"
           : "Egreso";

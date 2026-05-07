@@ -11,7 +11,6 @@ import { eq, sql, asc, desc, and } from "drizzle-orm";
 import { formatter } from "@/utils/timex";
 import { formatBOB } from "@/utils/formatters";
 import DepositForm from '@/components/svelte/finance/DepositForm.svelte';
-import { realTransactionFilter } from "@/services/finances/transaction-patterns";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -38,6 +37,16 @@ const activeTransactionCategories = await db
     .where(and(eq(transactionCategories.status, true), eq(transactionCategories.type, "income")))
     .orderBy(asc(transactionCategories.sortOrder));
 
+const activeCashboxes = await db
+    .select({
+        id: cashboxes.id,
+        name: cashboxes.name,
+        code: cashboxes.code,
+    })
+    .from(cashboxes)
+    .where(eq(cashboxes.status, "activo"))
+    .orderBy(asc(cashboxes.name));
+
 const recentDeposits = await db
     .select({
         id: transactions.id,
@@ -50,7 +59,7 @@ const recentDeposits = await db
     })
     .from(transactions)
     .innerJoin(cashboxes, eq(transactions.cashboxId, cashboxes.id))
-    .where(and(eq(transactions.type, "deposit"), realTransactionFilter))
+    .where(eq(transactions.type, "deposit"))
     .orderBy(desc(transactions.createdAt))
     .limit(10);
 
@@ -66,7 +75,6 @@ const [todaysSummary] = await db
         and(
             eq(transactions.type, "deposit"),
             sql`DATE(${transactions.createdAt}) = CURRENT_DATE`,
-            realTransactionFilter,
             // gte(transactions.createdAt, startOfDay),
             // lt(transactions.createdAt, endOfDay),
         ),
@@ -111,6 +119,7 @@ const summary = todaysSummary || { totalDeposits: "0.00", depositCount: 0 };
                         </div>
                         <DepositForm
                           concepts={activeTransactionCategories as any}
+                          cashboxes={activeCashboxes as any}
                           client:load
                         />
                     </div>
@@ -157,7 +166,7 @@ const summary = todaysSummary || { totalDeposits: "0.00", depositCount: 0 };
 
                                         <!-- Row 2: Cashbox, Reference & Date -->
                                         <div class="flex items-center gap-2 text-xs text-slate-600">
-                                          <span>{tx.cashboxName}</span>
+                                          <span>Área: {tx.cashboxName}</span>
                                           {tx.invoiceNumber && (
                                             <>
                                               <span>•</span>
@@ -228,19 +237,19 @@ const summary = todaysSummary || { totalDeposits: "0.00", depositCount: 0 };
                         <ul class="space-y-2 text-sm text-blue-700">
                             <li class="flex gap-2">
                                 <span class="font-bold">1.</span>
-                                <span>Seleccione la caja correcta</span>
+                                <span>Seleccione la cuenta (categoría) del ingreso</span>
                             </li>
                             <li class="flex gap-2">
                                 <span class="font-bold">2.</span>
-                                <span>Describa el cuenta del ingreso</span>
-                            </li>
-                            <li class="flex gap-2">
-                                <span class="font-bold">3.</span>
                                 <span>Ingrese el monto exacto</span>
                             </li>
                             <li class="flex gap-2">
+                                <span class="font-bold">3.</span>
+                                <span>Seleccione el área a la que se atribuye (opcional)</span>
+                            </li>
+                            <li class="flex gap-2">
                                 <span class="font-bold">4.</span>
-                                <span>Agregue referencia si es necesario</span>
+                                <span>Agregue referencia o número de comprobante</span>
                             </li>
                         </ul>
                     </div>

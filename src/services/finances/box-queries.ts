@@ -1,7 +1,6 @@
 import { db } from "@/db";
 import { cashboxes, transactions } from "@/db/schema";
 import { sql, isNull, and, lte, gte, eq } from "drizzle-orm";
-import { realTransactionFilter } from "@/services/finances/transaction-patterns";
 
 interface BalanceSummary {
   totalBalance: string;
@@ -29,7 +28,7 @@ interface MonthlySummary {
 export async function getBalanceSummary(): Promise<BalanceSummary> {
   const [balanceSummary] = await db
     .select({
-      totalBalance: sql<string>`COALESCE(SUM(CAST(${cashboxes.balance} AS NUMERIC)), 0)`,
+      totalBalance: sql<string>`COALESCE(SUM(CASE WHEN ${cashboxes.code} = 'GEN' THEN CAST(${cashboxes.balance} AS NUMERIC) ELSE 0 END), 0)`,
       activeBoxes: sql<number>`COUNT(CASE WHEN ${cashboxes.status} = 'activo' THEN 1 END)`,
       totalBoxes: sql<number>`COUNT(*)`,
     })
@@ -68,7 +67,6 @@ export async function getDailySummary(): Promise<DailySummary> {
         gte(transactions.createdAt, startOfDay),
         lte(transactions.createdAt, endOfDay),
         eq(transactions.status, "completado"),
-        realTransactionFilter,
       ),
     );
 
@@ -93,7 +91,6 @@ export async function getMonthlySummary(): Promise<MonthlySummary> {
         gte(transactions.createdAt, startOfMonth),
         lte(transactions.createdAt, endOfMonth),
         eq(transactions.status, "completado"),
-        realTransactionFilter,
       ),
     );
 
