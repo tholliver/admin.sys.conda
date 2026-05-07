@@ -2,18 +2,26 @@
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { db } from "@/db";
 import { cashboxes, employees, transactionCategories } from "@/db/schema";
-import { eq, asc, count, sum, and } from "drizzle-orm";
+import { eq, asc, count, sum, and, sql } from "drizzle-orm";
+import { transactions } from "@/db/schema";
 import { actions } from "astro:actions";
 import { Wallet } from "@lucide/astro";
 import CreateCashboxDialog from "@/components/svelte/dialogs/CreateCashboxDialog.svelte";
 import CashboxOperationsDialog from "@/components/svelte/CashboxOperationsDialog.svelte";
-// import CashboxManager from "@/components/svelte/CashboxManager.svelte";
+import CoverDebtDialog from "@/components/svelte/finance/CoverDebtDialog.svelte";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
 if (!["ADMIN"].includes(user.role ?? "")) return Astro.redirect("/");
 
-const [allCashboxes, employeeStats, incomeCategories, outcomeCategories] = await Promise.all([
+const [debtStats, allCashboxes, employeeStats, incomeCategories, outcomeCategories] = await Promise.all([
+  db.select({
+    cashboxId: transactions.cashboxId,
+    cumulativeDebt: sql<number>`COALESCE(SUM(${transactions.overdraftAmount}), 0)`,
+  })
+    .from(transactions)
+    .where(sql`${transactions.overdraftAmount} > 0`)
+    .groupBy(transactions.cashboxId),
   db.select({
     id: cashboxes.id,
     name: cashboxes.name,
@@ -46,6 +54,10 @@ const [allCashboxes, employeeStats, incomeCategories, outcomeCategories] = await
     .where(and(eq(transactionCategories.type, "outcome"), eq(transactionCategories.status, true)))
     .orderBy(asc(transactionCategories.sortOrder)),
 ]);
+
+const debtMap = new Map(
+  debtStats.map((d) => [d.cashboxId, Number(d.cumulativeDebt ?? 0)])
+);
 
 const employeeMap = new Map(
   employeeStats.map((e) => [e.cashboxId, { count: e.employeeCount, salary: Number(e.totalSalary ?? 0) }]),
@@ -104,6 +116,7 @@ const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocale
           const salary      = emp?.salary ?? 0;
           const canCover    = emp ? balance >= salary : true;
           const coveragePct = salary > 0 ? Math.min((balance / salary) * 100, 100) : 100;
+          const cumulativeDebt = debtMap.get(box.id) ?? 0;
 
           return (
             <tr class="hover:bg-slate-50/70 transition-colors">
@@ -180,6 +193,17 @@ const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocale
                     </button>
                   </form>
 
+                  {cumulativeDebt > 0 && (
+                    <CoverDebtDialog
+                      cashboxId={box.id}
+                      cashboxName={box.name}
+                      currentBalance={balance}
+                      cumulativeDebt={cumulativeDebt}
+                      incomeCategories={incomeCategories as any}
+                      client:load
+                    />
+                  )}
+
                   {/* Deposit / egreso */}
                   <CashboxOperationsDialog
                     cashboxId={box.id}
@@ -191,14 +215,6 @@ const fmtK = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}K` : n.toLocale
                     allCashboxes={allCashboxes as any}
                     client:load
                   />
-
-                  {/* Manage (transfer, edit, etc.) */}
-                  <!-- <CashboxManager
-                    cashboxId={box.id}
-                    cashboxName={box.name}
-                    allCashboxes={allCashboxes}
-                    client:load
-                  /> -->
                 </div>
               </td>
 

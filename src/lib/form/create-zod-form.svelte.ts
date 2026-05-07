@@ -6,7 +6,7 @@ type ValidateMode = "onSubmit" | "onChange" | "onBlur";
 type FormErrors<TValues> = Partial<Record<Extract<keyof TValues, string>, string>> &
   Record<string, string>;
 
-function mapIssuesToErrors<TValues>(issues: z.ZodIssue[]): FormErrors<TValues> {
+function mapIssuesToErrors<TValues>(issues: z.core.$ZodIssue[]): FormErrors<TValues> {
   const next: Record<string, string> = {};
   for (const issue of issues) {
     const key = issue.path.length > 0 ? String(issue.path[0]) : "_form";

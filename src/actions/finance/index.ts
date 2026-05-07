@@ -16,6 +16,9 @@ import {
   createCashbox,
   toggleCashboxStatus,
   toggleQuickCashbox,
+  cashboxDeposit,   // ← ADD
+  cashboxWithdraw,  // ← ADD
+  cashboxTransfer,  // ← ADD
 } from "./cashboxes";
 
 import {
@@ -62,6 +65,9 @@ export const finance = {
   updateContractorStatus,
   assignCategoryRange,
   unassignCategoryRange,
+  cashboxDeposit,
+  cashboxWithdraw,
+  cashboxTransfer,
 };
 
 export {

@@ -141,7 +141,8 @@ export const cashboxes = financeSchema.table("cashboxes", {
   description: text("description"),
   balance:     numeric("balance", { mode: "string", precision: 15, scale: 2 }).default("0").notNull(),
   creditLimit: numeric("credit_limit",  { mode: "string", precision: 15, scale: 2 }).default("0"),
-  isQuick:     boolean("is_quick").default(false).notNull(),
+  cumulativeDebt:  numeric("cumulative_debt", { mode: "string", precision: 15, scale: 2 }).default("0").notNull(),
+  isQuick: boolean("is_quick").default(false).notNull(),
   status:      cashBoxStatusEnum("status").default("activo"),
   createdAt:   timestamp("created_at").defaultNow().notNull(),
   updatedAt:   timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
@@ -149,6 +150,7 @@ export const cashboxes = financeSchema.table("cashboxes", {
 }, (t) => [
   index("idx_cashbox_code").on(t.code),
   check("balance_not_negative", sql`${t.balance} >= 0`),
+  check("cumulative_debt_not_negative", sql`${t.cumulativeDebt} >= 0`),
 ]);
 
 // ── Invoice ranges (talonarios) ───────────────────────────────────────
