@@ -11,6 +11,7 @@
     import AmountInput from "./AmountInput.svelte";
     import { createDepositStore } from "@/lib/stores/deposit.store.svelte";
     import ConceptPicker from "./withdraw/ConceptPicker.svelte";
+    import CashboxPicker from "./withdraw/CashboxPicker.svelte";
     import InvoiceRangeField from "./InvoiceRangeField.svelte";
     import InvoiceBookBanner from "@/components/svelte/finance/InvoiceBookBanner.svelte";
     import TransactionSuccess from "./TransactionSuccess.svelte";
@@ -84,21 +85,12 @@
             onKeyDown={d.handleKeyDown}
         />
 
-        <div>
-            <label for="cashbox-attr" class="block text-sm font-medium text-slate-700 mb-2">
-                Caja <span class="text-slate-500 text-xs">(Opcional - por defecto: GEN)</span>
-            </label>
-            <select
-                id="cashbox-attr"
-                bind:value={d.selectedCashboxId}
-                class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-100 transition"
-            >
-                <option value="">General (GEN)</option>
-                {#each cashboxes as box}
-                    <option value={box.id}>{box.name} ({box.code})</option>
-                {/each}
-            </select>
-        </div>
+        <CashboxPicker
+            {cashboxes}
+            selected={d.selectedCashboxId}
+            onSelect={(id) => (d.selectedCashboxId = id)}
+            error={d.inputErrors.cashboxId}
+        />
 
         <!-- ── Talonario warning banner (proactive, on concept select) ────── -->
         {#if d.talonarioBanner}

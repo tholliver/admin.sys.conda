@@ -128,7 +128,7 @@ const activeEmployees = await db
                                     Egresos
                                 </h1>
                                 <p class="text-sm text-slate-600">
-                                    Registra egresos atribuidos por área
+                                    Registra egresos atribuidos por Caja
                                 </p>
                             </div>
                         </div>
@@ -182,7 +182,7 @@ const activeEmployees = await db
                                                 </p>
                                             </div>
                                             <div class="flex items-center gap-2 text-xs text-slate-600 truncate">
-                                                <span>Área: {tx.cashboxName}</span>
+                                                <span>Caja: {tx.cashboxName}</span>
                                                 {tx.invoiceNumber && (
                                                     <>
                                                         <span>•</span>

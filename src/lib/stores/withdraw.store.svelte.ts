@@ -204,13 +204,7 @@ export function createWithdrawStore(cashboxes: SelectCashbox[], concepts: Select
                 return;
             }
             if (result?.error) {
-                const msg = result.error.message || "";
-                if (msg.startsWith("__INSUFFICIENT_FUNDS__")) {
-                    const [, available, requested, deficit, cashboxName] = msg.split(":");
-                    serverError = `Saldo insuficiente en ${cashboxName}. Disponible: Bs ${available}. Requerido: Bs ${requested}. Déficit: Bs ${deficit}.`;
-                } else {
-                    serverError = msg;
-                }
+                serverError = result.error.message || "Error al procesar el retiro";
                 return;
             }
             if (result?.data?.success) {

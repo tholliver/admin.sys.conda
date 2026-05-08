@@ -148,13 +148,6 @@
 
     <!-- ── Form ───────────────────────────────────────────────────────────── -->
     <form method="POST" onsubmit={w.handleInitialSubmit} class="space-y-5">
-        <CashboxPicker
-            {cashboxes}
-            selected={w.cashboxId}
-            onSelect={(id) => (w.cashboxId = id)}
-            error={w.inputErrors.cashboxId}
-        />
-
         <ConceptPicker
             {concepts}
             quickConcepts={w.quickConcepts}
@@ -180,6 +173,13 @@
             />
         {/if}
 
+        <CashboxPicker
+              {cashboxes}
+              selected={w.cashboxId}
+              onSelect={(id) => (w.cashboxId = id)}
+              error={w.inputErrors.cashboxId}
+          />
+
         <div>
             <AmountInput
                 bind:value={w.amount}
@@ -189,10 +189,10 @@
                 error={w.inputErrors.amount}
             />
 
-            <div class="mt-2 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+            <!-- <div class="mt-2 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
                 <span class="text-slate-500">Saldo disponible (GEN)</span>
                 <span class="font-bold text-slate-800 tabular-nums">{formatBOB(String(genBalance))}</span>
-            </div>
+            </div> -->
 
             {#if w.amount && parseFloat(w.amount) > genBalance}
                 <div in:fade={{ duration: 150 }} class="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">

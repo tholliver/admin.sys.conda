@@ -96,7 +96,7 @@
 <div class="relative" data-cashbox-dropdown>
     <label for="cashbox-picker" class="block text-sm font-medium text-slate-700 mb-2">
         Caja <span class="text-red-500">*</span>
-        <span class="block text-xs font-normal text-slate-500">¿A qué caja se atribuye este gasto?</span>
+        <!-- <span class="block text-xs font-normal text-slate-500">¿A qué caja se atribuye este gasto?</span> -->
     </label>
 
     <!-- ── Trigger button ── -->
@@ -112,10 +112,10 @@
                 selectedIsGEN    ? 'border-violet-300 bg-violet-50 focus:border-violet-500 focus:ring-violet-100 hover:border-violet-400' :
                                    'border-slate-300 bg-white      focus:border-red-500    focus:ring-red-100    hover:border-red-300'}"
     >
-        <span class="flex items-center gap-3 px-3 py-2.5">
+        <span class="flex items-center gap-3 px-3 py-2">
 
             <!-- Icon -->
-            <span class="shrink-0 rounded-md p-2
+            <span class="shrink-0 rounded-md p-1
                 {selectedIsGEN   ? 'bg-violet-100 text-violet-700' :
                                    'bg-red-50     text-red-600'}">
                 {#if selectedIsGEN}
@@ -144,9 +144,9 @@
                             </span>
                         {/if}
                     </span>
-                    <span class="text-[11px] font-mono {selectedIsGEN ? 'text-violet-700' : 'text-slate-500'}">
+                    <!-- <span class="text-[11px] font-mono {selectedIsGEN ? 'text-violet-700' : 'text-slate-500'}">
                         {selectedBox.code}
-                    </span>
+                    </span> -->
                 {:else}
                     <span class="font-medium text-slate-500">Seleccione un centro de costo</span>
                 {/if}
@@ -173,7 +173,7 @@
                         value={searchQuery}
                         oninput={(e) => { searchQuery = (e.target as HTMLInputElement).value; highlightedIndex = 0; }}
                         onkeydown={handleKeyDown}
-                        placeholder="Buscar área..."
+                        placeholder="Buscar caja..."
                         class="search-control-input min-h-10 py-2"
                     />
                 </div>
@@ -252,7 +252,7 @@
                 </ul>
             {:else}
                 <div class="px-4 py-6 text-center text-sm text-slate-500">
-                    No hay áreas para "{searchQuery}"
+                    No hay cajas para "{searchQuery}"
                 </div>
             {/if}
         </div>

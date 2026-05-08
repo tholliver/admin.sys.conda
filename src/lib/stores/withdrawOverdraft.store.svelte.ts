@@ -59,13 +59,7 @@ export function createWithdrawOverdraftStore(
             }
 
             if (result?.error) {
-                const msg = result.error.message ?? "";
-                if (msg.startsWith("__INSUFFICIENT_FUNDS__")) {
-                    const [, available, requested, deficit, cashboxName] = msg.split(":");
-                    base.serverError = `Saldo insuficiente en ${cashboxName}. Disponible: Bs ${available}. Requerido: Bs ${requested}. Déficit: Bs ${deficit}.`;
-                } else {
-                    base.serverError = msg;
-                }
+                base.serverError = result.error.message ?? "Error al procesar el egreso.";
                 return;
             }
 

@@ -11,6 +11,7 @@ import {
     Calendar,
     ChartPie,
     ChartColumn,
+    FileSpreadsheet
 } from "@lucide/astro";
 import BadgeBs from "@/components/icons/BadgeBs.astro";
 import AnalyticsExportDialog from "@/components/svelte/finance/AnalyticsExportDialog.svelte";
@@ -199,12 +200,29 @@ const ytdNetIncome =
                 </p>
             </div>
 
-            <AnalyticsExportDialog client:only="svelte">
-                <div slot="fallback">
-                    <DialogTriggerSkeleton />
-                </div>
-            </AnalyticsExportDialog>
+            <div class="flex items-center gap-3">
+                <a
+                    id="excel-link"
+                    href="/reportes/contabilidad"
+                    class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700 transition-colors"
+                >
+                    <FileSpreadsheet class="h-5 w-5 text-emerald-600" />
+                    Contabilidad
+                </a>
+
+                <AnalyticsExportDialog client:only="svelte">
+                    <div slot="fallback">
+                        <DialogTriggerSkeleton />
+                    </div>
+                </AnalyticsExportDialog>
+            </div>
         </div>
+
+        <script>
+            import { tooltip } from "@/lib/actions/tooltip";
+            const el = document.getElementById("excel-link") as HTMLElement;
+            if (el) tooltip(el, { content: "Genera reportes .xlsx contables", side: "bottom" });
+        </script>
 
         <!-- Key Metrics Cards -->
         <div

@@ -101,11 +101,7 @@ export async function payEmployeeFeeWithOverdraft(
     const overdraftAmt   = isOverdraft ? (amountToPay - available) : 0;
 
     if (isOverdraft && !allowOverdraft) {
-        // Return structured info so the caller (store) can show the debt dialog
-        const err = new Error(
-            `__INSUFFICIENT_FUNDS__:${available.toFixed(2)}:${amountToPay.toFixed(2)}:${overdraftAmt.toFixed(2)}:${resolvedCashbox.name}`,
-        );
-        throw err;
+        throw new Error(`Saldo insuficiente en ${resolvedCashbox.name}. Disponible: Bs ${available.toFixed(2)}. Requerido: Bs ${amountToPay.toFixed(2)}.`);
     }
 
     const newBalanceNum = available - amountToPay;

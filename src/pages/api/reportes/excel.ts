@@ -397,13 +397,12 @@ async function buildEstadoResultados(wb: ExcelJS.Workbook, from: string, to: str
 
 // ─── 5. BALANCE GENERAL (Activo / Pasivo / Patrimonio) ───────────────────────
 async function buildBalanceGeneral(wb: ExcelJS.Workbook, from: string, to: string) {
-  const allCashboxes = await db
+  const [genCashbox] = await db
     .select({ name: cashboxes.name, balance: cashboxes.balance })
     .from(cashboxes)
-    .where(isNull(cashboxes.deletedAt))
-    .orderBy(cashboxes.name);
+    .where(eq(cashboxes.code, "GEN"));
 
-  const totalActivo = allCashboxes.reduce((s, c) => s + parseFloat(c.balance ?? "0"), 0);
+  const totalActivo = parseFloat(genCashbox?.balance ?? "0");
 
   const pendingFees = await db
     .select({ employeeName: employees.fullName, period: employeeFees.period, amount: employeeFees.amount })
@@ -493,7 +492,7 @@ async function buildBalanceGeneral(wb: ExcelJS.Workbook, from: string, to: strin
   // ── ACTIVO ──
   writeBanner("ACTIVO — Efectivo en Cajas", "DCFCE7", C.incomeFg);
   writeSubHeader("Saldo (Bs.)");
-  allCashboxes.forEach((c, i) => writeDataRow(c.name, parseFloat(c.balance ?? "0"), i));
+  writeDataRow(genCashbox?.name ?? "Caja General", totalActivo, 0);
   writeTotalBG("TOTAL ACTIVO", totalActivo, "BBF7D0", C.incomeFg, 1);
 
   // ── PASIVO — Sueldos ──
@@ -558,8 +557,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
       await buildPorCaja(wb, from, to);
       filename = `gastos_por_caja_${from}_${to}.xlsx`;
     } else if (tipo === "balance_general") {
-      await buildEstadoResultados(wb, from, to);
       await buildBalanceGeneral(wb, from, to);
+      await buildEstadoResultados(wb, from, to);
       filename = `balance_general_${from}_${to}.xlsx`;
     } else {
       return new Response(JSON.stringify({ error: "Tipo de reporte no válido" }), { status: 400 });

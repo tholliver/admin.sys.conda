@@ -20,7 +20,7 @@ export const deposit = defineAction({
       }, `Monto debe ser entre 0.01 y ${formatBOB(String(ENV.TRANSACTION_LIMITS.DEPOSIT_MAX))}`),
     externalReference: z.string().max(255).optional(),
     invoiceRangeId: z.uuid().optional(),
-    cashboxId: z.uuid("ID de área inválido").optional(),
+    cashboxId: z.uuid("ID de Caja inválido").optional(),
   }),
   async handler(input, { locals }) {
     try {

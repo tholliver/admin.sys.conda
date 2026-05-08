@@ -41,14 +41,6 @@ export const payEmployeeFeeOverdraftAction = defineAction({
                 cashboxName:     result.cashboxName,
             };
         } catch (err: any) {
-            // Surface structured insufficient-funds so the store can intercept
-            if (err?.message?.startsWith("__INSUFFICIENT_FUNDS__")) {
-                const [, available, requested, deficit, cashboxName] = err.message.split(":");
-                throw new ActionError({
-                    code: "CONFLICT",
-                    message: `__INSUFFICIENT_FUNDS__:${available}:${requested}:${deficit}:${cashboxName}`,
-                });
-            }
             throw new ActionError({ code: "CONFLICT", message: err.message });
         }
     },
