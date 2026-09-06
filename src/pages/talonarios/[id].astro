@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { invoiceRanges, transactions, cashboxes, transactionCategories } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
-import { formatBOB, formatTransactionStatus, formatTransactionType } from "@/utils/formatters";
+import { bob, txStatus, txType } from "@/utils/index";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -95,7 +95,7 @@ const expiresDate = range.expirationDate.toLocaleDateString("es-BO", {
         </div>
         <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <p class="text-xs text-slate-500 mb-1">Monto total</p>
-            <p class="text-2xl font-semibold text-slate-900">{formatBOB(totalAmount)}</p>
+            <p class="text-2xl font-semibold text-slate-900">{bob(totalAmount)}</p>
         </div>
         <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <p class="text-xs text-slate-500 mb-1">Restantes</p>
@@ -159,8 +159,8 @@ const expiresDate = range.expirationDate.toLocaleDateString("es-BO", {
                     </thead>
                     <tbody class="divide-y divide-slate-100">
                         {relatedTransactions.map((tx) => {
-                            const typeInfo = formatTransactionType(tx.type);
-                            const statusInfo = formatTransactionStatus(tx.status);
+const typeInfo = txType(tx.type);
+const statusInfo = txStatus(tx.status);
                             return (
                                 <tr class="transition-colors hover:bg-slate-50/60">
                                     <td class="px-4 py-3">
@@ -186,7 +186,7 @@ const expiresDate = range.expirationDate.toLocaleDateString("es-BO", {
                                     <td class="px-4 py-3 text-slate-700 max-w-xs truncate">{tx.concept}</td>
                                     <td class="px-4 py-3 text-right">
                                         <span class={`font-mono text-sm font-medium ${tx.type === "deposit" ? "text-emerald-600" : "text-rose-600"}`}>
-                                            {tx.type === "deposit" ? "+" : "-"}{formatBOB(tx.amount)}
+                                            {tx.type === "deposit" ? "+" : "-"}{bob(tx.amount)}
                                         </span>
                                     </td>
                                     <td class="px-4 py-3">

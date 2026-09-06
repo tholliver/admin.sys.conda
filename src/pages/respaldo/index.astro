@@ -7,7 +7,7 @@ import {
     getBackupSystemInfo,
     listBackupFiles,
 } from "@/lib/server/backup.service";
-import { timeAgo, formatDate } from "@/utils/timex";
+import { timeAgo, date } from "@/utils";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -77,7 +77,7 @@ const healthConfig = {
 }[health];
 
 const lastBackupLabel = lastBackupDate ? timeAgo(lastBackupDate) : "Sin respaldos";
-const lastBackupDateStr = lastBackupDate ? formatDate(lastBackupDate, "medium") : "Sin registros aún";
+const lastBackupDateStr = lastBackupDate ? date(lastBackupDate, "medium") : "Sin registros aún";
 ---
 
 <FinanceLayout title="Copias de Seguridad" user={user}>

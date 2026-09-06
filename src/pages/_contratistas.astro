@@ -5,10 +5,10 @@ import { Handshake, TrendingDown, BadgeCheck, BadgeX } from "@lucide/astro";
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { cashboxes, contractors, contractorPayments, transactions } from "@/db/schema";
 import { eq, desc, and, sql, asc } from "drizzle-orm";
-import { formatter } from "@/utils/timex";
+import { date } from "@/utils/dates";
 import ContractorPayForm from "@/components/svelte/finance/ContractorPayForm.svelte";
 import CreateContractorDialog from "@/components/svelte/dialogs/CreateContractorDialog.svelte";
-import { formatBOB } from "@/utils/formatters";
+import { bob } from "@/utils/currency";
 import { CASHBOX_STATUS } from "@/db/finance.types";
 
 const { user } = Astro.locals;
@@ -140,7 +140,7 @@ const summary = todaysSummary[0] ?? { totalPaid: "0.00", paymentCount: 0 };
                                                     {p.contractorName}
                                                 </p>
                                                 <p class="font-semibold text-red-600 shrink-0">
-                                                    -{formatBOB(p.amount)}
+                                                    -{bob(p.amount)}
                                                 </p>
                                             </div>
                                             <div class="flex items-center gap-2 text-xs text-slate-500 truncate">
@@ -161,7 +161,7 @@ const summary = todaysSummary[0] ?? { totalPaid: "0.00", paymentCount: 0 };
                                             </div>
                                             <p class="text-xs text-slate-400 mt-0.5">
                                                 {p.paidAt
-                                                    ? formatter.format(p.paidAt)
+                                                    ? date(p.paidAt)
                                                     : "—"}
                                             </p>
                                         </div>
@@ -245,7 +245,7 @@ const summary = todaysSummary[0] ?? { totalPaid: "0.00", paymentCount: 0 };
                         <div>
                             <p class="text-sm text-red-700">Total Pagado</p>
                             <p class="text-3xl font-bold text-red-600">
-                                -{formatBOB(summary.totalPaid)}
+                                -{bob(summary.totalPaid)}
                             </p>
                         </div>
                         <div class="border-t border-red-200 pt-4">
@@ -287,7 +287,7 @@ const summary = todaysSummary[0] ?? { totalPaid: "0.00", paymentCount: 0 };
                                             <p
                                                 class={`text-sm font-semibold ${isCritical ? "text-red-600" : "text-green-600"}`}
                                             >
-                                                {formatBOB(balance)}
+                                                {bob(balance)}
                                             </p>
                                         </div>
                                     </div>

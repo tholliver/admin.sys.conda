@@ -86,15 +86,15 @@ async function getFirstCashboxId(): Promise<string> {
   return row.id;
 }
 
-async function getFirstSectorId(): Promise<number> {
-  const [row] = await db
-    .select({ id: schema.sectors.id })
-    .from(schema.sectors)
-    .where(eq(schema.sectors.isActive, true))
-    .limit(1);
-  if (!row) throw new Error("No active sector found. Run base mock first.");
-  return row.id;
-}
+// async function getFirstSectorId(): Promise<number> {
+//   const [row] = await db
+//     .select({ id: schema.sectors.id })
+//     .from(schema.sectors)
+//     .where(eq(schema.sectors.isActive, true))
+//     .limit(1);
+//   if (!row) throw new Error("No active sector found. Run base mock first.");
+//   return row.id;
+// }
 
 async function getSalaryCategoryId(): Promise<string> {
   const [row] = await db
@@ -219,7 +219,7 @@ async function main() {
   }
 
   const cashboxId   = await getFirstCashboxId();
-  const sectorId    = await getFirstSectorId();
+  // const sectorId    = await getFirstSectorId();
   const salaryCatId = await getSalaryCategoryId();
   const rentCatId   = await getRentCategoryId();
 
@@ -257,7 +257,7 @@ async function main() {
     const [emp] = await db.insert(schema.employees).values({
       ci: "10000002", fullName: "Rosa Quispe Flores",
       chargeTitle: "Secretaria de Actas", employeeType: "planta",
-      sectorId, hireDate: new Date(new Date().setMonth(new Date().getMonth() - 7)),
+      // sectorId, hireDate: new Date(new Date().setMonth(new Date().getMonth() - 7)),
       baseSalary: 2800, status: "activo", createdByUserId: "audit-scenario-seed",
     }).returning({ id: schema.employees.id });
 

@@ -20,7 +20,7 @@ import {
     formatNumber,
     getPercentage,
 } from "@/services/finances/finance-ui-helpers";
-import { formatBOB } from "@/utils/formatters";
+import { bob } from "@/utils/currency";
 import { realTransactionFilter } from "@/services/finances/transaction-patterns";
 
 const user = Astro.locals.user;
@@ -241,7 +241,7 @@ const ytdNetIncome =
                         </p>
                         <p
                             class="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 dark:text-slate-100 wrap-break-word leading-tight cursor-help"
-                            title={formatBOB(balanceSummary.totalBalance)}
+                            title={bob(balanceSummary.totalBalance)}
                         >
                             {formatCompactCurrency(balanceSummary.totalBalance)}
                         </p>
@@ -273,7 +273,7 @@ const ytdNetIncome =
                         </p>
                         <p
                             class="text-lg sm:text-xl lg:text-2xl font-bold text-emerald-600 dark:text-emerald-400 wrap-break-words leading-tight cursor-help"
-                            title={formatBOB(monthlySummary.totalIncome)}
+                            title={bob(monthlySummary.totalIncome)}
                         >
                             {formatCompactCurrency(monthlySummary.totalIncome)}
                         </p>
@@ -304,7 +304,7 @@ const ytdNetIncome =
                         </p>
                         <p
                             class="text-lg sm:text-xl lg:text-2xl font-bold text-red-600 dark:text-red-400 wrap-break-word leading-tight cursor-help"
-                            title={formatBOB(monthlySummary.totalOutcome)}
+                            title={bob(monthlySummary.totalOutcome)}
                         >
                             {formatCompactCurrency(monthlySummary.totalOutcome)}
                         </p>
@@ -335,7 +335,7 @@ const ytdNetIncome =
                         </p>
                         <p
                             class={`text-lg sm:text-xl lg:text-2xl font-bold wrap-break-word leading-tight cursor-help ${netIncome >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}
-                            title={formatBOB(netIncome)}
+                            title={bob(netIncome)}
                         >
                             {formatCompactCurrency(netIncome)}
                         </p>
@@ -389,7 +389,7 @@ const ytdNetIncome =
                                                 {category.categoryName}
                                             </p>
                                             <p class="text-sm font-bold text-emerald-600 ml-2">
-                                                {formatBOB(
+                                                {bob(
                                                     category.totalAmount,
                                                 )}
                                             </p>
@@ -451,7 +451,7 @@ const ytdNetIncome =
                                                 {category.categoryName}
                                             </p>
                                             <p class="text-sm font-bold text-red-600 ml-2">
-                                                {formatBOB(
+                                                {bob(
                                                     category.totalAmount,
                                                 )}
                                             </p>
@@ -529,7 +529,7 @@ const ytdNetIncome =
                                             <div class="flex items-center gap-2">
                                                 <div class="w-20 text-right">
                                                     <span class="text-xs font-medium text-emerald-600">
-                                                        {formatBOB(
+                                                        {bob(
                                                             month.totalIncome,
                                                         )}
                                                     </span>
@@ -544,7 +544,7 @@ const ytdNetIncome =
                                             <div class="flex items-center gap-2">
                                                 <div class="w-20 text-right">
                                                     <span class="text-xs font-medium text-red-600">
-                                                        {formatBOB(
+                                                        {bob(
                                                             month.totalOutcome,
                                                         )}
                                                     </span>
@@ -565,7 +565,7 @@ const ytdNetIncome =
                                                 0
                                                     ? "+"
                                                     : ""}
-                                                {formatBOB(month.netChange)}
+                                                {bob(month.netChange)}
                                             </span>
                                         </div>
                                     </div>
@@ -591,19 +591,19 @@ const ytdNetIncome =
                 <div>
                     <p class="text-blue-100 text-sm mb-1">Total Ingresos</p>
                     <p class="text-2xl font-bold">
-                        {formatBOB(ytdSummary.totalIncome)}
+                        {bob(ytdSummary.totalIncome)}
                     </p>
                 </div>
                 <div>
                     <p class="text-blue-100 text-sm mb-1">Total Egresos</p>
                     <p class="text-2xl font-bold">
-                        {formatBOB(ytdSummary.totalOutcome)}
+                        {bob(ytdSummary.totalOutcome)}
                     </p>
                 </div>
                 <div>
                     <p class="text-blue-100 text-sm mb-1">Balance Neto</p>
                     <p class="text-2xl font-bold">
-                        {formatBOB(ytdNetIncome)}
+                        {bob(ytdNetIncome)}
                     </p>
                 </div>
             </div>

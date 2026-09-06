@@ -25,8 +25,7 @@ import {
     ReceiptText,
     Banknote,
 } from "@lucide/astro";
-import { formatBOB } from "@/utils/formatters";
-import { formatDate } from "@/utils/timex";
+import { bob, date } from "@/utils";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -128,7 +127,7 @@ const fmtPeriod = (p: string) =>
         </div>
         <div class="text-right">
             <p class="text-xs text-slate-500">Salario base</p>
-            <p class="text-xl font-bold text-slate-900 font-mono">{formatBOB(Number(employee.baseSalary))}</p>
+            <p class="text-xl font-bold text-slate-900 font-mono">{bob(Number(employee.baseSalary))}</p>
         </div>
     </div>
 
@@ -136,7 +135,7 @@ const fmtPeriod = (p: string) =>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">Total Pagado</p>
-            <p class="text-2xl font-bold text-slate-900 tabular-nums">{formatBOB(totalPaid)}</p>
+            <p class="text-2xl font-bold text-slate-900 tabular-nums">{bob(totalPaid)}</p>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">Cuotas Pendientes</p>
@@ -175,7 +174,7 @@ const fmtPeriod = (p: string) =>
                 <Calendar class="h-4 w-4 text-slate-400 mt-0.5" />
                 <div>
                     <p class="text-xs text-slate-500">Fecha de ingreso</p>
-                    <p class="font-medium text-slate-900">{formatDate(employee.hireDate)}</p>
+                    <p class="font-medium text-slate-900">{date(employee.hireDate)}</p>
                 </div>
             </div>
             {employee.terminationDate && (
@@ -183,7 +182,7 @@ const fmtPeriod = (p: string) =>
                     <Calendar class="h-4 w-4 text-slate-400 mt-0.5" />
                     <div>
                         <p class="text-xs text-slate-500">Baja</p>
-                        <p class="font-medium text-slate-900">{formatDate(employee.terminationDate)}</p>
+                        <p class="font-medium text-slate-900">{date(employee.terminationDate)}</p>
                     </div>
                 </div>
             )}
@@ -325,7 +324,7 @@ const fmtPeriod = (p: string) =>
                                         {formatPeriod(fee.period)}
                                     </td>
                                     <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
-                                        {formatBOB(Number(fee.amount))}
+                                        {bob(Number(fee.amount))}
                                     </td>
                                     <td class="py-3.5 px-4 text-center">
                                         <span class:list={["rounded-full px-2.5 py-0.5 text-xs font-semibold", STATUS_COLORS[fee.status] ?? "bg-slate-100 text-slate-500"]}>

@@ -11,7 +11,7 @@
     import { fade } from "svelte/transition";
     import { actions, isInputError } from "astro:actions";
     import { noWheel } from "@/lib/form/utils";
-    import { formatBOB } from "@/utils/formatters";
+    import { bob } from "@/utils/currency";
     import TransactionSuccess from "./TransactionSuccess.svelte";
 
     interface Cashbox {
@@ -156,7 +156,7 @@
             return;
         }
         if (!hasEnough) {
-            inputErrors.amount = `Saldo insuficiente. Disponible: ${formatBOB(cashboxBalance)}`;
+            inputErrors.amount = `Saldo insuficiente. Disponible: ${bob(cashboxBalance)}`;
             return;
         }
         if (!concept.trim()) {
@@ -298,7 +298,7 @@
                     <div class="flex justify-between items-center">
                         <span class="text-sm text-slate-600">Monto:</span>
                         <span class="text-lg font-bold text-red-600"
-                            >{formatBOB(amount)}</span
+                            >{bob(amount)}</span
                         >
                     </div>
                     <div class="flex justify-between items-center">
@@ -462,7 +462,7 @@
                 <option value="">— Seleccionar caja —</option>
                 {#each cashboxes as box}
                     <option value={box.id}
-                        >{box.name} ({box.code}) — {formatBOB(
+                        >{box.name} ({box.code}) — {bob(
                             box.balance ?? "0",
                         )}</option
                     >
@@ -478,7 +478,7 @@
                         <span>Saldo disponible</span>
                     </div>
                     <span class="font-semibold text-slate-900"
-                        >{formatBOB(selectedCashbox.balance ?? "0")}</span
+                        >{bob(selectedCashbox.balance ?? "0")}</span
                     >
                 </div>
             {/if}
@@ -534,7 +534,7 @@
                         >
                     </div>
                     <span class="text-base font-bold text-red-900"
-                        >{formatBOB(amount)}</span
+                        >{bob(amount)}</span
                     >
                 </div>
             {/if}
@@ -545,7 +545,7 @@
                 >
                     <TriangleAlert class="h-4 w-4 text-red-600 shrink-0" />
                     <span class="text-sm text-red-700"
-                        >Saldo insuficiente. Disponible: {formatBOB(
+                        >Saldo insuficiente. Disponible: {bob(
                             cashboxBalance,
                         )}</span
                     >

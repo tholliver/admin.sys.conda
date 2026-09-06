@@ -64,8 +64,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
           realTransactionFilter,
         ));
 
-      const income = Number(totals?.income ?? 0);
-      const expense = Number(totals?.expense ?? 0);
+      const income = Number(totals[0]?.income ?? 0);
+      const expense = Number(totals[0]?.expense ?? 0);
 
       const ws = wb.addWorksheet("Resumen Mensual");
       ws.columns = [
@@ -193,8 +193,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
           r.date ? new Date(r.date).toISOString() : "",
           r.concept,
           r.invoiceNumber ? `#${r.invoiceNumber}` : r.externalReference ?? "",
-          r.category ?? "",
-          r.cashbox ?? "",
+          r.categoryName ?? "",
+          r.cashboxName ?? "",
           r.type ?? "",
           Number(r.amount ?? 0),
         ]);

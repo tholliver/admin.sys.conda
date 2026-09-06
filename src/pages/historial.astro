@@ -8,8 +8,8 @@ import { DecimalService } from "@/services/finances/decimal.service";
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import PaginationControls from "@/components/affiliates/PaginationControls.astro";
 import TxStatusBadge from "@/components/financial/TxStatusBadge.astro";
-import { formatter } from "@/utils/timex";
-import { formatBOB } from "@/utils/formatters";
+import { date } from "@/utils/dates";
+import { bob } from "@/utils/currency";
 import VoidTransactionDialog from "@/components/svelte/finance/VoidTransactionDialog.svelte";
 import { actions, isActionError } from "astro:actions";
 import { decodeSimpleCursor, encodeSimpleCursor } from "@/utils/cursor-pagination";
@@ -180,7 +180,7 @@ const isFiltered = search || typeFilter !== "all" || statusFilter !== "all" || c
             <TrendingUp class="h-3 w-3 text-emerald-600" />
           </span>
         </div>
-        <p class="text-xl font-bold text-emerald-600 tabular-nums">{formatBOB(filteredTotals.totalIngresos)}</p>
+        <p class="text-xl font-bold text-emerald-600 tabular-nums">{bob(filteredTotals.totalIngresos)}</p>
         {isFiltered && <span class="text-[10px] text-slate-400 leading-none">con filtros</span>}
       </div>
 
@@ -192,7 +192,7 @@ const isFiltered = search || typeFilter !== "all" || statusFilter !== "all" || c
             <TrendingDown class="h-3 w-3 text-red-600" />
           </span>
         </div>
-        <p class="text-xl font-bold text-red-600 tabular-nums">{formatBOB(filteredTotals.totalRetiros)}</p>
+        <p class="text-xl font-bold text-red-600 tabular-nums">{bob(filteredTotals.totalRetiros)}</p>
         {isFiltered && <span class="text-[10px] text-slate-400 leading-none">con filtros</span>}
       </div>
 
@@ -205,7 +205,7 @@ const isFiltered = search || typeFilter !== "all" || statusFilter !== "all" || c
           </span>
         </div>
         <p class={`text-xl font-bold tabular-nums ${isNetoPositive ? "text-emerald-600" : "text-red-600"}`}>
-          {formatBOB(neto)}
+          {bob(neto)}
         </p>
       </div>
     </div>
@@ -331,11 +331,11 @@ const isFiltered = search || typeFilter !== "all" || statusFilter !== "all" || c
           <div class="flex items-center gap-1 text-xs text-slate-500 min-w-0 sm:col-span-2">
             <span class="shrink-0">Desde</span>
             <div class="flex-1 min-w-0">
-              <InputDate id="from" name="from" value={dateFrom} aria-label="Fecha desde" class="!py-1 !px-2 !text-xs" />
+              <InputDate id="from" name="from" value={dateFrom} aria-label="Fecha desde" class="py-1! px-2! text-xs!" />
             </div>
             <span class="shrink-0">–</span>
             <div class="flex-1 min-w-0">
-              <InputDate id="to" name="to" value={dateTo} aria-label="Fecha hasta" class="!py-1 !px-2 !text-xs" />
+              <InputDate id="to" name="to" value={dateTo} aria-label="Fecha hasta" class="py-1! px-2! text-xs!" />
             </div>
           </div>
         </div>
@@ -422,13 +422,13 @@ const isFiltered = search || typeFilter !== "all" || statusFilter !== "all" || c
                       )}
                     </td>
                     <td class="px-4 py-3 text-xs text-slate-500 whitespace-nowrap">
-                      {formatter.format(tx.createdAt)}
+                      {date(tx.createdAt)}
                     </td>
                     <td class={`px-4 py-3 text-right font-semibold whitespace-nowrap tabular-nums ${tx.type === "deposit" ? "text-emerald-600" : "text-red-600"} ${isCancelled ? "line-through" : ""}`}>
-                      {tx.type === "deposit" ? "+" : "-"}{formatBOB(tx.amount)}
+                      {tx.type === "deposit" ? "+" : "-"}{bob(tx.amount)}
                     </td>
                     <td class="px-4 py-3 text-right text-slate-500 whitespace-nowrap tabular-nums text-xs">
-                      {tx.balanceAfter ? formatBOB(tx.balanceAfter) : "—"}
+                      {tx.balanceAfter ? bob(tx.balanceAfter) : "—"}
                     </td>
                     {canVoid && (
                       <td class="px-4 py-3 text-center">

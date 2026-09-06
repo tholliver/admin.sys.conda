@@ -1,7 +1,7 @@
 ---
+import { db } from "@/db";
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { actions, isActionError } from "astro:actions";
-import { db } from "@/db";
 import { tenants, tenantPayments } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import {
@@ -17,8 +17,8 @@ import {
     PlusCircle,
     CreditCard,
 } from "@lucide/astro";
-import { formatCurrencyNoDecimals } from "@/utils/formatters";
-import { formatDate } from "@/utils/timex";
+import { bobInt } from "@/utils/index";
+import { date } from "@/utils";
 import EditTenantDialog from "@/components/svelte/tenants/EditTenantDialog.svelte";
 import { auditTenantPayments } from "@/services/audit.service";
 import { currentPeriod } from "@/services/rrhh/rrhh.service";
@@ -130,7 +130,7 @@ const fmtPeriod = (p: string) => {
             />
             <div class="text-right">
                 <p class="text-xs text-slate-500">Alquiler mensual</p>
-                <p class="text-xl font-bold text-slate-900 font-mono">{formatCurrencyNoDecimals(tenant.monthlyRent)}</p>
+                <p class="text-xl font-bold text-slate-900 font-mono">{bobInt(tenant.monthlyRent)}</p>
             </div>
         </div>
     </div>
@@ -139,7 +139,7 @@ const fmtPeriod = (p: string) => {
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">Total Pagado</p>
-            <p class="text-2xl font-bold text-slate-900 tabular-nums">{formatCurrencyNoDecimals(totalPaidAmount)}</p>
+            <p class="text-2xl font-bold text-slate-900 tabular-nums">{bobInt(totalPaidAmount)}</p>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">Meses Pendientes</p>
@@ -147,7 +147,7 @@ const fmtPeriod = (p: string) => {
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <p class="text-xs text-slate-500 uppercase tracking-wide mb-2">Último Pago</p>
-            <p class="text-lg font-semibold text-slate-900">{lastPaidAt ? formatDate(lastPaidAt) : "Sin pagos"}</p>
+            <p class="text-lg font-semibold text-slate-900">{lastPaidAt ? date(lastPaidAt) : "Sin pagos"}</p>
         </div>
     </div>
 
@@ -177,14 +177,14 @@ const fmtPeriod = (p: string) => {
                     <Calendar class="h-4 w-4 text-slate-400 mt-0.5" />
                     <div>
                         <p class="text-xs text-slate-500">Inicio</p>
-                        <p class="font-medium text-slate-900">{formatDate(tenant.startDate)}</p>
+                        <p class="font-medium text-slate-900">{date(tenant.startDate)}</p>
                     </div>
                 </div>
                 <div class="flex items-start gap-3">
                     <Calendar class="h-4 w-4 text-slate-400 mt-0.5" />
                     <div>
                         <p class="text-xs text-slate-500">Fin</p>
-                        <p class="font-medium text-slate-900">{tenant.endDate ? formatDate(tenant.endDate) : "-"}</p>
+                        <p class="font-medium text-slate-900">{tenant.endDate ? date(tenant.endDate) : "-"}</p>
                     </div>
                 </div>
             </div>
@@ -332,15 +332,15 @@ const fmtPeriod = (p: string) => {
                             <tr class="hover:bg-slate-50/60 transition-colors">
                                 <td class="py-3.5 px-5 font-mono text-slate-700">{p.period}</td>
                                 <td class="py-3.5 px-4 text-right font-mono font-semibold text-slate-700">
-                                    {formatCurrencyNoDecimals(p.amount)}
+                                    {bobInt(p.amount)}
                                 </td>
                                 <td class="py-3.5 px-4 text-center">
                                     <span class:list={["rounded-full px-2.5 py-0.5 text-xs font-semibold", PAYMENT_COLORS[p.status] ?? "bg-slate-100 text-slate-500"]}>
                                         {PAYMENT_LABELS[p.status] ?? p.status}
                                     </span>
                                 </td>
-                                <td class="py-3.5 px-4 text-center text-slate-500">{p.dueDate ? formatDate(p.dueDate) : "-"}</td>
-                                <td class="py-3.5 px-4 text-center text-slate-500">{p.createdAt ? formatDate(p.createdAt) : "Pendiente"}</td>
+                                <td class="py-3.5 px-4 text-center text-slate-500">{p.dueDate ? date(p.dueDate) : "-"}</td>
+                                <td class="py-3.5 px-4 text-center text-slate-500">{p.createdAt ? date(p.createdAt) : "Pendiente"}</td>
                                 <td class="py-3.5 px-4 text-right text-slate-500">{p.receiptNumber ?? "-"}</td>
                             </tr>
                         ))

@@ -1,4 +1,4 @@
-import { formatBOB } from "@/utils/formatters";
+import { bob } from "@/utils/currency";
 
 /**
  * Safe decimal arithmetic service for financial calculations in BOB (Bolivianos)
@@ -303,7 +303,7 @@ export class DecimalService {
     // Maximum transaction
     if (this.compare(normalized, this.MAX_VALUE) > 0) {
       throw new Error(
-        `Monto máximo permitido: ${formatBOB(this.MAX_VALUE)}`,
+        `Monto máximo permitido: ${bob(this.MAX_VALUE)}`,
       );
     }
 
@@ -326,7 +326,7 @@ export class DecimalService {
 
     if (this.compare(total, this.DAILY_LIMIT) > 0) {
       throw new Error(
-        `Límite diario excedido. Máximo: Bs ${formatBOB(this.DAILY_LIMIT)}`,
+        `Límite diario excedido. Máximo: Bs ${bob(this.DAILY_LIMIT)}`,
       );
     }
   }
@@ -338,7 +338,7 @@ export class DecimalService {
     if (!this.isGreaterOrEqual(balance, amount)) {
       const deficit = this.subtract(amount, balance);
       throw new Error(
-        `Saldo insuficiente. Falta: Bs ${formatBOB(deficit)}`,
+        `Saldo insuficiente. Falta: Bs ${bob(deficit)}`,
       );
     }
   }

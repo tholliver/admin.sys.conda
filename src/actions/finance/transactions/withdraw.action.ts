@@ -4,9 +4,8 @@ import { db } from "@/db";
 import { transactions, cashboxes, transactionCategories, invoiceRanges } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
-import { formatter } from "@/utils/timex";
+import { bob } from "@/utils/currency";
 import { ENV } from "@/config/env";
-import { formatBOB } from "@/utils/formatters";
 import { resolveInvoiceReference } from "@/lib/finance/resolve-invoice";
 
 export const withdraw = defineAction({
@@ -20,7 +19,7 @@ export const withdraw = defineAction({
       .refine((val) => {
         const num = parseFloat(val);
         return num > 0 && num <= ENV.TRANSACTION_LIMITS.WITHDRAWAL_MAX;
-      }, `Monto debe ser entre 0.01 y ${formatBOB(String(ENV.TRANSACTION_LIMITS.WITHDRAWAL_MAX))}`),
+      }, `Monto debe ser entre 0.01 y ${bob(String(ENV.TRANSACTION_LIMITS.WITHDRAWAL_MAX))}`),
     authorizedBy: z
       .string()
       .min(1, "Nombre de autorización requerido")
@@ -154,16 +153,16 @@ export const withdraw = defineAction({
 
       return {
         success: true,
-        message: `Egreso de ${formatBOB(normalizedAmount)} registrado correctamente.`,
+        message: `Egreso de ${bob(normalizedAmount)} registrado correctamente.`,
         transaction: {
           id: transaction.id,
-          amount: formatBOB(normalizedAmount),
+          amount: bob(normalizedAmount),
           concept: category.name,
           authorizedBy: authorizedBy || undefined,
           timestamp: formatter.format(transaction.createdAt),
           reference: invoiceNumber ? `#${invoiceNumber}` : transaction.externalReference ?? null,
         },
-        newBalance: formatBOB(newBalance),
+        newBalance: bob(newBalance),
       };
     } catch (error) {
       console.error("Withdraw error:", error);

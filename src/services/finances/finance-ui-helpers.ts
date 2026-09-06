@@ -1,4 +1,4 @@
-import { formatBOB, formatNumber as formatPlainNumber } from "@/utils/formatters";
+import { bob, num as formatPlainNumber } from "@/utils/index";
 
 export const formatNumber = (num: number) => {
   return formatPlainNumber(num);
@@ -22,5 +22,5 @@ export const formatCompactCurrency = (amount: string | number) => {
   if (absNum >= 1_000) {
     return `Bs ${(num / 1_000).toFixed(2)} mil`;
   }
-  return formatBOB(num);
+  return bob(num);
 };

@@ -45,10 +45,10 @@ const isActiveGroup = (group: NavGroup) => {
                     <PanelLeft class="size-4" />
                 </button>
             </div>
-            <div class="sidebar-label brand-text">
+            <a href="/" class="sidebar-label brand-text">
                 <p class="brand-name">Administración</p>
                 <p class="brand-sub">Trans Carrasco Tropical</p>
-            </div>
+            </a>
         </div>
         <button
             class="sidebar-brand-toggle sidebar-brand-toggle--expanded"
@@ -264,6 +264,8 @@ const isActiveGroup = (group: NavGroup) => {
 
     .brand-text {
         min-width: 0;
+        text-decoration: none;
+        color: inherit;
     }
 
     .brand-name {

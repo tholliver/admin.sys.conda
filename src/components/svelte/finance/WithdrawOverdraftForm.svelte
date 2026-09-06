@@ -4,7 +4,7 @@
     import { CircleAlert, Minus, TriangleAlert, X } from "@lucide/svelte";
     import Dialog from "@/components/svelte/Dialog.svelte";
     import AmountInput from "./AmountInput.svelte";
-    import { formatBOB } from "@/utils/formatters";
+    import { bob } from "@/utils/currency";
     import { createWithdrawOverdraftStore } from "@/lib/stores/withdrawOverdraft.store.svelte";
     import TransactionSuccess from "./TransactionSuccess.svelte";
     import CashboxPicker     from "./withdraw/CashboxPicker.svelte";
@@ -97,7 +97,7 @@
                     </div>
                     <div class="flex justify-between items-center">
                         <span class="text-sm text-slate-600">Monto:</span>
-                        <span class="text-lg font-bold text-red-600">{formatBOB(w.amount)}</span>
+                        <span class="text-lg font-bold text-red-600">{bob(w.amount)}</span>
                     </div>
                     {#if w.reference}
                         <div class="flex justify-between items-center">
@@ -191,7 +191,7 @@
 
             <!-- <div class="mt-2 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
                 <span class="text-slate-500">Saldo disponible (GEN)</span>
-                <span class="font-bold text-slate-800 tabular-nums">{formatBOB(String(genBalance))}</span>
+                <span class="font-bold text-slate-800 tabular-nums">{bob(String(genBalance))}</span>
             </div> -->
 
             {#if w.amount && parseFloat(w.amount) > genBalance}
@@ -199,7 +199,7 @@
                     <TriangleAlert class="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                     <p class="text-xs text-amber-800">
                         El monto supera el saldo disponible en GEN
-                        (<span class="font-semibold">{formatBOB(String(genBalance))}</span>).
+                        (<span class="font-semibold">{bob(String(genBalance))}</span>).
                     </p>
                 </div>
             {/if}

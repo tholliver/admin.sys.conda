@@ -23,7 +23,7 @@ import type { Currency } from "@/lib/schemas/currency.schemas";
 // AUTH SCHEMA  (managed by better-auth — do not touch structure)
 // =====================================================================
 
-const authSchema = pgSchema("auth");
+export const authSchema = pgSchema("auth");
 
 export const user = authSchema.table("user", {
   id:                 text("id").primaryKey(),
@@ -131,7 +131,7 @@ export type RentPaymentStatus   = (typeof rentPaymentStatusEnum.enumValues)[numb
 // Tables declared in dependency order so Drizzle resolves FKs correctly.
 // =====================================================================
 
-const financeSchema = pgSchema("finance");
+export const financeSchema = pgSchema("finance");
 
 // ── Cashboxes ─────────────────────────────────────────────────────────
 export const cashboxes = financeSchema.table("cashboxes", {

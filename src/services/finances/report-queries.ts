@@ -93,7 +93,7 @@ interface TopIncome {
     amount: string;
     categoryName: string;
     createdAt: Date;
-    reference: string | null;
+    // reference: string | null;
     invoiceNumber: number | null;
 }
 
@@ -393,7 +393,7 @@ export async function getDetailedExpenseReport(
             amount: transactions.amount,
             categoryName: transactionCategories.name,
             createdAt: transactions.createdAt,
-            externalReference: transactions.externalReference,
+            reference: transactions.externalReference,
             invoiceNumber: transactions.invoiceNumber,
             authorizedBy: transactions.authorizedBy,
         })
@@ -605,7 +605,6 @@ export async function getActiveInvoiceRanges() {
     return await db
         .select({
             id: invoiceRanges.id,
-            code: invoiceRanges.code,
             category: invoiceRanges.category,
             prefix: invoiceRanges.prefix,
             rangeStart: invoiceRanges.rangeStart,

@@ -55,7 +55,7 @@ export const GET: APIRoute = withAuth(async ({ url }) => {
         const message = error instanceof Error ? error.message : "Error listando respaldos";
         return json({ files: [], error: message }, 500);
     }
-}, ["ADMIN", "ADMON"]);
+}, ["ADMIN"]);
 
 export const POST: APIRoute = withAuth(async ({ request, url }) => {
     if (url.searchParams.get("upload")) {
@@ -102,4 +102,4 @@ export const POST: APIRoute = withAuth(async ({ request, url }) => {
         const message = error instanceof Error ? error.message : "Operacion fallida";
         return json({ success: false, message, platform: platform() }, 500);
     }
-}, ["ADMIN", "ADMON"]);
+}, ["ADMIN"]);

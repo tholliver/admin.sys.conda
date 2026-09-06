@@ -1,7 +1,7 @@
 ---
 // src/pages/reportes/ingresos.astro
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
-import { formatBOB } from "@/utils/formatters";
+import { bob } from "@/utils/currency";
 import { getIncomeAnalysisReport } from "@/services/finances/report-queries";
 import { TrendingUp, DollarSign, Clock, ChartColumn } from "@lucide/astro";
 
@@ -49,7 +49,7 @@ const incomeReport = await getIncomeAnalysisReport(startDate, endDate);
                     <TrendingUp class="h-5 w-5 text-emerald-600" />
                 </div>
                 <p class="text-3xl font-bold text-emerald-900">
-                    {formatBOB(incomeReport.totalIncome)}
+                    {bob(incomeReport.totalIncome)}
                 </p>
             </div>
 
@@ -71,7 +71,7 @@ const incomeReport = await getIncomeAnalysisReport(startDate, endDate);
                     <DollarSign class="h-5 w-5 text-slate-400" />
                 </div>
                 <p class="text-3xl font-bold text-slate-900">
-                    {formatBOB(incomeReport.avgIncomeAmount)}
+                    {bob(incomeReport.avgIncomeAmount)}
                 </p>
             </div>
         </div>
@@ -94,12 +94,12 @@ const incomeReport = await getIncomeAnalysisReport(startDate, endDate);
                                         </p>
                                         <p class="text-xs text-slate-500">
                                             {cat.transactionCount} ingresos ·
-                                            Promedio {formatBOB(cat.avgAmount)}
+                                            Promedio {bob(cat.avgAmount)}
                                         </p>
                                     </div>
                                     <div class="text-right">
                                         <p class="text-sm font-bold text-emerald-600">
-                                            {formatBOB(cat.totalAmount)}
+                                            {bob(cat.totalAmount)}
                                         </p>
                                         <p class="text-xs text-slate-500">
                                             {cat.percentage.toFixed(1)}%
@@ -184,7 +184,7 @@ const incomeReport = await getIncomeAnalysisReport(startDate, endDate);
                                     <div
                                         class="w-full bg-emerald-500 rounded-t"
                                         style={`height: ${heightPercent}%`}
-                                        title={formatBOB(hour.totalAmount)}
+                                        title={bob(hour.totalAmount)}
                                     />
                                 </div>
                                 <p class="text-xs font-medium text-slate-900">

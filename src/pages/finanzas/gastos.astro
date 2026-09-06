@@ -2,9 +2,8 @@
 // src/pages/reportes/gastos.astro
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { getDetailedExpenseReport } from "@/services/finances/report-queries";
-import { getPercentage } from "@/services/finances/finance-ui-helpers";
 import { DollarSign, TrendingDown, ChartPie, FileText } from "@lucide/astro";
-import { formatBOB } from "@/utils/formatters";
+import { bob } from "@/utils/currency";
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect("/login");
@@ -52,7 +51,7 @@ const expenseReport = await getDetailedExpenseReport(startDate, endDate);
                     <DollarSign class="h-5 w-5 text-red-600" />
                 </div>
                 <p class="text-3xl font-bold text-red-900">
-                    {formatBOB(expenseReport.totalExpenses)}
+                    {bob(expenseReport.totalExpenses)}
                 </p>
             </div>
 
@@ -74,7 +73,7 @@ const expenseReport = await getDetailedExpenseReport(startDate, endDate);
                     <TrendingDown class="h-5 w-5 text-slate-400" />
                 </div>
                 <p class="text-3xl font-bold text-slate-900">
-                    {formatBOB(expenseReport.avgExpenseAmount)}
+                    {bob(expenseReport.avgExpenseAmount)}
                 </p>
             </div>
         </div>
@@ -100,12 +99,12 @@ const expenseReport = await getDetailedExpenseReport(startDate, endDate);
                                         </p>
                                         <p class="text-xs text-slate-500">
                                             {cat.transactionCount} gastos ·
-                                            Promedio {formatBOB(cat.avgAmount)}
+                                            Promedio {bob(cat.avgAmount)}
                                         </p>
                                     </div>
                                     <div class="text-right">
                                         <p class="text-sm font-bold text-red-600">
-                                            {formatBOB(cat.totalAmount)}
+                                            {bob(cat.totalAmount)}
                                         </p>
                                         <p class="text-xs text-slate-500">
                                             {cat.percentage.toFixed(1)}%
@@ -146,14 +145,14 @@ const expenseReport = await getDetailedExpenseReport(startDate, endDate);
                                         <p class="text-xs text-slate-500">
                                             {expense.categoryName}
                                         </p>
-                                        {(expense.invoiceNumber || expense.externalReference) && (
+                                        {(expense.invoiceNumber) && (
                                             <span class="text-xs text-slate-400">
-                                                Ref: {expense.invoiceNumber ? `#${expense.invoiceNumber}` : expense.externalReference}
+                                                Ref: {expense.invoiceNumber ? `#${expense.invoiceNumber}` : null}
                                             </span>
                                         )}
                                     </div>
                                     <div class="shrink-0 text-right text-sm font-bold text-red-600">
-                                        {formatBOB(expense.amount)}
+                                        {bob(expense.amount)}
                                     </div>
                                 </div>
                             ))

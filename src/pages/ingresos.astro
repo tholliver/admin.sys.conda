@@ -8,8 +8,7 @@ import {
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { cashboxes, transactions, transactionCategories, invoiceRanges } from "@/db/schema";
 import { eq, sql, asc, desc, and } from "drizzle-orm";
-import { formatter } from "@/utils/timex";
-import { formatBOB } from "@/utils/formatters";
+import { bob, date } from "@/utils";
 import DepositForm from '@/components/svelte/finance/DepositForm.svelte';
 
 const { user } = Astro.locals;
@@ -160,7 +159,7 @@ const summary = todaysSummary || { totalDeposits: "0.00", depositCount: 0 };
                                             {tx.concept}
                                           </p>
                                           <p class="font-semibold text-green-600 shrink-0">
-                                            + {formatBOB(tx.amount)}
+                                            + {bob(tx.amount)}
                                           </p>
                                         </div>
 
@@ -180,7 +179,7 @@ const summary = todaysSummary || { totalDeposits: "0.00", depositCount: 0 };
                                             </>
                                           )}
                                           <span class="ml-auto text-slate-500 shrink-0">
-                                            {formatter.format(tx.createdAt)}
+                                            {date(tx.createdAt)}
                                           </span>
                                         </div>
                                       </div>
@@ -210,7 +209,7 @@ const summary = todaysSummary || { totalDeposits: "0.00", depositCount: 0 };
                                     data-testid="total-deposits"
                                     class="text-3xl font-bold text-green-600"
                                 >
-                                     {formatBOB(summary.totalDeposits)}
+                                     {bob(summary.totalDeposits)}
 
                                 </p>
                             </div>
@@ -274,7 +273,7 @@ const summary = todaysSummary || { totalDeposits: "0.00", depositCount: 0 };
                                             </p>
                                         </div>
                                         <p class="text-sm font-semibold text-slate-900">
-                                        {formatBOB(box.balance)}
+                                        {bob(box.balance)}
                                         </p>
                                     </div>
                                 ))

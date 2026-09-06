@@ -17,8 +17,7 @@ import { db } from "@/db";
 import { cashboxes, transactions, transactionCategories } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
-import { formatBOB } from "@/utils/formatters";
-import { formatter } from "@/utils/timex";
+import { bob } from "@/utils";
 
 const GEN_CODE = "GEN";
 
@@ -69,7 +68,7 @@ export const cashboxTransfer = defineAction({
         if (!isFromGEN && !DecimalService.isGreaterOrEqual(fromBalance, amount)) {
             throw new ActionError({
                 code: "BAD_REQUEST",
-                message: `Saldo insuficiente en ${from.name}. Disponible: ${formatBOB(fromBalance)}.`,
+                message: `Saldo insuficiente en ${from.name}. Disponible: ${bob(fromBalance)}.`,
             });
         }
 
@@ -160,16 +159,16 @@ export const cashboxTransfer = defineAction({
 
         return {
             success: true,
-            message: `Transferencia de ${formatBOB(amount)} de "${from.name}" a "${to.name}" completada.`,
+            message: `Transferencia de ${bob(amount)} de "${from.name}" a "${to.name}" completada.`,
             transaction: {
                 id:        outTx.id,
-                amount:    formatBOB(amount),
+                amount:    bob(amount),
                 concept,
-                timestamp: formatter.format(outTx.createdAt),
+                timestamp: date(outTx.createdAt),
                 reference: null,
             },
-            from: { id: from.id, name: from.name, newBalance: formatBOB(newFromBalance) },
-            to:   { id: to.id,   name: to.name,   newBalance: formatBOB(newToBalance)   },
+            from: { id: from.id, name: from.name, newBalance: bob(newFromBalance) },
+            to:   { id: to.id,   name: to.name,   newBalance: bob(newToBalance)   },
         };
     },
 });

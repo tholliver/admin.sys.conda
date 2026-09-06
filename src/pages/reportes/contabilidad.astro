@@ -20,14 +20,14 @@ const defaultFrom = `${nowBo.getFullYear()}-${String(nowBo.getMonth() + 1).padSt
 const defaultTo   = new Date(nowBo.getFullYear(), nowBo.getMonth() + 1, 0).toISOString().slice(0, 10);
 ---
 
-<FinanceLayout title="Reportes Excel" user={user}>
+<FinanceLayout title="Reportes Contabilidad" user={user}>
   <div class="reports-page">
 
     <div class="page-header">
       <div class="page-header-left">
         <FileSpreadsheet size={28} class="page-icon" />
         <div>
-          <h1 class="page-title">Reportes Excel</h1>
+          <h1 class="page-title">Reportes Contabilidad</h1>
           <p class="page-subtitle">Genera reportes contables en formato .xlsx</p>
         </div>
       </div>

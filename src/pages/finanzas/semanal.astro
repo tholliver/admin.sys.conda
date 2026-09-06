@@ -2,7 +2,7 @@
 // src/pages/reportes/semanal.astro
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
 import { getWeeklyReport } from "@/services/finances/report-queries";
-import { formatBOB } from "@/utils/formatters";
+import { bob } from "@/utils/currency";
 import { Calendar, TrendingUp, TrendingDown, ChartColumn } from "@lucide/astro";
 
 const user = Astro.locals.user;
@@ -61,7 +61,7 @@ const weeklyReport = await getWeeklyReport(selectedDate);
                     <TrendingUp class="h-5 w-5 text-green-600" />
                 </div>
                 <p class="text-2xl font-bold text-green-900">
-                    {formatBOB(weeklyReport.totalIncome)}
+                    {bob(weeklyReport.totalIncome)}
                 </p>
                 <p class="text-xs text-green-600 mt-1">
                     {weeklyReport.incomeCount} transacciones
@@ -76,7 +76,7 @@ const weeklyReport = await getWeeklyReport(selectedDate);
                     <TrendingDown class="h-5 w-5 text-red-600" />
                 </div>
                 <p class="text-2xl font-bold text-red-900">
-                    {formatBOB(weeklyReport.totalOutcome)}
+                    {bob(weeklyReport.totalOutcome)}
                 </p>
                 <p class="text-xs text-red-600 mt-1">
                     {weeklyReport.outcomeCount} transacciones
@@ -115,7 +115,7 @@ const weeklyReport = await getWeeklyReport(selectedDate);
                             : "text-amber-900"
                     }`}
                 >
-                    {formatBOB(weeklyReport.netChange)}
+                    {bob(weeklyReport.netChange)}
                 </p>
             </div>
 
@@ -182,7 +182,7 @@ const weeklyReport = await getWeeklyReport(selectedDate);
                                         {parseFloat(day.netChange) >= 0
                                             ? "+"
                                             : ""}
-                                        {formatBOB(day.netChange)}
+                                        {bob(day.netChange)}
                                     </p>
                                 </div>
 
@@ -197,7 +197,7 @@ const weeklyReport = await getWeeklyReport(selectedDate);
                                                 style={`width: ${incomePercent}%`}
                                             >
                                                 <span class="text-xs font-semibold text-white">
-                                                    {formatBOB(day.totalIncome)}
+                                                    {bob(day.totalIncome)}
                                                 </span>
                                             </div>
                                         </div>
@@ -213,7 +213,7 @@ const weeklyReport = await getWeeklyReport(selectedDate);
                                                 style={`width: ${outcomePercent}%`}
                                             >
                                                 <span class="text-xs font-semibold text-white">
-                                                    {formatBOB(
+                                                    {bob(
                                                         day.totalOutcome,
                                                     )}
                                                 </span>

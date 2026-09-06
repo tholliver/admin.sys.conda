@@ -4,7 +4,6 @@ import { db } from "@/db";
 import {
   transactions,
   cashboxes,
-  sectors,
   transactionCategories,
 } from "@/db/schema";
 import { eq, and, gte, lte, isNull, sql } from "drizzle-orm";
@@ -449,28 +448,20 @@ export async function generateGastosPorSector(
 
   const summary = await db
     .select({
-      sectorId:      sectors.id,
-      sectorName:    sectors.name,
       cashboxName:   cashboxes.name,
       totalGastos:   sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type}='withdraw' THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END),0)`,
       totalIngresos: sql<string>`COALESCE(SUM(CASE WHEN ${transactions.type}='deposit'  THEN CAST(${transactions.amount} AS NUMERIC) ELSE 0 END),0)`,
       countTotal:    sql<number>`COUNT(${transactions.id})`,
     })
-    .from(sectors)
-    .leftJoin(cashboxes,    eq(sectors.cashboxId, cashboxes.id))
+    .from(cashboxes)
     .leftJoin(transactions, and(
-      eq(transactions.sectorId, sectors.id),
       gte(transactions.createdAt, from),
       lte(transactions.createdAt, to),
       eq(transactions.status, "completado"),
       realTransactionFilter,
     ))
-    .where(and(
-      eq(sectors.isActive, true),
-      sectorId ? eq(sectors.id, sectorId) : undefined,
-    ))
-    .groupBy(sectors.id, sectors.name, cashboxes.name)
-    .orderBy(sectors.name);
+    .groupBy(cashboxes.name)
+    .orderBy(cashboxes.name);
 
   // Also get "Sin Sector" row
   const [noSector] = await db
@@ -481,7 +472,6 @@ export async function generateGastosPorSector(
     })
     .from(transactions)
     .where(and(
-      isNull(transactions.sectorId),
       gte(transactions.createdAt, from),
       lte(transactions.createdAt, to),
       eq(transactions.status, "completado"),
@@ -493,7 +483,6 @@ export async function generateGastosPorSector(
   [...summary].forEach((s, i) => {
     const rowNum = wsSummary.rowCount + 1;
     const row = wsSummary.addRow([
-      s.sectorName,
       s.cashboxName ?? "—",
       Number(s.totalIngresos),
       Number(s.totalGastos),
@@ -574,7 +563,6 @@ export async function generateGastosPorSector(
 
   const details = await db
     .select({
-      sectorName:   sectors.name,
       cashboxName:  cashboxes.name,
       createdAt:    transactions.createdAt,
       concept:      transactions.concept,
@@ -585,7 +573,6 @@ export async function generateGastosPorSector(
       amount:       transactions.amount,
     })
     .from(transactions)
-    .leftJoin(sectors,               eq(transactions.sectorId,  sectors.id))
     .leftJoin(cashboxes,             eq(transactions.cashboxId, cashboxes.id))
     .leftJoin(transactionCategories, eq(transactions.categoryId, transactionCategories.id))
     .where(and(
@@ -593,15 +580,13 @@ export async function generateGastosPorSector(
       lte(transactions.createdAt, to),
       eq(transactions.status, "completado"),
       realTransactionFilter,
-      sectorId ? eq(transactions.sectorId, sectorId) : undefined,
     ))
-    .orderBy(sectors.name, transactions.createdAt);
+    .orderBy(transactions.createdAt);
 
   details.forEach((d) => {
     const isDebe = d.type === "withdraw";
     const amount = Number(d.amount);
     const row = wsDetail.addRow([
-      d.sectorName ?? "(Sin Sector)",
       d.createdAt ? fmtDateTime(new Date(d.createdAt)) : "",
       d.concept,
       d.invoiceNumber ? `#${d.invoiceNumber}` : d.externalReference ?? "",

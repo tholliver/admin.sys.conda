@@ -8,7 +8,7 @@ import {
   employees,
 } from "@/db/schema";
 import { eq, and, sql, count } from "drizzle-orm";
-import { formatBOB } from "@/utils/formatters";
+import { bob } from "@/utils/currency";
 
 const ADMIN_ROLES = ["ADMIN", "ADMON"] as const;
 
@@ -118,7 +118,7 @@ export const depositToCashboxAction = defineAction({
 
     return {
       success: true,
-      message: `Bs ${formatBOB(input.amount)} depositados en "${cashbox.name}".`,
+      message: `Bs ${bob(input.amount)} depositados en "${cashbox.name}".`,
       cashboxName: cashbox.name,
       newBalance,
     };

@@ -11,9 +11,9 @@ import {
     employees
 } from "@/db/schema";
 import { eq, desc, and, sql, isNull, asc } from "drizzle-orm";
-import { formatter } from "@/utils/timex";
+import { date } from "@/utils/dates";
 import WithdrawOverdraftForm from "@/components/svelte/finance/WithdrawOverdraftForm.svelte";
-import { formatBOB } from "@/utils/formatters";
+import { bob } from "@/utils/currency";
 
 const { user } = Astro.locals;
 if (!user) return Astro.redirect("/login");
@@ -178,7 +178,7 @@ const activeEmployees = await db
                                                     {tx.concept}
                                                 </p>
                                                 <p class="font-semibold text-red-600 shrink-0">
-                                                    -{formatBOB(tx.amount)}
+                                                    -{bob(tx.amount)}
                                                 </p>
                                             </div>
                                             <div class="flex items-center gap-2 text-xs text-slate-600 truncate">
@@ -200,9 +200,7 @@ const activeEmployees = await db
                                                     </>
                                                 )}
                                                 <span class="ml-auto text-slate-500 shrink-0">
-                                                    {formatter.format(
-                                                        tx.createdAt,
-                                                    )}
+                                                    {date(tx.createdAt)}
                                                 </span>
                                             </div>
                                         </div>
@@ -230,7 +228,7 @@ const activeEmployees = await db
                                 class="text-3xl font-bold text-red-600"
                                 data-testid="withdraw-total-withdrawals"
                             >
-                                -{formatBOB(summary.totalWithdrawals)}
+                                -{bob(summary.totalWithdrawals)}
                             </p>
                         </div>
                         <div class="border-t border-red-200 pt-4">

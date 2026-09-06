@@ -6,7 +6,8 @@ import { db } from "@/db";
 import { cashboxes, transactions, transactionCategories, contractors, contractorPayments } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
-import { formatBOB } from "@/utils/formatters";
+import { bob } from "@/utils/currency";
+
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -59,7 +60,7 @@ export const transfer = defineAction({
     if (!DecimalService.isGreaterOrEqual(String(from.balance ?? "0"), amount)) {
       throw new ActionError({
         code: "BAD_REQUEST",
-        message: `Saldo insuficiente en ${from.name}. Disponible: ${formatBOB(String(from.balance ?? "0"))}.`,
+        message: `Saldo insuficiente en ${from.name}. Disponible: ${bob(String(from.balance ?? "0"))}.`,
       });
     }
 
@@ -130,15 +131,15 @@ export const transfer = defineAction({
 
     return {
       success: true,
-      message: `Transferencia de ${formatBOB(amount)} de "${from.name}" a "${to.name}" completada.`,
+      message: `Transferencia de ${bob(amount)} de "${from.name}" a "${to.name}" completada.`,
       transaction: {
         id: outTx.id,
-        amount: formatBOB(amount),
+        amount: bob(amount),
         reference: null,
         timestamp: outTx.createdAt.toISOString(),
       },
-      from: { id: from.id, name: from.name, newBalance: formatBOB(newFromBalance) },
-      to: { id: to.id, name: to.name, newBalance: formatBOB(newToBalance) },
+      from: { id: from.id, name: from.name, newBalance: bob(newFromBalance) },
+      to: { id: to.id, name: to.name, newBalance: bob(newToBalance) },
     };
   },
 });
@@ -182,7 +183,7 @@ export const payContractor = defineAction({
     if (!DecimalService.isGreaterOrEqual(String(cashbox.balance ?? "0"), amount)) {
       throw new ActionError({
         code: "BAD_REQUEST",
-        message: `Saldo insuficiente en ${cashbox.name}. Disponible: ${formatBOB(String(cashbox.balance ?? "0"))}.`,
+        message: `Saldo insuficiente en ${cashbox.name}. Disponible: ${bob(String(cashbox.balance ?? "0"))}.`,
       });
     }
 
@@ -242,15 +243,15 @@ export const payContractor = defineAction({
 
     return {
       success: true,
-      message: `Pago de ${formatBOB(amount)} a "${contractor.fullName}" registrado.`,
+      message: `Pago de ${bob(amount)} a "${contractor.fullName}" registrado.`,
       transaction: {
         id: payment.uuid,
-        amount: formatBOB(amount),
+        amount: bob(amount),
         concept: `${contractor.fullName} — ${concept}`,
         reference: input.receiptNumber || null,
         timestamp: payment.createdAt.toISOString(),
       },
-      newBalance: formatBOB(newBalance),
+      newBalance: bob(newBalance),
     };
   },
 });

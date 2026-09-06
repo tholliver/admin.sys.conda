@@ -1,11 +1,11 @@
 ---
 import { db } from "@/db";
 import FinanceLayout from "@/layouts/FinanceLayout.astro";
-import { formatter } from "@/utils/timex";
+import { date } from "@/utils/dates";
 import {
-    formatBOB,
-    formatTransactionCurrency,
-} from "@/utils/formatters";
+    bob,
+    bobTx,
+} from "@/utils";
 import {
     TrendingUp,
     TrendingDown,
@@ -82,7 +82,7 @@ const outPct = 100 - incPct;
                             href="/reportes"
                             class="group inline-flex items-center gap-3 transition-colors duration-200 hover:text-blue-600"
                         >
-                            {formatBOB(String(balanceSummary.totalBalance))}
+                            {bob(String(balanceSummary.totalBalance))}
                             <LucideExternalLink
                                 size={18}
                                 class="text-blue-400 opacity-0 transition-all duration-200 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0"
@@ -148,7 +148,7 @@ const outPct = 100 - incPct;
                     <p
                         class="text-xl font-bold text-emerald-700 tabular-nums mt-1"
                     >
-                        {formatBOB(String(dailySummary.totalIncome))}
+                        {bob(String(dailySummary.totalIncome))}
                     </p>
                 </div>
                 <div
@@ -165,7 +165,7 @@ const outPct = 100 - incPct;
                         </p>
                     </section>
                     <p class="text-xl font-bold text-red-700 tabular-nums mt-1">
-                        {formatBOB(String(dailySummary.totalOutcome))}
+                        {bob(String(dailySummary.totalOutcome))}
                     </p>
                 </div>
             </div>
@@ -245,7 +245,7 @@ const outPct = 100 - incPct;
                         ]}
                     >
                         {parseFloat(monthlySummary.netChange) >= 0 ? "+" : ""}{
-                            formatBOB(monthlySummary.netChange)
+                            bob(monthlySummary.netChange)
                         }
                     </p>
                 </div>
@@ -261,7 +261,7 @@ const outPct = 100 - incPct;
                     <p
                         class="text-xl font-bold text-emerald-600 tabular-nums mt-1"
                     >
-                        {formatBOB(monthlySummary.totalIncome)}
+                        {bob(monthlySummary.totalIncome)}
                     </p>
                 </div>
                 <div>
@@ -274,7 +274,7 @@ const outPct = 100 - incPct;
                         </p>
                     </section>
                     <p class="text-xl font-bold text-red-600 tabular-nums mt-1">
-                        {formatBOB(monthlySummary.totalOutcome)}
+                        {bob(monthlySummary.totalOutcome)}
                     </p>
                 </div>
             </div>
@@ -443,7 +443,7 @@ const outPct = 100 - incPct;
                                         <TxStatusBadge status={tx.status} iconOnly />
                                     </td>
                                     <td class="py-3 px-4 text-slate-500 whitespace-nowrap hidden sm:table-cell">
-                                        {formatter.format(tx.createdAt)}
+                                        {date(tx.createdAt)}
                                     </td>
                                     <td
                                         class:list={[
@@ -453,7 +453,7 @@ const outPct = 100 - incPct;
                                                 : "text-red-600",
                                         ]}
                                     >
-                                        {formatTransactionCurrency(
+                                        {bobTx(
                                             tx.amount,
                                             tx.type,
                                         )}

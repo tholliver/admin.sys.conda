@@ -9,7 +9,7 @@
         X,
     } from "@lucide/svelte";
     import AmountInput from "./AmountInput.svelte";
-    import { formatBOB } from "@/utils/formatters";
+    import { bob } from "@/utils/currency";
     import type { SelectTransactionCategories } from "@/db/schema";
     import {
         createWithdrawStore,
@@ -125,7 +125,7 @@
                         <span
                             class="text-lg font-bold text-red-600"
                             data-testid="confirm-amount"
-                            >{formatBOB(w.amount)}</span
+                            >{bob(w.amount)}</span
                         >
                     </div>
                     {#if w.reference}
@@ -253,7 +253,7 @@
                         >
                     </div>
                     <span class="text-base font-bold text-red-900"
-                        >{formatBOB(w.amount)}</span
+                        >{bob(w.amount)}</span
                     >
                 </div>
             {/if}

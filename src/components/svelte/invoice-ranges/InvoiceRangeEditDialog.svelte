@@ -2,7 +2,7 @@
     import Dialog from "@/components/svelte/Dialog.svelte";
     import { ZodForm } from "@/lib/form/create-zod-form.svelte";
     import type { InvoiceRange } from "@/db/schema";
-    import { apiEndpoints } from "@/utils";
+    import { api } from "@/utils/routes";
     import { navigate } from "astro:transitions/client";
     import { Edit, Calendar } from "@lucide/svelte";
     import { toast } from "@/lib/toast";
@@ -83,7 +83,7 @@
         isSaving = true;
         try {
             const response = await fetch(
-                apiEndpoints.invoiceRanges.createUpdate,
+                api.invoiceRanges.createUpdate,
                 {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },

@@ -6,7 +6,7 @@ import {
     getDailyTransactionsByCategory,
     getDailyTransactionsList,
 } from "@/services/finances/report-queries";
-import { formatBOB } from "@/utils/formatters";
+import { bob } from "@/utils/currency";
 import {
     Calendar,
     TrendingUp,
@@ -113,7 +113,7 @@ const outcomeCategories = categoryBreakdown.filter(
                     Saldo Inicial
                 </p>
                 <p class="text-2xl font-bold text-slate-900">
-                    {formatBOB(dailyReport.openingBalance)}
+                    {bob(dailyReport.openingBalance)}
                 </p>
             </div>
 
@@ -124,7 +124,7 @@ const outcomeCategories = categoryBreakdown.filter(
                     <TrendingUp class="h-5 w-5 text-green-600" />
                 </div>
                 <p class="text-2xl font-bold text-green-900">
-                    {formatBOB(dailyReport.totalIncome)}
+                    {bob(dailyReport.totalIncome)}
                 </p>
                 <p class="text-xs text-green-600 mt-1">
                     {dailyReport.incomeCount} transacciones
@@ -138,7 +138,7 @@ const outcomeCategories = categoryBreakdown.filter(
                     <TrendingDown class="h-5 w-5 text-red-600" />
                 </div>
                 <p class="text-2xl font-bold text-red-900">
-                    {formatBOB(dailyReport.totalOutcome)}
+                    {bob(dailyReport.totalOutcome)}
                 </p>
                 <p class="text-xs text-red-600 mt-1">
                     {dailyReport.outcomeCount} transacciones
@@ -169,7 +169,7 @@ const outcomeCategories = categoryBreakdown.filter(
                             : "text-red-900"
                     }`}
                 >
-                    {formatBOB(dailyReport.closingBalance)}
+                    {bob(dailyReport.closingBalance)}
                 </p>
                 <p
                     class={`text-xs mt-1 ${
@@ -179,7 +179,7 @@ const outcomeCategories = categoryBreakdown.filter(
                     }`}
                 >
                     {parseFloat(dailyReport.netChange) >= 0 ? "+" : ""}
-                    {formatBOB(dailyReport.netChange)}
+                    {bob(dailyReport.netChange)}
                 </p>
             </div>
         </div>
@@ -205,7 +205,7 @@ const outcomeCategories = categoryBreakdown.filter(
                                         </p>
                                     </div>
                                     <p class="text-sm font-bold text-green-600">
-                                        {formatBOB(cat.totalAmount)}
+                                        {bob(cat.totalAmount)}
                                     </p>
                                 </div>
                             ))
@@ -237,7 +237,7 @@ const outcomeCategories = categoryBreakdown.filter(
                                         </p>
                                     </div>
                                     <p class="text-sm font-bold text-red-600">
-                                        {formatBOB(cat.totalAmount)}
+                                        {bob(cat.totalAmount)}
                                     </p>
                                 </div>
                             ))
@@ -329,7 +329,7 @@ const outcomeCategories = categoryBreakdown.filter(
                                         }`}
                                     >
                                         {tx.type === "deposit" ? "+" : "-"}
-                                        {formatBOB(tx.amount)}
+                                        {bob(tx.amount)}
                                     </td>
                                 </tr>
                             ))

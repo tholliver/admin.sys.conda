@@ -2,7 +2,7 @@
     import { fade } from "svelte/transition";
     import { CircleCheck, CircleAlert } from "@lucide/svelte";
     import { ENV } from "@/config/env";
-    import { formatBOB } from "@/utils/formatters";
+    import { bob } from "@/utils/currency";
 
     interface QuickPreset {
         label: string;
@@ -489,7 +489,7 @@
                 <CircleCheck class="w-4 h-4 shrink-0 {C.confirmIcon}" />
                 <span class="text-sm font-medium">Monto ingresado</span>
             </div>
-            <span class="text-base font-bold">{formatBOB(value)}</span>
+            <span class="text-base font-bold">{bob(value)}</span>
         </div>
     {/if}
 

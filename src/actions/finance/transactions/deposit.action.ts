@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { transactions, cashboxes, transactionCategories, invoiceRanges } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { ENV } from "@/config/env";
-import { formatBOB } from "@/utils/formatters";
+import { bob, date } from "@/utils";
 import { resolveInvoiceReference } from "@/lib/finance/resolve-invoice";
 
 export const deposit = defineAction({
@@ -17,7 +17,7 @@ export const deposit = defineAction({
       .refine((val) => {
         const num = parseFloat(val);
         return num > 0 && num <= ENV.TRANSACTION_LIMITS.DEPOSIT_MAX;
-      }, `Monto debe ser entre 0.01 y ${formatBOB(String(ENV.TRANSACTION_LIMITS.DEPOSIT_MAX))}`),
+      }, `Monto debe ser entre 0.01 y ${bob(String(ENV.TRANSACTION_LIMITS.DEPOSIT_MAX))}`),
     externalReference: z.string().max(255).optional(),
     invoiceRangeId: z.uuid().optional(),
     cashboxId: z.uuid("ID de Caja inválido").optional(),
@@ -122,15 +122,15 @@ export const deposit = defineAction({
 
       return {
         success: true,
-        message: `Deposito de ${formatBOB(amount)} registrado correctamente.`,
+        message: `Deposito de ${bob(amount)} registrado correctamente.`,
         transaction: {
           id: transaction.id,
-          amount: formatBOB(amount),
+          amount: bob(amount),
           concept: transaction.concept,
           timestamp: transaction.createdAt.toISOString(),
           reference: invoiceNumber ? `#${invoiceNumber}` : transaction.externalReference ?? null,
         },
-        newBalance: formatBOB(newBalance),
+        newBalance: bob(newBalance),
       };
     } catch (error) {
       console.error("Deposit error:", error);

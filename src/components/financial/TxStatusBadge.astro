@@ -1,5 +1,5 @@
 ---
-import { formatTransactionStatus } from "@/utils/formatters.ts";
+import { txStatus } from "@/utils";
 import {
     AlertCircle,
     CheckCircle,
@@ -8,7 +8,7 @@ import {
 } from "@lucide/astro";
 
 const { status, iconOnly = false } = Astro.props;
-const { label, color } = formatTransactionStatus(status);
+const { label, color } = txStatus(status);
 ---
 
 <span

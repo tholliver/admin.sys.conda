@@ -17,8 +17,7 @@ import { db } from "@/db";
 import { cashboxes, transactions, transactionCategories, invoiceRanges } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
-import { formatBOB } from "@/utils/formatters";
-import { formatter } from "@/utils/timex";
+import { bob, } from "@/utils";
 import { resolveInvoiceReference } from "@/lib/finance/resolve-invoice";
 import { ENV } from "@/config/env";
 
@@ -150,7 +149,7 @@ export const cashboxWithdraw = defineAction({
         });
 
         const overdraftMsg = isOverdraft
-            ? ` — deuda acumulada: ${formatBOB(overdraftAmt)}`
+            ? ` — deuda acumulada: ${bob(overdraftAmt)}`
             : "";
 
         return {
@@ -158,16 +157,16 @@ export const cashboxWithdraw = defineAction({
             isOverdraft,
             overdraftAmount: overdraftAmt,
             totalDebt:       newDebt,
-            message:         `Egreso de ${formatBOB(normalizedAmount)} registrado${overdraftMsg}.`,
+            message:         `Egreso de ${bob(normalizedAmount)} registrado${overdraftMsg}.`,
             transaction: {
                 id:          txn.id,
-                amount:      formatBOB(normalizedAmount),
+                amount:      bob(normalizedAmount),
                 concept:     conceptLabel,
                 authorizedBy: authorizedBy ?? undefined,
                 timestamp:   formatter.format(txn.createdAt),
                 reference:   invoiceNumber ? `#${invoiceNumber}` : txn.externalReference ?? null,
             },
-            newBalance:  formatBOB(newBalance),
+            newBalance:  bob(newBalance),
         };
     },
 });

@@ -15,8 +15,7 @@ import { db } from "@/db";
 import { cashboxes, transactions, transactionCategories, invoiceRanges } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
-import { formatBOB } from "@/utils/formatters";
-import { formatter } from "@/utils/timex";
+import { bob, date } from "@/utils";
 import { resolveInvoiceReference } from "@/lib/finance/resolve-invoice";
 import { ENV } from "@/config/env";
 
@@ -155,22 +154,22 @@ export const cashboxDeposit = defineAction({
         });
 
         const coveredMsg = hasDebt && DecimalService.isGreater(debtReduced, "0.00")
-            ? ` — cubre ${formatBOB(debtReduced)} de deuda acumulada`
+            ? ` — cubre ${bob(debtReduced)} de deuda acumulada`
             : "";
 
         return {
             success:      true,
-            message:      `Depósito de ${formatBOB(normalizedAmount)} registrado${coveredMsg}.`,
+            message:      `Depósito de ${bob(normalizedAmount)} registrado${coveredMsg}.`,
             debtCovered:  debtReduced,
             remainingDebt: newDebt,
             transaction: {
                 id:          txn.id,
-                amount:      formatBOB(normalizedAmount),
+                amount:      bob(normalizedAmount),
                 concept:     conceptLabel,
-                timestamp:   formatter.format(txn.createdAt),
+                timestamp:   date(txn.createdAt),
                 reference:   invoiceNumber ? `#${invoiceNumber}` : txn.externalReference ?? null,
             },
-            newBalance: formatBOB(newBalance),
+            newBalance: bob(newBalance),
         };
     },
 });

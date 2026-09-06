@@ -1,7 +1,7 @@
 <script lang="ts">
     import Dialog from "@/components/svelte/Dialog.svelte";
     import type { InvoiceRange } from "@/db/schema";
-    import { apiEndpoints } from "@/utils";
+    import { api } from "@/utils/routes";
     import { navigate } from "astro:transitions/client";
     import { Trash2 } from "@lucide/svelte";
     import { toast } from "@/lib/toast";
@@ -19,7 +19,7 @@
         isDeleting = true;
         try {
             const res = await fetch(
-                apiEndpoints.invoiceRanges.delete(range.id),
+                api.invoiceRanges.delete(range.id),
                 {
                     method: "DELETE",
                 },

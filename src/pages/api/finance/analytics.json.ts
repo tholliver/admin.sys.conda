@@ -58,8 +58,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
           eq(transactions.status, "completado"),
           realTransactionFilter,
         ));
-      const income = Number(totals?.income ?? 0);
-      const expense = Number(totals?.expense ?? 0);
+      const income = Number(totals[0]?.income ?? 0);
+      const expense = Number(totals[0]?.expense ?? 0);
       const ws = wb.addWorksheet("Resumen Mensual");
       ws.columns = [
         { header: "Concepto", key: "c", width: 40 },
@@ -120,8 +120,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
             eq(transactions.status, "completado"),
             realTransactionFilter,
           ));
-        const income = Number(netRow?.income ?? 0);
-        const expense = Number(netRow?.expense ?? 0);
+        const income = Number(netRow[0]?.income ?? 0);
+        const expense = Number(netRow[0]?.expense ?? 0);
         const label = dtFrom.toLocaleString("default", { month: "short" }) + " " + dtFrom.getFullYear();
         months.push({ label, net: income - expense });
       }
@@ -177,8 +177,8 @@ export const GET: APIRoute = async ({ request, locals }) => {
           r.date ? new Date(r.date).toISOString() : "",
           r.concept,
           r.invoiceNumber ? `#${r.invoiceNumber}` : r.externalReference ?? "",
-          r.category ?? "",
-          r.cashbox ?? "",
+          r.categoryName ?? "",
+          r.cashboxName ?? "",
           r.type ?? "",
           Number(r.amount ?? 0),
         ]);

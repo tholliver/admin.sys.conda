@@ -129,7 +129,7 @@ async function drawHeader(pdfDoc: PDFDocument, ctx: Ctx, subtitle: string) {
     const logoPath = join(process.cwd(), "public", "carrasco_logo.jpg");
     const logoBytes = readFileSync(logoPath);
     const logoImg   = await pdfDoc.embedJpg(logoBytes);
-    const logoDim   = logoImg.scaleToFit(44, 44);
+    const logoDim   = logoImg.scaleToFit(50, 50);
     ctx.page.drawImage(logoImg, {
       x: MARGIN + 10,
       y: topY - headerH + (headerH - logoDim.height) / 2,
@@ -231,13 +231,28 @@ async function queryGlobal() {
       name:           cashboxes.name,
       code:           cashboxes.code,
       balance:        cashboxes.balance,
-      creditLimit:    cashboxes.creditLimit,
       isQuick:        cashboxes.isQuick,
       status:         cashboxes.status,
     })
     .from(cashboxes)
     .where(isNull(cashboxes.deletedAt))
     .orderBy(desc(cashboxes.isQuick), cashboxes.name);
+
+  // Total spending (withdrawals) per cashbox
+  const spending = await db
+    .select({
+      cashboxId: transactions.cashboxId,
+      total:     sql<string>`COALESCE(SUM(CAST(${transactions.amount} AS NUMERIC)), 0)`,
+    })
+    .from(transactions)
+    .where(and(
+      eq(transactions.type, "withdraw"),
+      eq(transactions.status, "completado"),
+      realTransactionFilter,
+    ))
+    .groupBy(transactions.cashboxId);
+
+  const spendingMap = new Map(spending.map(s => [s.cashboxId, s.total]));
 
   // Invoice ranges summary  (N transactions, M amount) per range
   const invoiceSummary = await db
@@ -292,7 +307,7 @@ async function queryGlobal() {
     ))
     .orderBy(desc(transactions.createdAt));
 
-  return { boxes, invoiceSummary, todayTx, todayLabel };
+  return { boxes, invoiceSummary, todayTx, todayLabel, spendingMap };
 }
 
 async function queryCashboxDetail(cashboxId: string) {
@@ -333,6 +348,7 @@ async function buildCashboxSection(
   ctx: Ctx,
   boxes: Awaited<ReturnType<typeof queryGlobal>>["boxes"],
   scope: "all" | string,  // "all" or cashboxId
+  spendingMap: Map<string, string>,
 ) {
   const filtered = scope === "all" ? boxes : boxes.filter(b => b.id === scope);
   if (!filtered.length) return;
@@ -344,20 +360,18 @@ async function buildCashboxSection(
     { label: "Nombre",  width: 140 },
     { label: "Estado",  width: 65 },
     { label: "Saldo",   width: 90, align: "right", isNum: true },
-    { label: "Deuda Acum.", width: 90, align: "right", isNum: true },
-    { label: "Límite Cred.", width: 83, align: "right", isNum: true },
+    { label: "Gastos",  width: 130, align: "right", isNum: true },
   ];
 
   tableHeader(ctx, cols);
-  let totalBalance = 0, totalDebt = 0;
+  let totalBalance = 0, totalSpending = 0;
 
   for (let i = 0; i < filtered.length; i++) {
     const b   = filtered[i];
     const bal = parseFloat(b.balance ?? "0");
-    const dbt = parseFloat(b.cumulativeDebt ?? "0");
-    const lim = parseFloat(b.creditLimit ?? "0");
+    const spd = parseFloat(spendingMap.get(b.id) ?? "0");
     totalBalance += bal;
-    totalDebt    += dbt;
+    totalSpending += spd;
 
     const statusLabel: Record<string, string> = {
       activo: "Activo", inactivo: "Inactivo",
@@ -374,8 +388,7 @@ async function buildCashboxSection(
       b.name + (b.isQuick ? " ★" : ""),
       statusLabel[b.status ?? ""] ?? b.status ?? "—",
       fmtBOB(bal),
-      dbt > 0 ? fmtBOB(dbt) : "—",
-      lim > 0 ? fmtBOB(lim) : "—",
+      spd > 0 ? fmtBOB(spd) : "—",
     ], cols, i % 2 === 0, rowBg);
 
     if (needsSpace(ctx, 20)) {
@@ -386,7 +399,7 @@ async function buildCashboxSection(
     }
   }
 
-  totalsRow(ctx, ["", `${filtered.length} cajas`, "", fmtBOB(totalBalance), fmtBOB(totalDebt), ""], cols);
+  totalsRow(ctx, ["", `${filtered.length} cajas`, "", fmtBOB(totalBalance), fmtBOB(totalSpending)], cols);
 
   // If scoped: show salary + rent debts
   if (scope !== "all") {
@@ -535,7 +548,7 @@ function buildTodaySection(
 // ─── MAIN BUILDER ────────────────────────────────────────────────────────────
 
 async function buildPDF(scope: "all" | string): Promise<Uint8Array> {
-  const { boxes, invoiceSummary, todayTx, todayLabel } = await queryGlobal();
+  const { boxes, invoiceSummary, todayTx, todayLabel, spendingMap } = await queryGlobal();
   const pdfDoc = await PDFDocument.create();
 
   const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -553,7 +566,7 @@ async function buildPDF(scope: "all" | string): Promise<Uint8Array> {
   ctx.y -= 8;
 
   // 1. Cashbox states
-  await buildCashboxSection(pdfDoc, ctx, boxes, scope);
+  await buildCashboxSection(pdfDoc, ctx, boxes, scope, spendingMap);
 
   // New page for invoice ranges
   if (needsSpace(ctx, 80)) {
@@ -601,7 +614,7 @@ export const GET: APIRoute = withAuth(async ({ request }) => {
       ? `reporte_general_${dateStr}.pdf`
       : `reporte_caja_${scope}_${dateStr}.pdf`;
 
-    return new Response(pdfBytes, {
+    return new Response(new Uint8Array(pdfBytes), {
       status: 200,
       headers: {
         "Content-Type":        "application/pdf",

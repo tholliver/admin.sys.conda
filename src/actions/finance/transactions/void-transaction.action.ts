@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { transactions, cashboxes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { DecimalService } from "@/services/finances/decimal.service";
-import { formatBOB } from "@/utils/formatters";
+import { bob, date } from "@/utils";
 
 export const voidTransaction = defineAction({
   accept: "form",
@@ -96,7 +96,7 @@ export const voidTransaction = defineAction({
             if (!DecimalService.isGreaterOrEqual(currentBalance, leg.amount)) {
               throw new ActionError({
                 code: "BAD_REQUEST",
-                message: `No se puede anular: el saldo actual de "${legBox.name}" (${formatBOB(currentBalance)}) es menor al monto acreditado (${formatBOB(leg.amount)}).`,
+                message: `No se puede anular: el saldo actual de "${legBox.name}" (${bob(currentBalance)}) es menor al monto acreditado (${bob(leg.amount)}).`,
               });
             }
             reversedBalance = DecimalService.subtract(currentBalance, leg.amount);
@@ -128,7 +128,7 @@ export const voidTransaction = defineAction({
       return {
         success: true,
         isTransfer: true,
-        message: `Transferencia de ${formatBOB(debitLeg.amount)} anulada. Ambas cajas fueron revertidas correctamente.`,
+        message: `Transferencia de ${bob(debitLeg.amount)} anulada. Ambas cajas fueron revertidas correctamente.`,
         newBalance: null,
       };
     }
@@ -150,7 +150,7 @@ export const voidTransaction = defineAction({
       if (!DecimalService.isGreaterOrEqual(currentBalance, tx.amount)) {
         throw new ActionError({
           code: "BAD_REQUEST",
-          message: `No se puede anular: el saldo actual (${formatBOB(currentBalance)}) es menor al monto del depósito (${formatBOB(tx.amount)}).`,
+          message: `No se puede anular: el saldo actual (${bob(currentBalance)}) es menor al monto del depósito (${bob(tx.amount)}).`,
         });
       }
       newBalance = DecimalService.subtract(currentBalance, tx.amount);
@@ -181,7 +181,7 @@ export const voidTransaction = defineAction({
     return {
       success: true,
       isTransfer: false,
-      message: `Transacción de ${formatBOB(tx.amount)} anulada correctamente. Nuevo saldo: ${formatBOB(newBalance)}.`,
+      message: `Transacción de ${bob(tx.amount)} anulada correctamente. Nuevo saldo: ${bob(newBalance)}.`,
       newBalance,
     };
   },
